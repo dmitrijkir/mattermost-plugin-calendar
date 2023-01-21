@@ -1,0 +1,124 @@
+.dropdown-menu {
+    color: rgb(63, 67, 80);
+}
+
+.calendar-main-greed {
+    padding: 20px;
+    height: 100%;
+}
+
+.modal-view-event {
+    opacity: 1 !important;
+    margin-top: 60px;
+
+}
+
+.modal-backdrop {
+    opacity: 0.5 !important;
+}
+
+.input-group > a {
+    display: block;
+}
+/* .modal-view-event > modal-header {
+    background-color: #192a4d;
+} */
+.datetime-container {
+    display: flex;
+    margin-top: 15px;
+}
+
+.event-title-container {
+    display: flex;
+}
+.event-add-users-container {
+    display: flex;
+    margin-top: 15px;
+}
+
+.event-input-container {
+    padding-left: 30px;
+    width: 100%;
+    display: flex;
+}
+.calendar-header-container {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 20px;
+    padding-right: 20px;
+}
+
+.create-event-button-inner-container {
+    display: flex;
+}
+
+.add-users-list {
+    width: 100%;
+    top: 37px;
+    position: absolute;
+    background-color: #ffffff;
+    border: solid 1px #ccc;
+}
+.event-input-users-wrapper {
+    display: block;
+    position: relative;
+    width: 100%;
+}
+.added-user-badge-container {
+    padding: 5px;
+    padding-left: 15px;
+    padding-right: 15px;
+    background-color: gray;
+    border-radius: 25px;
+    color: white;
+    width: auto;
+    display: flex;
+    margin-top: 3px;
+}
+
+.added-users-list {
+    display: flex;
+    padding-left: 50px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+
+.user-list-item {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 5px;
+    background-color: #ffffff;
+    cursor: pointer;
+}
+.user-list-item:hover {
+    background-color: #f0f0f1;
+}
+.create-event-form {
+    padding-bottom: 70px;
+}
+
+
+/* ///////////////////////////// */
+.date-arrow {
+    padding-left: 6px;
+    padding-right: 6px;
+    margin: auto;
+}
+
+.create-event-modal-header {
+    background-color: #192a4e !important;
+}
+.create-event-modal-title {
+    color: #fff !important;
+}
+
+.create-event-button-text {
+    font-weight: bold;
+}
+.product-wrapper {
+    background-color: #fff !important;
+}
+.event-modal-footer {
+    display: flex;
+    justify-content: space-between;
+}

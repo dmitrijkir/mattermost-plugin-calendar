@@ -1,0 +1,5 @@
+coverage.txt
+dist
+
+# Mac
+.DS_Store
