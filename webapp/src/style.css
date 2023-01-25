@@ -58,6 +58,7 @@
     position: absolute;
     background-color: #ffffff;
     border: solid 1px #ccc;
+    z-index: 10;
 }
 .event-input-users-wrapper {
     display: block;
@@ -121,4 +122,47 @@
 .event-modal-footer {
     display: flex;
     justify-content: space-between;
+}
+
+.recurrence-container {
+    display: flex;
+    padding-left: 45px;
+    margin-top: 10px;
+}
+.form-check-days {
+    display: flex;
+    flex-direction: column-reverse;
+    padding-left: 5px;
+    padding-right: 5px;
+}
+
+.event-channel-container {
+    display: flex;
+    margin-top: 15px;
+}
+.event-channel-input-container {
+    padding-left: 30px;
+    width: 100%;
+    display: flex;
+}
+.event-input-channel-wrapper{
+    display: block;
+    position: relative;
+    width: 100%;
+}
+.add-channels-list {
+    width: 100%;
+    top: 37px;
+    position: absolute;
+    background-color: #fff;
+    border: solid 1px #ccc;
+    z-index: 10;
+}
+
+.channels-list-item {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 5px;
+    background-color: #fff;
+    cursor: pointer;
 }

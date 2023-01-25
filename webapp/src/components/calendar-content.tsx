@@ -8,7 +8,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { useDispatch } from 'react-redux';
 import { eventSelected, openEventModal } from 'actions';
 import { Client4 } from 'mattermost-redux/client';
-import {id as PluginId} from '../manifest';
+import { id as PluginId } from '../manifest';
 
 
 function eventDataTransformation(content, response) {
@@ -41,7 +41,7 @@ const CalendarContent = () => {
                     }
                 })
             }
-            
+
             mounted = false;
             return;
         }, [userTimezone])
@@ -55,14 +55,15 @@ const CalendarContent = () => {
             // now={() => {
             //     return new Date()
             // }}
+
             select={(dateClickInfo) => console.log(dateClickInfo)}
             // duration={{ days: 7 }}
             // views={{
             //     timeGridWeek: {
-            //         duration: { days: 7 },
-            //         firstDay: 1,
+
             //     }
             // }}
+            dayHeaderFormat={{ weekday: 'long', day: 'numeric', omitCommas: true }}
             // weekends={true}
             // weekNumberCalculation="ISO"
             // firstDay={1}

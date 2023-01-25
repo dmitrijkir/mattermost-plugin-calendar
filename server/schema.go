@@ -7,7 +7,11 @@ title varchar NOT NULL,
 "start" timestamp NOT NULL,
 "end" timestamp NULL,
 created timestamp NOT NULL,
-owner varchar NOT NULL references users(id)
+owner varchar NOT NULL references users(id),
+"channel" varchar references channels(id),
+processed timestamp,
+recurrence jsonb NULL,
+recurrent boolean NOT NULL DEFAULT false
 );
 
 -- public.calendar_members definition

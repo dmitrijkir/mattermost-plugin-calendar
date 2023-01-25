@@ -2,13 +2,18 @@ package main
 
 import (
 	"fmt"
+	"github.com/mattermost/mattermost-server/v6/model"
 	"net/http"
 	"sync"
 
 	"github.com/mattermost/mattermost-server/v6/plugin"
 )
 
-// Plugin implements the interface expected by the Mattermost server to communicate between the server and plugin processes.
+const (
+	BotUsername    = "calendar"
+	BotDisplayName = "Calendar"
+)
+
 type Plugin struct {
 	plugin.MattermostPlugin
 
@@ -21,20 +26,62 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
+
 	config := p.API.GetUnsanitizedConfig()
 	initDb(*config.SqlSettings.DriverName, *config.SqlSettings.DataSource)
+
+	GetBotsResp, GetBotError := p.API.GetBots(&model.BotGetOptions{
+		Page:           0,
+		PerPage:        1000,
+		OwnerId:        "",
+		IncludeDeleted: false,
+	})
+
+	if GetBotError != nil {
+		p.API.LogError(GetBotError.Error())
+		return &model.AppError{
+			Message:       "Can't get bot",
+			DetailedError: GetBotError.Error(),
+		}
+	}
+
+	botId := ""
+
+	for _, bot := range GetBotsResp {
+		if bot.Username == BotUsername {
+			botId = bot.UserId
+		}
+	}
+
+	if botId == "" {
+		createdBot, createBotError := p.API.CreateBot(&model.Bot{
+			Username:    BotUsername,
+			DisplayName: BotDisplayName,
+		})
+		if createBotError != nil {
+			p.API.LogError(createBotError.Error())
+			return &model.AppError{
+				Message:       "Can't create bot",
+				DetailedError: createBotError.Error(),
+			}
+		}
+
+		botId = createdBot.UserId
+
+	}
+
+	go NewBackgroundJob(p, botId).Start()
 	return nil
 }
 
-// ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
-func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	db := GetDb()
-	err := db.Ping()
-	if err != nil {
-		fmt.Fprint(w, "error")
-		fmt.Fprint(w, err.Error())
-	}
+func (p *Plugin) OnDeactivate() error {
+    GetBackgroundJob().Done <- true
 
+    return nil
+}
+
+// handles HTTP requests.
+func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		switch r.URL.Path {
@@ -58,5 +105,3 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		fmt.Fprint(w, "ping")
 	}
 }
-
-// See https://developers.mattermost.com/extend/plugins/server/reference/

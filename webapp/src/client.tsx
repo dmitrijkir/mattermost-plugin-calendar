@@ -13,6 +13,8 @@ export declare type GetEventResponse = {
     attendees: UserProfile[];
     created: string;
     owner: string;
+    channel?: string;
+    recurrence: number[];
 }
 
 export declare type GetEventsResponse = {
@@ -98,7 +100,7 @@ export class ApiClient implements ApiClientInterface {
         let data = await response.json();
         return data;
     }
-    static async createEvent(title: string, start: string, end: string, attendees: string[]): Promise<ApiResponse<GetEventResponse>> {
+    static async createEvent(title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string[]): Promise<ApiResponse<GetEventResponse>> {
         let response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
             Client4.getOptions({
@@ -110,7 +112,9 @@ export class ApiClient implements ApiClientInterface {
                     "title": title,
                     "start": start,
                     "end": end,
-                    "attendees": attendees
+                    "attendees": attendees,
+                    "channel": channel,
+                    "recurrence": recurrence
                 })
             })
         )
