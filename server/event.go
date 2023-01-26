@@ -81,7 +81,8 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
 
 	eventId := query.Get("eventId")
 
-	rows, errSelect := GetDb().Queryx(`SELECT ce.id,
+	rows, errSelect := GetDb().Queryx(`
+									   SELECT ce.id,
                                               ce.title,
                                               ce."start",
                                               ce."end",
@@ -92,7 +93,7 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
                                               cm."user"
                                        FROM   calendar_events ce
                                               LEFT JOIN calendar_members cm
-                                                      ON ce.id = cm."event"
+                                                     ON ce.id = cm."event"
                                        WHERE  id = $1 `, eventId)
 	if errSelect != nil {
 		p.API.LogError("Selecting data error")
@@ -179,28 +180,33 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 
 	var events []Event
 
-	rows, errSelect := GetDb().Queryx(`SELECT ce.id,
-ce.title,
-ce."start",
-ce."end",
-ce.created,
-ce."owner",
-ce."channel",
-ce.recurrent,
-ce.recurrence
-FROM calendar_events ce
-FULL JOIN calendar_members cm ON ce.id = cm."event"
-WHERE (cm."user" = $1 OR ce."owner" = $2)
-AND ((ce."start" >= $3 AND ce."start" <= $4) or ce.recurrent = true)
+	rows, errSelect := GetDb().Queryx(`
+									   SELECT ce.id,
+											  ce.title,
+											  ce."start",
+											  ce."end",
+											  ce.created,
+											  ce."owner",
+											  ce."channel",
+											  ce.recurrent,
+											  ce.recurrence
+									   FROM calendar_events ce
+										    FULL JOIN calendar_members cm 
+										           ON ce.id = cm."event"
+									   WHERE (cm."user" = $1 OR ce."owner" = $2)
+											AND (
+											     (ce."start" >= $3 AND ce."start" <= $4) 
+											         or ce.recurrent = true
+											    )
                                        `, user.Id, user.Id, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
 
 	if errSelect != nil {
-		p.API.LogError("Selecting data error")
+		p.API.LogError(errSelect.Error())
 		return
 	}
 
 	addedEvent := map[string]bool{}
-	recurenEvents := map[int][]Event{}
+	recurrenEvents := map[int][]Event{}
 
 	for rows.Next() {
 
@@ -217,9 +223,9 @@ AND ((ce."start" >= $3 AND ce."start" <= $4) or ce.recurrent = true)
 		eventDb.End = eventDb.End.In(userLoc)
 
 		if eventDb.Recurrent {
-            for _, recurentDay := range *eventDb.Recurrence {
-                recurenEvents[recurentDay] = append(recurenEvents[recurentDay], eventDb)
-            }
+			for _, recurrentDay := range *eventDb.Recurrence {
+				recurrenEvents[recurrentDay] = append(recurrenEvents[recurrentDay], eventDb)
+			}
 			continue
 		}
 
@@ -229,10 +235,10 @@ AND ((ce."start" >= $3 AND ce."start" <= $4) or ce.recurrent = true)
 		}
 	}
 
-
 	currientDate := startEventLocal
 	for currientDate.Before(EndEventLocal) {
-        for _, ev := range recurenEvents[int(currientDate.Weekday())] {
+		for _, ev := range recurrenEvents[int(currientDate.Weekday())] {
+			eventTime := ev.End.Sub(ev.Start)
 			ev.Start = time.Date(
 				currientDate.Year(),
 				currientDate.Month(),
@@ -243,21 +249,12 @@ AND ((ce."start" >= $3 AND ce."start" <= $4) or ce.recurrent = true)
 				ev.Start.Nanosecond(),
 				ev.Start.Location(),
 			)
-            
-			ev.End = time.Date(
-				currientDate.Year(),
-				currientDate.Month(),
-				currientDate.Day(),
-				ev.End.Hour(),
-				ev.End.Minute(),
-				ev.End.Second(),
-				ev.End.Nanosecond(),
-				ev.End.Location(),
-			)
 
-            events = append(events, ev)
+			ev.End = ev.Start.Add(eventTime)
+
+			events = append(events, ev)
 		}
-        currientDate = currientDate.Add(time.Hour * 24)
+		currientDate = currientDate.Add(time.Hour * 24)
 	}
 
 	jsonBytes, _ := json.Marshal(map[string]interface{}{
@@ -362,7 +359,11 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 
 	if event.Attendees != nil {
 		for _, userId := range event.Attendees {
-			_, errInser = GetDb().NamedExec(`INSERT INTO public.calendar_members ("event", "user") VALUES (:event, :user)`, map[string]interface{}{
+			_, errInser = GetDb().NamedExec(`INSERT INTO public.calendar_members 
+    														   ("event", 
+    														    "user") 
+												   VALUES (:event,
+												           :user)`, map[string]interface{}{
 				"event": event.Id,
 				"user":  userId,
 			})

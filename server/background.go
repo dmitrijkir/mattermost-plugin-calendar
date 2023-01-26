@@ -42,19 +42,23 @@ func (b *Background) process(t *time.Time) {
 		0,
 		utcLoc,
 	)
-	rows, errSelect := GetDb().Queryx(`SELECT ce.id,
-                                              ce.title,
-                                              ce."start",
-                                              ce."end",
-                                              ce.created,
-                                              ce."owner",
-                                              ce."channel",
-                                              cm."user"
-                                       FROM   calendar_events ce
-                                            FULL JOIN calendar_members cm
-                                            ON ce.id = cm."event"
-WHERE ce."start" = $1 AND (ce."processed" isnull OR ce."processed" != $2)
-`, tickWithZone, tickWithZone)
+	rows, errSelect := GetDb().Queryx(`
+			SELECT ce.id,
+				   ce.title,
+                   ce."start",
+                   ce."end",
+                   ce.created,
+                   ce."owner",
+                   ce."channel",
+                   cm."user",
+                   ce.recurrent,
+                   ce.recurrence
+			FROM   calendar_events ce
+                FULL JOIN calendar_members cm
+                       ON ce.id = cm."event"
+			WHERE (ce."start" = $1 OR (ce.recurrent = true AND ce."start"::time = $2)) 
+			  	   AND (ce."processed" isnull OR ce."processed" != $3)
+`, tickWithZone, tickWithZone, tickWithZone)
 
 	if errSelect != nil {
 		b.plugin.API.LogError(errSelect.Error())
@@ -84,6 +88,21 @@ WHERE ce."start" = $1 AND (ce."processed" isnull OR ce."processed" != $2)
 		if events[eventDb.Id] != nil {
 			events[eventDb.Id].Attendees = append(events[eventDb.Id].Attendees, *eventDb.User)
 		} else {
+
+			if eventDb.Recurrent && contains(*eventDb.Recurrence, int(t.Weekday())) {
+				eventTime := eventDb.End.Sub(eventDb.Start)
+				eventDb.Start = time.Date(
+					t.Year(),
+					t.Month(),
+					t.Day(),
+					eventDb.Start.Hour(),
+					eventDb.Start.Minute(),
+					eventDb.Start.Second(),
+					eventDb.Start.Nanosecond(),
+					eventDb.Start.Location(),
+				)
+				eventDb.End = eventDb.Start.Add(eventTime)
+			}
 			events[eventDb.Id] = &Event{
 				Id:         eventDb.Id,
 				Title:      eventDb.Title,
@@ -94,7 +113,9 @@ WHERE ce."start" = $1 AND (ce."processed" isnull OR ce."processed" != $2)
 				Owner:      eventDb.Owner,
 				Channel:    eventDb.Channel,
 				Recurrence: eventDb.Recurrence,
+				Recurrent:  false,
 			}
+
 		}
 	}
 
@@ -102,7 +123,7 @@ WHERE ce."start" = $1 AND (ce."processed" isnull OR ce."processed" != $2)
 		if value.Channel != nil {
 			_, postErr := b.plugin.API.CreatePost(&model.Post{
 				ChannelId: *value.Channel,
-				Message:   "New event start now",
+				Message:   value.Title,
 				UserId:    b.botId,
 			})
 			if postErr != nil {

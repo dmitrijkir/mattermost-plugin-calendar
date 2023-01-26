@@ -59,6 +59,8 @@
     background-color: #ffffff;
     border: solid 1px #ccc;
     z-index: 10;
+    overflow-y: auto;
+    max-height: 190px;
 }
 .event-input-users-wrapper {
     display: block;
@@ -157,6 +159,8 @@
     background-color: #fff;
     border: solid 1px #ccc;
     z-index: 10;
+    overflow-y: auto;
+    max-height: 150px;
 }
 
 .channels-list-item {
