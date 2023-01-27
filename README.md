@@ -28,10 +28,6 @@ Use `make deploy` to deploy the plugin to your local server.
 
 For more details on how to develop a plugin refer to the official [documentation](https://developers.mattermost.com/extend/plugins/).
 
-## Get involved
-
-Please join the [Developers: Calendar](https://community.mattermost.com/core/channels/developers-channel-calendar) channel to discuss any topic related to this project.
-
 ## License
 
 This project is licensed under the [Apache-2.0 License](LICENSE).
