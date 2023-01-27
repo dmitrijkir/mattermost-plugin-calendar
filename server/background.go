@@ -131,22 +131,48 @@ func (b *Background) process(t *time.Time) {
 			}
 
 		} else {
-			for _, user := range value.Attendees {
-				foundChannel, foundChannelError := b.plugin.API.GetDirectChannel(b.botId, user)
-				if foundChannelError != nil {
-					b.plugin.API.LogError(foundChannelError.Error())
-					continue
-				}
-				_, postCreateError := b.plugin.API.CreatePost(&model.Post{
-					UserId:    b.botId,
-					Message:   value.Title,
-					ChannelId: foundChannel.Id,
-				})
-				if postCreateError != nil {
-					b.plugin.API.LogError(postCreateError.Error())
-					continue
-				}
+
+			foundChannel, foundChannelError := b.plugin.API.GetGroupChannel(value.Attendees)
+			if foundChannelError != nil {
+				b.plugin.API.LogError(foundChannelError.Error())
+				continue
 			}
+			//if foundChannel.DisplayName != value.Title {
+			//	foundChannel.DisplayName = value.Title
+			//	_, updateChannelError := b.plugin.API.UpdateChannel(foundChannel)
+			//
+			//	if updateChannelError != nil {
+			//		b.plugin.API.LogError(updateChannelError.Error())
+			//		continue
+			//	}
+			//}
+
+			_, postCreateError := b.plugin.API.CreatePost(&model.Post{
+				UserId:    b.botId,
+				Message:   value.Title,
+				ChannelId: foundChannel.Id,
+			})
+			if postCreateError != nil {
+				b.plugin.API.LogError(postCreateError.Error())
+				continue
+			}
+			//for _, user := range value.Attendees {
+			//	foundChannel, foundChannelError := b.plugin.API.GetGroupChannel()
+			//	//foundChannel, foundChannelError := b.plugin.API.GetDirectChannel(b.botId, user)
+			//	if foundChannelError != nil {
+			//		b.plugin.API.LogError(foundChannelError.Error())
+			//		continue
+			//	}
+			//	_, postCreateError := b.plugin.API.CreatePost(&model.Post{
+			//		UserId:    b.botId,
+			//		Message:   value.Title,
+			//		ChannelId: foundChannel.Id,
+			//	})
+			//	if postCreateError != nil {
+			//		b.plugin.API.LogError(postCreateError.Error())
+			//		continue
+			//	}
+			//}
 		}
 
 		_, errUpdate := GetDb().NamedExec(`UPDATE PUBLIC.calendar_events

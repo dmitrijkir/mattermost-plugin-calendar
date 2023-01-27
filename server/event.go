@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+const (
+	EventDateTimeLayout = "2006-01-02T15:04:05"
+)
+
 type RecurrenceItem []int
 
 func (r *RecurrenceItem) Scan(val interface{}) error {
@@ -175,8 +179,8 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 	userLoc := p.GetUserLocation(user)
 	utcLoc, _ := time.LoadLocation("UTC")
 
-	startEventLocal, _ := time.ParseInLocation("2006-01-02T15:04:05", start, userLoc)
-	EndEventLocal, _ := time.ParseInLocation("2006-01-02T15:04:05", end, userLoc)
+	startEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, start, userLoc)
+	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, end, userLoc)
 
 	var events []Event
 

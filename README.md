@@ -1,138 +1,37 @@
-# Plugin Starter Template [![CircleCI branch](https://img.shields.io/circleci/project/github/mattermost/mattermost-plugin-starter-template/master.svg)](https://circleci.com/gh/mattermost/mattermost-plugin-starter-template)
+# Mattermost Calendar
 
-This plugin serves as a starting point for writing a Mattermost plugin. Feel free to base your own plugin off this repository.
+![calendar_screen](https://github.com/dmitrijkir/mattermost-plugin-calendar/tree/main/.github/calendar.png)
 
-To learn more about plugins, see [our plugin documentation](https://developers.mattermost.com/extend/plugins/).
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-## Getting Started
-Use GitHub's template feature to make a copy of this repository by clicking the "Use this template" button.
+---
 
-Alternatively shallow clone the repository matching your plugin name:
-```
-git clone --depth 1 https://github.com/mattermost/mattermost-plugin-starter-template com.example.my-plugin
-```
+## Installation
 
-Note that this project uses [Go modules](https://github.com/golang/go/wiki/Modules). Be sure to locate the project outside of `$GOPATH`.
+1. Download the latest version from the [release page](https://github.com/dmitrijkir/mattermost-plugin-calendar/releases).
+2. Upload the file through **System Console > Plugins > Plugin Management**, or manually upload it to the Mattermost server under plugin directory.
+3. Enable the plugin.
 
-Edit the following files:
-1. `plugin.json` with your `id`, `name`, and `description`:
-```
-{
-    "id": "com.example.my-plugin",
-    "name": "My Plugin",
-    "description": "A plugin to enhance Mattermost."
-}
-```
-
-2. `go.mod` with your Go module path, following the `<hosting-site>/<repository>/<module>` convention:
-```
-module github.com/example/my-plugin
-```
-
-3. `.golangci.yml` with your Go module path:
-```yml
-linters-settings:
-  # [...]
-  goimports:
-    local-prefixes: github.com/example/my-plugin
-```
-
-Build your plugin:
-```
-make
-```
-
-This will produce a single plugin file (with support for multiple architectures) for upload to your Mattermost server:
-
-```
-dist/com.example.my-plugin.tar.gz
-```
 
 ## Development
 
-To avoid having to manually install your plugin, build and deploy your plugin using one of the following options. In order for the below options to work, you must first enable plugin uploads via your config.json or API and restart Mattermost.
+> **_Note_**
+>
+> Building the plugin requires the following:
+> - Golang: version >= **1.18**
+> - NodeJS: version **16.x**
+> - NPM: version **8.x**
 
-```json
-    "PluginSettings" : {
-        ...
-        "EnableUploads" : true
-    }
-```
+Use ```make dist``` to build this plugin.
 
-### Deploying with Local Mode
+Use `make deploy` to deploy the plugin to your local server.
 
-If your Mattermost server is running locally, you can enable [local mode](https://docs.mattermost.com/administration/mmctl-cli-tool.html#local-mode) to streamline deploying your plugin. Edit your server configuration as follows:
+For more details on how to develop a plugin refer to the official [documentation](https://developers.mattermost.com/extend/plugins/).
 
-```json
-{
-    "ServiceSettings": {
-        ...
-        "EnableLocalMode": true,
-        "LocalModeSocketLocation": "/var/tmp/mattermost_local.socket"
-    },
-}
-```
+## Get involved
 
-and then deploy your plugin:
-```
-make deploy
-```
+Please join the [Developers: Calendar](https://community.mattermost.com/core/channels/developers-channel-calendar) channel to discuss any topic related to this project.
 
-You may also customize the Unix socket path:
-```
-export MM_LOCALSOCKETPATH=/var/tmp/alternate_local.socket
-make deploy
-```
+## License
 
-If developing a plugin with a webapp, watch for changes and deploy those automatically:
-```
-export MM_SERVICESETTINGS_SITEURL=http://localhost:8065
-export MM_ADMIN_TOKEN=j44acwd8obn78cdcx7koid4jkr
-make watch
-```
-
-### Deploying with credentials
-
-Alternatively, you can authenticate with the server's API with credentials:
-```
-export MM_SERVICESETTINGS_SITEURL=http://localhost:8065
-export MM_ADMIN_USERNAME=admin
-export MM_ADMIN_PASSWORD=password
-make deploy
-```
-
-or with a [personal access token](https://docs.mattermost.com/developer/personal-access-tokens.html):
-```
-export MM_SERVICESETTINGS_SITEURL=http://localhost:8065
-export MM_ADMIN_TOKEN=j44acwd8obn78cdcx7koid4jkr
-make deploy
-```
-
-## Q&A
-
-### How do I make a server-only or web app-only plugin?
-
-Simply delete the `server` or `webapp` folders and remove the corresponding sections from `plugin.json`. The build scripts will skip the missing portions automatically.
-
-### How do I include assets in the plugin bundle?
-
-Place them into the `assets` directory. To use an asset at runtime, build the path to your asset and open as a regular file:
-
-```go
-bundlePath, err := p.API.GetBundlePath()
-if err != nil {
-    return errors.Wrap(err, "failed to get bundle path")
-}
-
-profileImage, err := ioutil.ReadFile(filepath.Join(bundlePath, "assets", "profile_image.png"))
-if err != nil {
-    return errors.Wrap(err, "failed to read profile image")
-}
-
-if appErr := p.API.SetProfileImage(userID, profileImage); appErr != nil {
-    return errors.Wrap(err, "failed to set profile image")
-}
-```
-
-### How do I build the plugin with unminified JavaScript?
-Setting the `MM_DEBUG` environment variable will invoke the debug builds. The simplist way to do this is to simply include this variable in your calls to `make` (e.g. `make dist MM_DEBUG=1`).
+This project is licensed under the [Apache-2.0 License](LICENSE).
