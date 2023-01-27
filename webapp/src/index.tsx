@@ -1,15 +1,13 @@
 import { Store, Action } from 'redux';
-
 import { GlobalState } from 'mattermost-redux/types/store';
-
 import manifest from './manifest';
 import './style.css';
 import MainApp from 'app';
-// eslint-disable-next-line import/no-unresolved
 import { PluginRegistry } from './types/mattermost-webapp';
 import reducer from 'reducers';
 
-const EmptyText = () => <div></div>;
+
+const EmptyComponent = () => <></>;
 
 
 export default class Plugin {
@@ -23,10 +21,8 @@ export default class Plugin {
             "Calendar",
             "/calendar",
             MainApp,
-            EmptyText,
-            // action - a function called when the button is clicked, passed the channel and channel member as arguments
-            // null,
-            EmptyText,
+            EmptyComponent,
+            EmptyComponent,
             true
         );
 

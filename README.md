@@ -19,8 +19,8 @@
 >
 > Building the plugin requires the following:
 > - Golang: version >= **1.18**
-> - NodeJS: version **16.x**
-> - NPM: version **8.x**
+> - NodeJS: version **14.x**
+> - NPM: version **6.x**
 
 Use ```make dist``` to build this plugin.
 

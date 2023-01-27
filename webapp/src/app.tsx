@@ -7,8 +7,8 @@ const MainApp = () => {
     return (
         <div>
             <EventModalComponent />
-            <HeaderComponent/>
-            <CalendarContent/>
+            <HeaderComponent />
+            <CalendarContent />
         </div>
     );
 };
