@@ -336,7 +336,7 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 		event.Recurrent = false
 	}
 
-	_, errInser := GetDb().NamedExec(`INSERT INTO PUBLIC.calendar_events
+	_, errInsert := GetDb().NamedExec(`INSERT INTO PUBLIC.calendar_events
                                                   (id,
                                                    title,
                                                    "start",
@@ -356,26 +356,29 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
                                                    :recurrent,
                                                    :recurrence) `, &event)
 
-	if errInser != nil {
-		p.API.LogError(errInser.Error())
+	if errInsert != nil {
+		p.API.LogError(errInsert.Error())
 		return
 	}
 
 	if event.Attendees != nil {
+		var insertParams []map[string]interface{}
 		for _, userId := range event.Attendees {
-			_, errInser = GetDb().NamedExec(`INSERT INTO public.calendar_members 
-    														   ("event", 
-    														    "user") 
-												   VALUES (:event,
-												           :user)`, map[string]interface{}{
+			insertParams = append(insertParams, map[string]interface{}{
 				"event": event.Id,
 				"user":  userId,
 			})
 		}
+
+		_, errInsert = GetDb().NamedExec(`INSERT INTO public.calendar_members 
+															   ("event", 
+															    "user") 
+												   VALUES (:event,
+												           :user)`, insertParams)
 	}
 
-	if errInser != nil {
-		p.API.LogError(errInser.Error())
+	if errInsert != nil {
+		p.API.LogError(errInsert.Error())
 		return
 	}
 
