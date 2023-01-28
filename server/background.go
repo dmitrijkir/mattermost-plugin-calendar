@@ -78,7 +78,7 @@ func (b *Background) process(t *time.Time) {
 
 		if errScan != nil {
 			b.plugin.API.LogError(errSelect.Error())
-			return
+			continue
 		}
 
 		if eventDb.User == nil {
@@ -128,6 +128,7 @@ func (b *Background) process(t *time.Time) {
 			})
 			if postErr != nil {
 				b.plugin.API.LogError(postErr.Error())
+				continue
 			}
 
 		} else {
@@ -137,15 +138,6 @@ func (b *Background) process(t *time.Time) {
 				b.plugin.API.LogError(foundChannelError.Error())
 				continue
 			}
-			//if foundChannel.DisplayName != value.Title {
-			//	foundChannel.DisplayName = value.Title
-			//	_, updateChannelError := b.plugin.API.UpdateChannel(foundChannel)
-			//
-			//	if updateChannelError != nil {
-			//		b.plugin.API.LogError(updateChannelError.Error())
-			//		continue
-			//	}
-			//}
 
 			_, postCreateError := b.plugin.API.CreatePost(&model.Post{
 				UserId:    b.botId,
@@ -156,23 +148,6 @@ func (b *Background) process(t *time.Time) {
 				b.plugin.API.LogError(postCreateError.Error())
 				continue
 			}
-			//for _, user := range value.Attendees {
-			//	foundChannel, foundChannelError := b.plugin.API.GetGroupChannel()
-			//	//foundChannel, foundChannelError := b.plugin.API.GetDirectChannel(b.botId, user)
-			//	if foundChannelError != nil {
-			//		b.plugin.API.LogError(foundChannelError.Error())
-			//		continue
-			//	}
-			//	_, postCreateError := b.plugin.API.CreatePost(&model.Post{
-			//		UserId:    b.botId,
-			//		Message:   value.Title,
-			//		ChannelId: foundChannel.Id,
-			//	})
-			//	if postCreateError != nil {
-			//		b.plugin.API.LogError(postCreateError.Error())
-			//		continue
-			//	}
-			//}
 		}
 
 		_, errUpdate := GetDb().NamedExec(`UPDATE PUBLIC.calendar_events
@@ -184,6 +159,7 @@ func (b *Background) process(t *time.Time) {
 
 		if errUpdate != nil {
 			b.plugin.API.LogError(errUpdate.Error())
+			continue
 		}
 
 	}

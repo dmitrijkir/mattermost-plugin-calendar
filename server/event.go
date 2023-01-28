@@ -71,6 +71,7 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
 	session, err := p.API.GetSession(c.SessionId)
 	if err != nil {
 		p.API.LogError("can't get session")
+		errorResponse(w, NotAuthorizedError)
 		return
 	}
 
@@ -78,12 +79,18 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
 
 	if err != nil {
 		p.API.LogError("can't get user")
+		errorResponse(w, UserNotFound)
 		return
 	}
 
 	query := r.URL.Query()
 
 	eventId := query.Get("eventId")
+
+	if eventId == "" {
+		errorResponse(w, InvalidRequestParams)
+		return
+	}
 
 	rows, errSelect := GetDb().Queryx(`
 									   SELECT ce.id,
@@ -101,6 +108,7 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
                                        WHERE  id = $1 `, eventId)
 	if errSelect != nil {
 		p.API.LogError("Selecting data error")
+		errorResponse(w, EventNotFound)
 		return
 	}
 
@@ -126,6 +134,11 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
 
 	}
 
+	if eventDb.Id == "" {
+		errorResponse(w, EventNotFound)
+		return
+	}
+
 	event := Event{
 		Id:         eventDb.Id,
 		Title:      eventDb.Title,
@@ -143,16 +156,8 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
 	event.Start = event.Start.In(userLoc)
 	event.End = event.End.In(userLoc)
 
-	jsonBytes, _ := json.Marshal(map[string]interface{}{
-		"data": &event,
-	})
-
-	w.Header().Set("Content-Type", "application/json")
-
-	if _, errWrite := w.Write(jsonBytes); errWrite != nil {
-		http.Error(w, fmt.Sprintf("Error getting dynamic args: %s", errWrite.Error()), http.StatusInternalServerError)
-		return
-	}
+	apiResponse(w, &event)
+	return
 
 }
 
@@ -161,6 +166,7 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 
 	if err != nil {
 		p.API.LogError("can't get session")
+		errorResponse(w, NotAuthorizedError)
 		return
 	}
 
@@ -168,6 +174,7 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 
 	if err != nil {
 		p.API.LogError("can't get user")
+		errorResponse(w, UserNotFound)
 		return
 	}
 
@@ -175,6 +182,11 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 
 	start := query.Get("start")
 	end := query.Get("end")
+
+	if start == "" || end == "" {
+		errorResponse(w, InvalidRequestParams)
+		return
+	}
 
 	userLoc := p.GetUserLocation(user)
 	utcLoc, _ := time.LoadLocation("UTC")
@@ -206,6 +218,7 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 
 	if errSelect != nil {
 		p.API.LogError(errSelect.Error())
+		apiResponse(w, &events)
 		return
 	}
 
@@ -220,7 +233,7 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 
 		if errScan != nil {
 			p.API.LogError("Can't scan row to struct")
-			return
+			continue
 		}
 
 		eventDb.Start = eventDb.Start.In(userLoc)
@@ -261,16 +274,8 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		currientDate = currientDate.Add(time.Hour * 24)
 	}
 
-	jsonBytes, _ := json.Marshal(map[string]interface{}{
-		"data": &events,
-	})
-
-	w.Header().Set("Content-Type", "application/json")
-
-	if _, errWrite := w.Write(jsonBytes); errWrite != nil {
-		http.Error(w, fmt.Sprintf("Error getting dynamic args: %s", errWrite.Error()), http.StatusInternalServerError)
-		return
-	}
+	apiResponse(w, &events)
+	return
 }
 
 func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
@@ -278,6 +283,7 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 
 	if err != nil {
 		p.API.LogError(err.Error())
+		errorResponse(w, NotAuthorizedError)
 		return
 	}
 
@@ -285,6 +291,7 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 
 	if err != nil {
 		p.API.LogError(err.Error())
+		errorResponse(w, UserNotFound)
 		return
 	}
 
@@ -294,6 +301,7 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 
 	if errDecode != nil {
 		p.API.LogError(errDecode.Error())
+		errorResponse(w, InvalidRequestParams)
 		return
 	}
 
@@ -358,6 +366,7 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 
 	if errInsert != nil {
 		p.API.LogError(errInsert.Error())
+		errorResponse(w, CantCreateEvent)
 		return
 	}
 
@@ -379,19 +388,12 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 
 	if errInsert != nil {
 		p.API.LogError(errInsert.Error())
+		errorResponse(w, CantCreateEvent)
 		return
 	}
 
-	jsonBytes, _ := json.Marshal(map[string]interface{}{
-		"data": &event,
-	})
-
-	w.Header().Set("Content-Type", "application/json")
-
-	if _, errWrite := w.Write(jsonBytes); errWrite != nil {
-		http.Error(w, fmt.Sprintf("Error getting dynamic args: %s", errWrite.Error()), http.StatusInternalServerError)
-		return
-	}
+	apiResponse(w, &event)
+	return
 }
 
 func (p *Plugin) RemoveEvent(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
@@ -400,6 +402,7 @@ func (p *Plugin) RemoveEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 
 	if err != nil {
 		p.API.LogError("can't get session")
+		errorResponse(w, NotAuthorizedError)
 		return
 	}
 
@@ -407,23 +410,22 @@ func (p *Plugin) RemoveEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 
 	eventId := query.Get("eventId")
 
+	if eventId == "" {
+		errorResponse(w, InvalidRequestParams)
+		return
+	}
+
 	_, dbErr := GetDb().Exec("DELETE FROM calendar_events WHERE id=$1", eventId)
 
 	if dbErr != nil {
 		p.API.LogError("can't remove event from db")
+		errorResponse(w, CantRemoveEvent)
 		return
 	}
 
-	jsonBytes, _ := json.Marshal(map[string]interface{}{
-		"data": map[string]interface{}{
-			"success": true,
-		},
+	apiResponse(w, map[string]interface{}{
+		"success": true,
 	})
+	return
 
-	w.Header().Set("Content-Type", "application/json")
-
-	if _, errWrite := w.Write(jsonBytes); errWrite != nil {
-		http.Error(w, fmt.Sprintf("Error getting dynamic args: %s", errWrite.Error()), http.StatusInternalServerError)
-		return
-	}
 }
