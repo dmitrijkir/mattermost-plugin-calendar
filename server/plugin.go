@@ -75,9 +75,9 @@ func (p *Plugin) OnActivate() error {
 }
 
 func (p *Plugin) OnDeactivate() error {
-    GetBackgroundJob().Done <- true
+	GetBackgroundJob().Done <- true
 
-    return nil
+	return nil
 }
 
 // handles HTTP requests.
@@ -100,6 +100,11 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		switch r.URL.Path {
 		case "/event":
 			p.RemoveEvent(c, w, r)
+		}
+	case "PUT":
+		switch r.URL.Path {
+		case "/event":
+			p.UpdateEvent(c, w, r)
 		}
 	default:
 		fmt.Fprint(w, "ping")

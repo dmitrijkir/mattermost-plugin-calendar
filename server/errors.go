@@ -45,6 +45,13 @@ var (
 		Where:      PluginId,
 	}
 
+	CantUpdateEvent = &model.AppError{
+		Id:         "cant_update_event",
+		Message:    "Can't update event",
+		StatusCode: 500,
+		Where:      PluginId,
+	}
+
 	SomethingWentWrong = &model.AppError{
 		Id:         "something_went_wrong",
 		Message:    "Something went wrong",
