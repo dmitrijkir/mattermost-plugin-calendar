@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"time"
 )
@@ -20,7 +19,6 @@ func (b *Background) Start() {
 			return
 		case t := <-b.Ticker.C:
 			b.process(&t)
-			fmt.Println("Tick at", t)
 		}
 	}
 }

@@ -6,6 +6,11 @@
 
 ---
 
+## How it works
+
+1. You are creating a new event or someone is adding to the event.
+2. When your event starts, you will receive a message to a group channel or a direct message from the bot.
+
 ## Installation
 
 1. Download the latest version from the [release page](https://github.com/dmitrijkir/mattermost-plugin-calendar/releases).

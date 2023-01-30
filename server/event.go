@@ -429,3 +429,87 @@ func (p *Plugin) RemoveEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 	return
 
 }
+
+func (p *Plugin) UpdateEvent(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+	session, err := p.API.GetSession(c.SessionId)
+
+	if err != nil {
+		p.API.LogError(err.Error())
+		errorResponse(w, NotAuthorizedError)
+		return
+	}
+
+	_, err = p.API.GetUser(session.UserId)
+
+	if err != nil {
+		p.API.LogError(err.Error())
+		errorResponse(w, UserNotFound)
+		return
+	}
+
+	var event Event
+
+	errDecode := json.NewDecoder(r.Body).Decode(&event)
+
+	if errDecode != nil {
+		p.API.LogError(errDecode.Error())
+		errorResponse(w, InvalidRequestParams)
+		return
+	}
+	tx, txError := GetDb().Beginx()
+
+	if txError != nil {
+		p.API.LogError(txError.Error())
+		errorResponse(w, CantUpdateEvent)
+		return
+	}
+	_, errUpdate := tx.NamedExec(`UPDATE PUBLIC.calendar_events 
+										SET 
+										    title = :title,
+										    "start" = :start,
+										    "end" = :end,
+										    channel = :channel,
+										    recurrence = :recurrence
+                              			WHERE id = :id`,
+		&event)
+
+	_, errUpdate = tx.Exec(`DELETE FROM calendar_members WHERE "event" = $1`, event.Id)
+
+	if errUpdate != nil {
+		if rollbackError := tx.Rollback(); rollbackError != nil {
+			p.API.LogError(rollbackError.Error())
+			return
+		}
+		p.API.LogError(errUpdate.Error())
+		errorResponse(w, CantUpdateEvent)
+		return
+	}
+
+	if event.Attendees != nil {
+		var insertParams []map[string]interface{}
+		for _, userId := range event.Attendees {
+			insertParams = append(insertParams, map[string]interface{}{
+				"event": event.Id,
+				"user":  userId,
+			})
+		}
+
+		_, errUpdate = tx.NamedExec(`INSERT INTO public.calendar_members 
+														  ("event", "user") 
+												   VALUES (:event, :user)`, insertParams)
+	}
+	if errUpdate != nil {
+		if rollbackError := tx.Rollback(); rollbackError != nil {
+			p.API.LogError(rollbackError.Error())
+			return
+		}
+		p.API.LogError(errUpdate.Error())
+		errorResponse(w, CantUpdateEvent)
+		return
+	}
+
+	errUpdate = tx.Commit()
+
+	apiResponse(w, &event)
+	return
+}
