@@ -370,7 +370,7 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if event.Attendees != nil {
+	if len(event.Attendees) > 0 {
 		var insertParams []map[string]interface{}
 		for _, userId := range event.Attendees {
 			insertParams = append(insertParams, map[string]interface{}{
@@ -439,9 +439,9 @@ func (p *Plugin) UpdateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 		return
 	}
 
-	_, err = p.API.GetUser(session.UserId)
+	user, userErr := p.API.GetUser(session.UserId)
 
-	if err != nil {
+	if userErr != nil {
 		p.API.LogError(err.Error())
 		errorResponse(w, UserNotFound)
 		return
@@ -456,6 +456,41 @@ func (p *Plugin) UpdateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 		errorResponse(w, InvalidRequestParams)
 		return
 	}
+
+	loc := p.GetUserLocation(user)
+	utcLoc, _ := time.LoadLocation("UTC")
+
+	startDateInLocalTimeZone := time.Date(
+		event.Start.Year(),
+		event.Start.Month(),
+		event.Start.Day(),
+		event.Start.Hour(),
+		event.Start.Minute(),
+		event.Start.Second(),
+		event.Start.Nanosecond(),
+		loc,
+	)
+
+	endDateInLocalTimeZone := time.Date(
+		event.End.Year(),
+		event.End.Month(),
+		event.End.Day(),
+		event.End.Hour(),
+		event.End.Minute(),
+		event.End.Second(),
+		event.End.Nanosecond(),
+		loc,
+	)
+
+	event.Start = startDateInLocalTimeZone.In(utcLoc)
+	event.End = endDateInLocalTimeZone.In(utcLoc)
+
+	if event.Recurrence != nil && len(*event.Recurrence) > 0 {
+		event.Recurrent = true
+	} else {
+		event.Recurrent = false
+	}
+
 	tx, txError := GetDb().Beginx()
 
 	if txError != nil {
@@ -469,7 +504,8 @@ func (p *Plugin) UpdateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 										    "start" = :start,
 										    "end" = :end,
 										    channel = :channel,
-										    recurrence = :recurrence
+										    recurrence = :recurrence,
+										    recurrent = :recurrent
                               			WHERE id = :id`,
 		&event)
 
@@ -485,7 +521,7 @@ func (p *Plugin) UpdateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if event.Attendees != nil {
+	if len(event.Attendees) > 0 {
 		var insertParams []map[string]interface{}
 		for _, userId := range event.Attendees {
 			insertParams = append(insertParams, map[string]interface{}{

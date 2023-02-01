@@ -13,6 +13,10 @@
 
 }
 
+.modal-view-event > .modal-content {
+    background-color: var(--center-channel-bg) !important;
+}
+
 .modal-backdrop {
     opacity: 0.5 !important;
 }
@@ -26,14 +30,27 @@
 .datetime-container {
     display: flex;
     margin-top: 15px;
+    
+}
+
+.datetime-container > i {
+    color: var(--sidebar-teambar-bg);
 }
 
 .event-title-container {
     display: flex;
 }
+.event-title-container > i {
+    color: var(--sidebar-teambar-bg);
+}
+
 .event-add-users-container {
     display: flex;
     margin-top: 15px;
+}
+
+.event-add-users-container > i {
+    color: var(--sidebar-teambar-bg);
 }
 
 .event-input-container {
@@ -41,6 +58,11 @@
     width: 100%;
     display: flex;
 }
+
+.event-input-container > i {
+    color: var(--sidebar-teambar-bg);
+}
+
 .calendar-header-container {
     display: flex;
     justify-content: flex-end;
@@ -98,10 +120,27 @@
 }
 .create-event-form {
     padding-bottom: 70px;
+    color: var(--center-channel-color);
 }
 
 
 /* ///////////////////////////// */
+
+.calendar-main-greed {
+    --fc-button-bg-color: var(--sidebar-text) !important;
+}
+
+.fc-button-group {
+    background-color: inherit;
+}
+
+.calendar-main-greed > .fc-button-primary {
+    /* background-color: rgba(var(--sidebar-text-rgb), 0.3) !important; */
+}
+.fc-col-header-cell-cushion {
+    color: var(--global-header-text-rgb);
+}
+
 .date-arrow {
     padding-left: 6px;
     padding-right: 6px;
@@ -109,17 +148,25 @@
 }
 
 .create-event-modal-header {
-    background-color: #192a4e !important;
+    /* background-color: #192a4e !important; */
 }
+
 .create-event-modal-title {
-    color: #fff !important;
+    color: var(--global-header-text-rgb);
+    font-weight: bold;
+    /* color: #fff !important; */
 }
+
+.create-event-modal-title > .close {
+    color: var(--global-header-text-rgb) !important;
+}
+
 
 .create-event-button-text {
     font-weight: bold;
 }
 .product-wrapper {
-    background-color: #fff !important;
+    background-color: var(--center-channel-bg) !important;
 }
 .event-modal-footer {
     display: flex;
@@ -142,6 +189,10 @@
     display: flex;
     margin-top: 15px;
 }
+.event-channel-container > i {
+    color: var(--sidebar-teambar-bg);
+}
+
 .event-channel-input-container {
     padding-left: 30px;
     width: 100%;

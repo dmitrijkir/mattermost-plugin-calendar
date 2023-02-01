@@ -1,6 +1,6 @@
 # Mattermost Calendar
 
-![calendar_screen](https://user-images.githubusercontent.com/22306239/215186997-f9b3c151-c0cc-4c46-b5c7-558f1251911b.png)
+![calendar_screen](https://user-images.githubusercontent.com/22306239/216053931-14c285d0-5bfb-4337-a085-d7bca89b67d7.png)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 

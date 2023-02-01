@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
@@ -13,6 +12,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { selectSelectedEvent, selectIsOpenEventModal } from 'selectors';
 import { closeEventModal, eventSelected } from 'actions';
 import { getCurrentTeamId } from 'mattermost-redux/selectors/entities/teams';
+import {getTheme} from  "mattermost-redux/selectors/entities/preferences";
 
 
 interface AddedUserComponentProps {
@@ -21,7 +21,6 @@ interface AddedUserComponentProps {
 
 
 interface TimeSelectItemsProps {
-    STvariant: string;
     start?: string;
     end?: string;
 }
@@ -90,42 +89,43 @@ const TimeSelectItems = (props: TimeSelectItemsProps) => {
 
         <>
             {times.map((time, index) => {
-                if (props.start != null && props.STvariant == "from") {
-                    if (props.start == time) {
-                        return <option value={time} selected>{time}</option>
-                    }
-                }
-                if (props.end != null && props.STvariant == "to") {
-
-                    if (props.end == time) {
-                        return <option value={time} selected>{time}</option>
-                    }
-                }
-                if (props.start != null) {
-
-                    if (props.start == time) {
-                        return <option value={time} selected>{time}</option>
-                    }
-                }
-                let minutes = 0;
-                let hours = 0;
-                if (now.getMinutes() < 30) {
-                    minutes = 30
-                    hours = now.getHours();
-                } else {
-                    hours = (now.getHours() + 1);
-                }
-
-                if (time == formatTimeWithZero(hours) + ':' + formatTimeWithZero(minutes)) {
+                if (props.start != null && props.start == time) {
+                    return <option value={time} selected>{time}</option>
+                } 
+                if (props.end != null && props.end == time) {
                     return <option value={time} selected>{time}</option>
                 }
                 return <option value={time}>{time}</option>
+                // if (props.start != null) {
+
+                //     if (props.start == time) {
+                //         return <option value={time} selected>{time}</option>
+                //     }
+                // }
+                // let minutes = 0;
+                // let hours = 0;
+                // if (now.getMinutes() < 30) {
+                //     minutes = 30
+                //     hours = now.getHours();
+                // } else {
+                //     hours = (now.getHours() + 1);
+                // }
+
+                // if (time == formatTimeWithZero(hours) + ':' + formatTimeWithZero(minutes)) {
+                //     return <option value={time} selected>{time}</option>
+                // }
+                // return <option value={time}>{time}</option>
             })}
         </>
     );
 }
 
-
+const getNextHour = (hour: number) => {
+    if (hour == 23) {
+        return 0
+    }
+    return hour + 1;
+}
 const initialStartTime = () => {
     let now = new Date();
     let minutes = 0;
@@ -134,7 +134,7 @@ const initialStartTime = () => {
         minutes = 30
         hours = now.getHours();
     } else {
-        hours = (now.getHours() + 1);
+        hours = getNextHour(now.getHours());
     }
     return formatTimeWithZero(hours) + ':' + formatTimeWithZero(minutes);
 }
@@ -142,12 +142,10 @@ const initialStartTime = () => {
 const initialEndTime = () => {
     let now = new Date();
     let minutes = 0;
-    let hours = 0;
+    let hours = getNextHour(now.getHours());
     if (now.getMinutes() < 30) {
         minutes = 0
-        hours = now.getHours() + 1;
     } else {
-        hours = (now.getHours() + 1);
         minutes = 30
     }
     return formatTimeWithZero(hours) + ':' + formatTimeWithZero(minutes);
@@ -155,6 +153,8 @@ const initialEndTime = () => {
 const EventModalComponent = () => {
     const selectedEvent = useSelector(selectSelectedEvent)
     const isOpenEventModal = useSelector(selectIsOpenEventModal);
+
+    const theme = useSelector(getTheme);
 
     const CurrentTeamId = useSelector(getCurrentTeamId);
 
@@ -247,6 +247,24 @@ const EventModalComponent = () => {
         setSearchChannelInput(event.target.value);
         if (event.target.value != "") {
             let resp = await Client4.autocompleteChannels(CurrentTeamId, event.target.value);
+            resp.push({
+                id: 'empty',
+                create_at: 0,
+                update_at: 0,
+                delete_at: 0,
+                team_id: '',
+                type: 'O',
+                display_name: 'Empty',
+                name: '',
+                header: '',
+                purpose: '',
+                last_post_at: 0,
+                total_msg_count: 0,
+                extra_update_at: 0,
+                creator_id: '',
+                scheme_id: '',
+                group_constrained: false
+            });
             setChannelsAutocomplete(resp);
             setShowChannelsList(true);
             return
@@ -268,22 +286,40 @@ const EventModalComponent = () => {
 
     const onSaveEvent = async () => {
         let members: string[] = usersAdded.map((user) => user.id);
-        let response = await ApiClient.createEvent(
-            titleEvent,
-            startEventData + 'T' + startEventTime + ':00Z',
-            endEventData + 'T' + endEventTime + ':00Z',
-            members,
-            Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
-            selectedDays,
-        );
-        CalendarRef.current.getApi().getEventSources()[0].refetch();
-        cleanState();
-        ViewEventModalHandleClose();
+        console.log(selectedEvent);
+        if (selectedEvent?.event?.id == null) {
+            let response = await ApiClient.createEvent(
+                titleEvent,
+                startEventData + 'T' + startEventTime + ':00Z',
+                endEventData + 'T' + endEventTime + ':00Z',
+                members,
+                Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
+                selectedDays,
+            );
+            CalendarRef.current.getApi().getEventSources()[0].refetch();
+            cleanState();
+            ViewEventModalHandleClose();
+            return
+        } else {
+            let response = await ApiClient.updateEvent(
+                selectedEvent.event.id,
+                titleEvent,
+                startEventData + 'T' + startEventTime + ':00Z',
+                endEventData + 'T' + endEventTime + ':00Z',
+                members,
+                Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
+                selectedDays,
+            );
+            CalendarRef.current.getApi().getEventSources()[0].refetch();
+            cleanState();
+            ViewEventModalHandleClose();
+            return
+        }
+        
     }
 
     const onSelectedDay = (day: number): boolean => {
         let found = selectedDays.find(elem => elem === day);
-        console.log(found);
         if (found == -1 || found == undefined) {
             return false;
         }
@@ -291,7 +327,52 @@ const EventModalComponent = () => {
         return true;
     }
 
+    const onRemoveEvent = async () => {
+        await ApiClient.removeEvent(selectedEvent.event.id);
+        CalendarRef.current.getApi().getEventSources()[0].refetch();
+        cleanState();
+        ViewEventModalHandleClose();
+    }
+
+    useEffect(() => {
+        let mounted = true;
+        if (mounted && selectedEvent?.event?.id != null) {
+            console.log("theme");
+            console.log(theme);
+            ApiClient.getEventById(selectedEvent.event.id).then((data) => {
+                setTitleEvent(data.data.title);
+                setStartEventDate(data.data.start.split('T')[0]);
+                setEndEventDate(data.data.end.split('T')[0]);
+                setUsersAdded(data.data.attendees);
+                setStartEventTime(data.data.start.split('T')[1].split(':')[0] + ':' + data.data.start.split('T')[1].split(':')[1]);
+                setEndEventTime(data.data.end.split('T')[1].split(':')[0] + ':' + data.data.end.split('T')[1].split(':')[1]);
+
+                if (data.data.recurrence != null) {
+                    setSelectedDays(data.data.recurrence);
+                }
+
+                if (data.data.channel != null) {
+                    Client4.getChannel(data.data.channel).then((channel) => {
+                        setSelectedChannel(channel);
+                        setSearchChannelInput(channel.display_name);
+                    });
+                }
+            });
+        } else if (mounted && selectedEvent?.event?.id == null && selectedEvent?.event?.start != null) {
+            setStartEventDate(selectedEvent?.event.start.split('T')[0]);
+            setEndEventDate(selectedEvent?.event.end.split('T')[0]);
+                
+            setStartEventTime(selectedEvent?.event.start.split('T')[1].split(':')[0] + ':' + selectedEvent?.event.start.split('T')[1].split(':')[1]);
+            setEndEventTime(selectedEvent?.event.end.split('T')[1].split(':')[0] + ':' + selectedEvent?.event.end.split('T')[1].split(':')[1]);
+        }
+        mounted = false;
+        return;
+
+    }, [selectedEvent]);
+
+
     // Components
+
     const AddedUserComponent = (props: AddedUserComponentProps) => {
 
         return <span className='added-user-badge-container'>
@@ -357,12 +438,7 @@ const EventModalComponent = () => {
         return <></>
     }
 
-    const onRemoveEvent = async () => {
-        await ApiClient.removeEvent(selectedEvent.event.id);
-        CalendarRef.current.getApi().getEventSources()[0].refetch();
-        cleanState();
-        ViewEventModalHandleClose();
-    }
+    
     const RemoveEventButton = () => {
         if (Object.keys(selectedEvent).length !== 0) {
             return <Button variant="danger" onClick={onRemoveEvent}>Remove event</Button>
@@ -370,37 +446,10 @@ const EventModalComponent = () => {
         return <></>
     }
 
-    useEffect(() => {
-        let mounted = true;
-        if (Object.keys(selectedEvent).length !== 0 && mounted) {
-            ApiClient.getEventById(selectedEvent.event.id).then((data) => {
-                setTitleEvent(data.data.title);
-                setStartEventDate(data.data.start.split('T')[0]);
-                setEndEventDate(data.data.end.split('T')[0]);
-                setUsersAdded(data.data.attendees);
-                setStartEventTime(data.data.start.split('T')[1].split(':')[0] + ':' + data.data.start.split('T')[1].split(':')[1]);
-                setEndEventTime(data.data.end.split('T')[1].split(':')[0] + ':' + data.data.end.split('T')[1].split(':')[1]);
-
-                if (data.data.recurrence != null) {
-                    setSelectedDays(data.data.recurrence);
-                }
-
-                if (data.data.channel != null) {
-                    Client4.getChannel(data.data.channel).then((channel) => {
-                        setSelectedChannel(channel);
-                        setSearchChannelInput(channel.display_name);
-                    });
-                }
-            });
-        }
-        mounted = false;
-        return;
-
-    }, [selectedEvent]);
 
     return (
         <Modal className='modal-view-event' show={isOpenEventModal} onHide={ViewEventModalHandleClose} centered animation={false}>
-            <Modal.Header closeButton className='create-event-modal-header'>
+            <Modal.Header closeButton className='create-event-modal-header' style={{backgroundColor: theme.sidebarTeamBarBg, color: theme.sidebarHeaderTextColor}}>
                 <Modal.Title className='create-event-modal-title'>Create new event</Modal.Title>
             </Modal.Header>
             <Modal.Body>
@@ -416,12 +465,12 @@ const EventModalComponent = () => {
                         <div className='event-input-container'>
                             <FormControl type="date" className='start-date-input' value={startEventData} onChange={onStartDateChange}></FormControl>
                             <Form.Control as="select" onChange={onStartTimeChange}>
-                                <TimeSelectItems STvariant='from' start={startEventTime} />
+                                <TimeSelectItems start={startEventTime} />
                             </Form.Control>
                             <span className='date-arrow'><i className='icon fa fa-arrow-right' /></span>
                             <FormControl type="date" className='end-date-input' value={endEventData} onChange={onEndDateChange}></FormControl>
                             <Form.Control as="select" onChange={onEndTimeChange}>
-                                <TimeSelectItems STvariant='to' end={endEventTime} />
+                                <TimeSelectItems end={endEventTime} />
                             </Form.Control>
                         </div>
                     </div>

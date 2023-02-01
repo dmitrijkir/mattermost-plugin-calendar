@@ -5,17 +5,31 @@ import React, { useEffect, useState } from 'react';
 import CalendarRef from './calendar';
 import getSiteURL from './utils';
 import interactionPlugin from '@fullcalendar/interaction';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { eventSelected, openEventModal } from 'actions';
 import { Client4 } from 'mattermost-redux/client';
 import { id as PluginId } from '../manifest';
+import {getTheme} from  "mattermost-redux/selectors/entities/preferences";
 
 
-function eventDataTransformation(content, response) {
+const eventDataTransformation = (content, response) => {
     return content.data
 }
 
+const onDateTimeSelected = (dateTimeSelectInfo, dispatch) => {
+    console.log(dateTimeSelectInfo);
+    dispatch(eventSelected({
+        event: {
+            start: dateTimeSelectInfo.start.toISOString(),
+            end: dateTimeSelectInfo.end.toISOString()
+        }
+    }));
+    dispatch(openEventModal())
+    
+}
+
 const CalendarContent = () => {
+    const theme = useSelector(getTheme);
 
     const dispatch = useDispatch()
     const [userTimezone, setUserTimeZone] = useState("");
@@ -52,11 +66,13 @@ const CalendarContent = () => {
             slotDuration="00:30:00"
             selectable={true}
             timeZone={userTimezone}
+            handleWindowResize={true}
+            // nowIndicatorClassNames=""
             // now={() => {
             //     return new Date()
             // }}
 
-            select={(dateClickInfo) => console.log(dateClickInfo)}
+            select={(info) => onDateTimeSelected(info, dispatch)}
             // duration={{ days: 7 }}
             // views={{
             //     timeGridWeek: {
@@ -71,6 +87,11 @@ const CalendarContent = () => {
             locales={[enLocale]}
             contentHeight={window.innerHeight - 200}
             eventClick={onEventClicked}
+
+            eventBackgroundColor={theme.sidebarHeaderBg}
+            eventBorderColor={theme.sidebarHeaderBg}
+            eventTextColor={theme.sidebarHeaderTextColor}
+            
             ref={CalendarRef}
             // headerToolbar={{
             //     left: 'prev,next today',
