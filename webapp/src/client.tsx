@@ -122,4 +122,28 @@ export class ApiClient implements ApiClientInterface {
         return data;
     }
 
+
+    static async updateEvent(id: string, title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string[]): Promise<ApiResponse<GetEventResponse>> {
+        let response = await fetch(
+            getSiteURL() + `/plugins/${PluginId}/event`,
+            Client4.getOptions({
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "id": id,
+                    "title": title,
+                    "start": start,
+                    "end": end,
+                    "attendees": attendees,
+                    "channel": channel,
+                    "recurrence": recurrence
+                })
+            })
+        )
+        let data = await response.json();
+        return data;
+    }
+
 }

@@ -36,4 +36,5 @@ function getSiteURL(): string {
     return getSiteURLFromWindowObject(window);
 }
 
+
 export default getSiteURL;
