@@ -13,34 +13,37 @@
 
 }
 
-.modal-view-event > .modal-content {
+.modal-view-event>.modal-content {
     background-color: var(--center-channel-bg) !important;
+    color: var(--center-channel-bg) !important;
 }
 
 .modal-backdrop {
     opacity: 0.5 !important;
 }
 
-.input-group > a {
+.input-group>a {
     display: block;
 }
+
 /* .modal-view-event > modal-header {
     background-color: #192a4d;
 } */
 .datetime-container {
     display: flex;
     margin-top: 15px;
-    
+
 }
 
-.datetime-container > i {
+.datetime-container>i {
     color: var(--sidebar-teambar-bg);
 }
 
 .event-title-container {
     display: flex;
 }
-.event-title-container > i {
+
+.event-title-container>i {
     color: var(--sidebar-teambar-bg);
 }
 
@@ -49,7 +52,7 @@
     margin-top: 15px;
 }
 
-.event-add-users-container > i {
+.event-add-users-container>i {
     color: var(--sidebar-teambar-bg);
 }
 
@@ -59,7 +62,7 @@
     display: flex;
 }
 
-.event-input-container > i {
+.event-input-container>i {
     color: var(--sidebar-teambar-bg);
 }
 
@@ -84,21 +87,27 @@
     overflow-y: auto;
     max-height: 190px;
 }
+
 .event-input-users-wrapper {
     display: block;
     position: relative;
     width: 100%;
 }
+
 .added-user-badge-container {
     padding: 5px;
     padding-left: 15px;
     padding-right: 15px;
-    background-color: gray;
+    background-color: var(--sidebar-bg);
     border-radius: 25px;
-    color: white;
+    color: var(--sidebar-text);
     width: auto;
     display: flex;
     margin-top: 3px;
+}
+
+.added-user-badge-container>i {
+    margin-left: 7px;
 }
 
 .added-users-list {
@@ -115,31 +124,39 @@
     background-color: #ffffff;
     cursor: pointer;
 }
+
 .user-list-item:hover {
     background-color: #f0f0f1;
 }
+
 .create-event-form {
     padding-bottom: 70px;
-    color: var(--center-channel-color);
+    /* color: var(--center-channel-color); */
 }
 
 
 /* ///////////////////////////// */
 
 .calendar-main-greed {
-    --fc-button-bg-color: var(--sidebar-text) !important;
+    --fc-button-bg-color: var(--sidebar-teambar-bg) !important;
+    --fc-button-hover-bg-color: var(--sidebar-text-hover-bg) !important;
+    --fc-button-text-color: var(--sidebar-text) !important;
+    /* --fc-border-color: var(--sidebar-text-hover-bg) !important; */
+    --fc-border-color: rgba(var(--center-channel-color-rgb), 0.16) !important;
 }
 
-.fc-button-group {
-    background-color: inherit;
+table {
+    height: -webkit-fill-available !important;
 }
 
-.calendar-main-greed > .fc-button-primary {
-    /* background-color: rgba(var(--sidebar-text-rgb), 0.3) !important; */
+.fc-col-header-cell-cushion>a {
+    color: var(--sidebar-text) !important;
 }
-.fc-col-header-cell-cushion {
-    color: var(--global-header-text-rgb);
+
+.fc-button-primary {
+    border-color: var(--sidebar-teambar-bg) !important;
 }
+
 
 .date-arrow {
     padding-left: 6px;
@@ -147,27 +164,23 @@
     margin: auto;
 }
 
-.create-event-modal-header {
-    /* background-color: #192a4e !important; */
-}
-
 .create-event-modal-title {
     color: var(--global-header-text-rgb);
     font-weight: bold;
-    /* color: #fff !important; */
 }
 
-.create-event-modal-title > .close {
-    color: var(--global-header-text-rgb) !important;
+.close {
+    color: var(--sidebar-text) !important;
 }
-
 
 .create-event-button-text {
     font-weight: bold;
 }
+
 .product-wrapper {
     background-color: var(--center-channel-bg) !important;
 }
+
 .event-modal-footer {
     display: flex;
     justify-content: space-between;
@@ -178,6 +191,7 @@
     padding-left: 45px;
     margin-top: 10px;
 }
+
 .form-check-days {
     display: flex;
     flex-direction: column-reverse;
@@ -189,7 +203,8 @@
     display: flex;
     margin-top: 15px;
 }
-.event-channel-container > i {
+
+.event-channel-container>i {
     color: var(--sidebar-teambar-bg);
 }
 
@@ -198,11 +213,13 @@
     width: 100%;
     display: flex;
 }
-.event-input-channel-wrapper{
+
+.event-input-channel-wrapper {
     display: block;
     position: relative;
     width: 100%;
 }
+
 .add-channels-list {
     width: 100%;
     top: 37px;

@@ -12,7 +12,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { selectSelectedEvent, selectIsOpenEventModal } from 'selectors';
 import { closeEventModal, eventSelected } from 'actions';
 import { getCurrentTeamId } from 'mattermost-redux/selectors/entities/teams';
-import {getTheme} from  "mattermost-redux/selectors/entities/preferences";
+import { getTheme, getTeammateNameDisplaySetting } from "mattermost-redux/selectors/entities/preferences";
 
 
 interface AddedUserComponentProps {
@@ -91,30 +91,11 @@ const TimeSelectItems = (props: TimeSelectItemsProps) => {
             {times.map((time, index) => {
                 if (props.start != null && props.start == time) {
                     return <option value={time} selected>{time}</option>
-                } 
+                }
                 if (props.end != null && props.end == time) {
                     return <option value={time} selected>{time}</option>
                 }
                 return <option value={time}>{time}</option>
-                // if (props.start != null) {
-
-                //     if (props.start == time) {
-                //         return <option value={time} selected>{time}</option>
-                //     }
-                // }
-                // let minutes = 0;
-                // let hours = 0;
-                // if (now.getMinutes() < 30) {
-                //     minutes = 30
-                //     hours = now.getHours();
-                // } else {
-                //     hours = (now.getHours() + 1);
-                // }
-
-                // if (time == formatTimeWithZero(hours) + ':' + formatTimeWithZero(minutes)) {
-                //     return <option value={time} selected>{time}</option>
-                // }
-                // return <option value={time}>{time}</option>
             })}
         </>
     );
@@ -153,6 +134,8 @@ const initialEndTime = () => {
 const EventModalComponent = () => {
     const selectedEvent = useSelector(selectSelectedEvent)
     const isOpenEventModal = useSelector(selectIsOpenEventModal);
+
+    const displayNameSettings = useSelector(getTeammateNameDisplaySetting);
 
     const theme = useSelector(getTheme);
 
@@ -315,7 +298,7 @@ const EventModalComponent = () => {
             ViewEventModalHandleClose();
             return
         }
-        
+
     }
 
     const onSelectedDay = (day: number): boolean => {
@@ -337,8 +320,8 @@ const EventModalComponent = () => {
     useEffect(() => {
         let mounted = true;
         if (mounted && selectedEvent?.event?.id != null) {
-            console.log("theme");
-            console.log(theme);
+            console.log("display settings");
+            console.log(displayNameSettings);
             ApiClient.getEventById(selectedEvent.event.id).then((data) => {
                 setTitleEvent(data.data.title);
                 setStartEventDate(data.data.start.split('T')[0]);
@@ -361,7 +344,7 @@ const EventModalComponent = () => {
         } else if (mounted && selectedEvent?.event?.id == null && selectedEvent?.event?.start != null) {
             setStartEventDate(selectedEvent?.event.start.split('T')[0]);
             setEndEventDate(selectedEvent?.event.end.split('T')[0]);
-                
+
             setStartEventTime(selectedEvent?.event.start.split('T')[1].split(':')[0] + ':' + selectedEvent?.event.start.split('T')[1].split(':')[1]);
             setEndEventTime(selectedEvent?.event.end.split('T')[1].split(':')[0] + ':' + selectedEvent?.event.end.split('T')[1].split(':')[1]);
         }
@@ -370,13 +353,29 @@ const EventModalComponent = () => {
 
     }, [selectedEvent]);
 
+    const getDisplayUserName = (user: UserProfile) => {
+        if (displayNameSettings === "full_name") {
+            return user.first_name + " " + user.last_name;
+        }
+        if (displayNameSettings === "username") {
+            return user.username;
+        }
+
+        if (displayNameSettings === "nickname_full_name") {
+            if (user.nickname != "") {
+                return user.nickname;
+            }
+            return user.first_name + " " + user.last_name;
+        }
+    }
 
     // Components
 
+    // full_name, nickname_full_name, username
     const AddedUserComponent = (props: AddedUserComponentProps) => {
 
         return <span className='added-user-badge-container'>
-            {props.user.username}
+            {getDisplayUserName(props.user)}
             <i className='icon fa fa-times' onClick={() => {
                 setUsersAdded(usersAdded.filter(item => item.id != props.user.id))
             }} />
@@ -400,7 +399,7 @@ const EventModalComponent = () => {
                             setUsersAdded(usersAdded.concat([user]))
                             setSearchUsersInput("");
                             setshowUserList(false);
-                        }} className='user-list-item'>{user.username}</div>
+                        }} className='user-list-item'>{getDisplayUserName(user)}</div>
                     }
                     )}
             </div>
@@ -414,6 +413,12 @@ const EventModalComponent = () => {
                 {
                     channelsAutocomplete.map((channel) => {
                         return <div onClick={() => {
+                            if (channel.id === "empty") {
+                                setSelectedChannel({});
+                                setSearchChannelInput("");
+                                setShowChannelsList(false);
+                                return
+                            }
                             setSelectedChannel(channel);
                             setSearchChannelInput(channel.display_name);
                             setShowChannelsList(false);
@@ -431,16 +436,16 @@ const EventModalComponent = () => {
                 {
                     usersAdded.map((user) => {
                         return <AddedUserComponent user={user} />
-                    }
-                    )}
+                    })
+                }
             </div>
         }
         return <></>
     }
 
-    
+
     const RemoveEventButton = () => {
-        if (Object.keys(selectedEvent).length !== 0) {
+        if (selectedEvent?.event?.id != null) {
             return <Button variant="danger" onClick={onRemoveEvent}>Remove event</Button>
         }
         return <></>
@@ -449,7 +454,7 @@ const EventModalComponent = () => {
 
     return (
         <Modal className='modal-view-event' show={isOpenEventModal} onHide={ViewEventModalHandleClose} centered animation={false}>
-            <Modal.Header closeButton className='create-event-modal-header' style={{backgroundColor: theme.sidebarTeamBarBg, color: theme.sidebarHeaderTextColor}}>
+            <Modal.Header closeButton className='create-event-modal-header' style={{ backgroundColor: theme.sidebarTeamBarBg, color: theme.sidebarHeaderTextColor }}>
                 <Modal.Title className='create-event-modal-title'>Create new event</Modal.Title>
             </Modal.Header>
             <Modal.Body>
