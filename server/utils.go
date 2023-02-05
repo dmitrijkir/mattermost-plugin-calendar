@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-func contains(arr []int, item int) bool {
+func contains[K comparable](arr []K, item K) bool {
 	for _, v := range arr {
 		if v == item {
 			return true

@@ -27,6 +27,54 @@ func (b *Background) Stop() {
 	b.Done <- true
 }
 
+func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
+	var attendees []string
+
+	attendees = append(attendees, event.Attendees...)
+
+	if len(attendees) == 0 {
+		dChannel, dChannelErr := b.plugin.API.GetDirectChannel(event.Owner, b.botId)
+		if dChannelErr != nil {
+			b.plugin.API.LogError(dChannelErr.Error())
+			return
+		}
+
+		_, postCreateError := b.plugin.API.CreatePost(&model.Post{
+			UserId:    b.botId,
+			Message:   event.Title,
+			ChannelId: dChannel.Id,
+		})
+		if postCreateError != nil {
+			b.plugin.API.LogError(postCreateError.Error())
+			return
+		}
+
+		return
+	}
+
+	if !contains[string](attendees, event.Owner) {
+		attendees = append(attendees, event.Owner)
+	}
+
+	attendees = append(attendees, b.botId)
+
+	foundChannel, foundChannelError := b.plugin.API.GetGroupChannel(attendees)
+	if foundChannelError != nil {
+		b.plugin.API.LogError(foundChannelError.Error())
+		return
+	}
+
+	_, postCreateError := b.plugin.API.CreatePost(&model.Post{
+		UserId:    b.botId,
+		Message:   event.Title,
+		ChannelId: foundChannel.Id,
+	})
+	if postCreateError != nil {
+		b.plugin.API.LogError(postCreateError.Error())
+		return
+	}
+}
+
 func (b *Background) process(t *time.Time) {
 	utcLoc, _ := time.LoadLocation("UTC")
 
@@ -79,15 +127,11 @@ func (b *Background) process(t *time.Time) {
 			continue
 		}
 
-		if eventDb.User == nil {
-			continue
-		}
-
-		if events[eventDb.Id] != nil {
+		if events[eventDb.Id] != nil && eventDb.User != nil {
 			events[eventDb.Id].Attendees = append(events[eventDb.Id].Attendees, *eventDb.User)
 		} else {
 
-			if eventDb.Recurrent && contains(*eventDb.Recurrence, int(t.Weekday())) {
+			if eventDb.Recurrent && contains[int](*eventDb.Recurrence, int(t.Weekday())) {
 				eventTime := eventDb.End.Sub(eventDb.Start)
 				eventDb.Start = time.Date(
 					t.Year(),
@@ -101,12 +145,17 @@ func (b *Background) process(t *time.Time) {
 				)
 				eventDb.End = eventDb.Start.Add(eventTime)
 			}
+
+			var att []string
+			if eventDb.User != nil {
+				att = append(att, *eventDb.User)
+			}
 			events[eventDb.Id] = &Event{
 				Id:         eventDb.Id,
 				Title:      eventDb.Title,
 				Start:      eventDb.Start,
 				End:        eventDb.End,
-				Attendees:  []string{*eventDb.User},
+				Attendees:  att,
 				Created:    eventDb.Created,
 				Owner:      eventDb.Owner,
 				Channel:    eventDb.Channel,
@@ -130,22 +179,7 @@ func (b *Background) process(t *time.Time) {
 			}
 
 		} else {
-
-			foundChannel, foundChannelError := b.plugin.API.GetGroupChannel(value.Attendees)
-			if foundChannelError != nil {
-				b.plugin.API.LogError(foundChannelError.Error())
-				continue
-			}
-
-			_, postCreateError := b.plugin.API.CreatePost(&model.Post{
-				UserId:    b.botId,
-				Message:   value.Title,
-				ChannelId: foundChannel.Id,
-			})
-			if postCreateError != nil {
-				b.plugin.API.LogError(postCreateError.Error())
-				continue
-			}
+			b.sendGroupOrPersonalEventNotification(value)
 		}
 
 		_, errUpdate := GetDb().NamedExec(`UPDATE PUBLIC.calendar_events
