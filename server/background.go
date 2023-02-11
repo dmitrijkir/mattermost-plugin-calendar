@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"time"
 )
@@ -10,6 +11,11 @@ type Background struct {
 	Done   chan bool
 	plugin *Plugin
 	botId  string
+	DB     *sqlx.DB
+}
+
+func (b *Background) SetDb(db *sqlx.DB) {
+	b.DB = db
 }
 
 func (b *Background) Start() {
@@ -40,7 +46,7 @@ func (b *Background) process(t *time.Time) {
 		0,
 		utcLoc,
 	)
-	rows, errSelect := GetDb().Queryx(`
+	rows, errSelect := b.DB.Queryx(`
 			SELECT ce.id,
 				   ce.title,
                    ce."start",
@@ -148,7 +154,7 @@ func (b *Background) process(t *time.Time) {
 			}
 		}
 
-		_, errUpdate := GetDb().NamedExec(`UPDATE PUBLIC.calendar_events
+		_, errUpdate := b.DB.NamedExec(`UPDATE PUBLIC.calendar_events
                                            SET processed = :processed
                                            WHERE id = :eventId`, map[string]interface{}{
 			"processed": tickWithZone,
@@ -164,12 +170,13 @@ func (b *Background) process(t *time.Time) {
 
 }
 
-func NewBackgroundJob(plugin *Plugin, userId string) *Background {
+func NewBackgroundJob(plugin *Plugin, userId string, db *sqlx.DB) *Background {
 	return &Background{
 		Ticker: time.NewTicker(15 * time.Second),
 		Done:   make(chan bool),
 		plugin: plugin,
 		botId:  userId,
+		DB:     db,
 	}
 }
 
