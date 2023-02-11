@@ -1,13 +1,10 @@
 package main
 
 import (
-	"database/sql/driver"
 	"encoding/json"
-	"fmt"
 	"github.com/google/uuid"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
-	"github.com/pkg/errors"
 	"net/http"
 	"time"
 )
@@ -15,38 +12,6 @@ import (
 const (
 	EventDateTimeLayout = "2006-01-02T15:04:05"
 )
-
-type RecurrenceItem []int
-
-func (r *RecurrenceItem) Scan(val interface{}) error {
-	switch v := val.(type) {
-	case []byte:
-		json.Unmarshal(v, &r)
-		return nil
-	case string:
-		json.Unmarshal([]byte(v), &r)
-		return nil
-	default:
-		return errors.New(fmt.Sprintf("Unsupported type: %T", v))
-	}
-}
-func (r *RecurrenceItem) Value() (driver.Value, error) {
-	return json.Marshal(r)
-}
-
-type Event struct {
-	Id         string          `json:"id" db:"id"`
-	Title      string          `json:"title" db:"title"`
-	Start      time.Time       `json:"start" db:"start"`
-	End        time.Time       `json:"end" db:"end"`
-	Attendees  []string        `json:"attendees"`
-	Created    time.Time       `json:"created" db:"created"`
-	Owner      string          `json:"owner" db:"owner"`
-	Channel    *string         `json:"channel" db:"channel"`
-	Processed  *time.Time      `json:"-" db:"processed"`
-	Recurrent  bool            `json:"-" db:"recurrent"`
-	Recurrence *RecurrenceItem `json:"recurrence" db:"recurrence"`
-}
 
 func (p *Plugin) GetUserLocation(user *model.User) *time.Location {
 	userTimeZone := ""
@@ -92,7 +57,7 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	rows, errSelect := GetDb().Queryx(`
+	rows, errSelect := p.DB.Queryx(`
 									   SELECT ce.id,
                                               ce.title,
                                               ce."start",
@@ -196,7 +161,7 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 
 	var events []Event
 
-	rows, errSelect := GetDb().Queryx(`
+	rows, errSelect := p.DB.Queryx(`
 									   SELECT ce.id,
 											  ce.title,
 											  ce."start",
@@ -344,7 +309,7 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 		event.Recurrent = false
 	}
 
-	_, errInsert := GetDb().NamedExec(`INSERT INTO PUBLIC.calendar_events
+	_, errInsert := p.DB.NamedExec(`INSERT INTO PUBLIC.calendar_events
                                                   (id,
                                                    title,
                                                    "start",
@@ -379,7 +344,7 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 			})
 		}
 
-		_, errInsert = GetDb().NamedExec(`INSERT INTO public.calendar_members 
+		_, errInsert = p.DB.NamedExec(`INSERT INTO public.calendar_members 
 															   ("event", 
 															    "user") 
 												   VALUES (:event,
@@ -415,7 +380,7 @@ func (p *Plugin) RemoveEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 		return
 	}
 
-	_, dbErr := GetDb().Exec("DELETE FROM calendar_events WHERE id=$1", eventId)
+	_, dbErr := p.DB.Exec("DELETE FROM calendar_events WHERE id=$1", eventId)
 
 	if dbErr != nil {
 		p.API.LogError("can't remove event from db")
@@ -491,7 +456,7 @@ func (p *Plugin) UpdateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 		event.Recurrent = false
 	}
 
-	tx, txError := GetDb().Beginx()
+	tx, txError := p.DB.Beginx()
 
 	if txError != nil {
 		p.API.LogError(txError.Error())

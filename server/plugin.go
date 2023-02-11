@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"net/http"
 	"sync"
@@ -23,12 +24,20 @@ type Plugin struct {
 	// configuration is the active plugin configuration. Consult getConfiguration and
 	// setConfiguration for usage.
 	configuration *configuration
+
+	DB *sqlx.DB
+}
+
+func (p *Plugin) SetDB(db *sqlx.DB) {
+	p.DB = db
 }
 
 func (p *Plugin) OnActivate() error {
 
 	config := p.API.GetUnsanitizedConfig()
-	initDb(*config.SqlSettings.DriverName, *config.SqlSettings.DataSource)
+
+	db := initDb(*config.SqlSettings.DriverName, *config.SqlSettings.DataSource)
+	p.SetDB(db)
 
 	GetBotsResp, GetBotError := p.API.GetBots(&model.BotGetOptions{
 		Page:           0,
@@ -70,7 +79,7 @@ func (p *Plugin) OnActivate() error {
 
 	}
 
-	go NewBackgroundJob(p, botId).Start()
+	go NewBackgroundJob(p, botId, db).Start()
 	return nil
 }
 
