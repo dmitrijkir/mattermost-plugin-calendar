@@ -13,7 +13,7 @@
     "check-types": "tsc"
   },
   "devDependencies": {
-    "@babel/cli": "7.10.4",
+    "@babel/cli": "7.20.7",
     "@babel/core": "7.10.4",
     "@babel/plugin-proposal-class-properties": "7.10.4",
     "@babel/plugin-proposal-object-rest-spread": "7.10.4",
@@ -70,7 +70,7 @@
     "@fullcalendar/timegrid": "5.11.3",
     "bootstrap": "5.2.3",
     "core-js": "3.6.5",
-    "mattermost-redux": "5.27.0",
+    "mattermost-redux": "5.33.1",
     "react": "16.13.1",
     "react-bootstrap": "1.6.6",
     "react-redux": "7.2.0",

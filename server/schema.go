@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS public.calendar_events (
 id varchar NOT NULL PRIMARY KEY,
 title varchar NOT NULL,
 "start" timestamp NOT NULL,
-"end" timestamp NULL,
+"end" timestamp NOT NULL,
 created timestamp NOT NULL,
 owner varchar NOT NULL references users(id),
 "channel" varchar references channels(id),

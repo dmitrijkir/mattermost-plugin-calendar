@@ -33,6 +33,8 @@ Use `make deploy` to deploy the plugin to your local server.
 
 For more details on how to develop a plugin refer to the official [documentation](https://developers.mattermost.com/extend/plugins/).
 
+Check API documentation [here](/docs/README.md)
+
 ## Current status
 
 - Basic event usage
@@ -40,11 +42,14 @@ For more details on how to develop a plugin refer to the official [documentation
   - ✅ update events
   - ✅ remove events
   - ✅ recurrent events
+
 - 🚧 Using the Mattermost Theme
 - 🚧 Event notifications for a channel or group
+
 - 📌 Event popup notification (through ws)
-- 📌 Show user status when trying to add user to event (free/busy)
+- 📌 Show user status when trying to add a user to event (free/busy)
 - 📌 Accept/decline an invitation to an event
+- 📌 CalDAV synchronization events
 
 ___
 - ✅ - **Alpha**
