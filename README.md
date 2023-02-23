@@ -3,7 +3,7 @@
 ![calendar_screen](https://user-images.githubusercontent.com/22306239/216053931-14c285d0-5bfb-4337-a085-d7bca89b67d7.png)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-
+[![Release](https://img.shields.io/github/v/release/dmitrijkir/mattermost-plugin-calendar?include_prereleases)](https://github.com/dmitrijkir/mattermost-plugin-calendar/releases/v0.1.0-alpha)
 ---
 
 ## How it works
@@ -33,6 +33,8 @@ Use `make deploy` to deploy the plugin to your local server.
 
 For more details on how to develop a plugin refer to the official [documentation](https://developers.mattermost.com/extend/plugins/).
 
+Check API documentation [here](/docs/README.md)
+
 ## Current status
 
 - Basic event usage
@@ -40,13 +42,16 @@ For more details on how to develop a plugin refer to the official [documentation
   - ✅ update events
   - ✅ remove events
   - ✅ recurrent events
+
 - 🚧 Using the Mattermost Theme
 - 🚧 Event notifications for a channel or group
+
 - 📌 Event popup notification (through ws)
-- 📌 Show user status when trying to add user to event (free/busy)
+- 📌 Show user status when trying to add a user to event (free/busy)
 - 📌 Accept/decline an invitation to an event
+- 📌 CalDAV synchronization events
 
-
+___
 - ✅ - **Alpha**
 - 🚧 - **Developing**
 - 📌 - **Planned**
