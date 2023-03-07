@@ -1,0 +1,190 @@
+package main
+
+import (
+	"fmt"
+	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost-server/v6/plugin"
+	"sort"
+	"strings"
+	"time"
+)
+
+const calCommand = "cal"
+
+func (p *Plugin) createCalCommand() (*model.Command, error) {
+	//iconData, err := command.GetIconData(p.API, "assets/icon.svg")
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "failed to get icon data")
+	//}
+	return &model.Command{
+		Trigger:          calCommand,
+		AutoComplete:     true,
+		AutoCompleteDesc: "Get calendar events.",
+		AutoCompleteHint: "[command]",
+		//AutocompleteData:     getAutocompleteData(),
+		//AutocompleteIconData: iconData,
+	}, nil
+}
+
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+	split := strings.Fields(args.Command)
+	command := split[0]
+	//var parameters []string
+	action := ""
+	if len(split) > 1 {
+		action = split[1]
+	}
+	//if len(split) > 2 {
+	//	parameters = split[2:]
+	//}
+
+	if command != "/"+calCommand {
+		return &model.CommandResponse{}, nil
+	}
+
+	p.API.LogError(action)
+	p.API.LogError("=============")
+	switch action {
+	case "help":
+		p.API.LogError("=============")
+	case "week":
+		return p.executeWeekCommand(c, args)
+	default:
+		return p.executeTodayCommand(c, args)
+	}
+	return &model.CommandResponse{}, nil
+}
+
+func (p *Plugin) executeTodayCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+	user, appErr := p.API.GetUser(args.UserId)
+	if appErr != nil {
+		return nil, NotAuthorizedError
+	}
+
+	userLoc := p.GetUserLocation(user)
+
+	now := time.Now().UTC().In(userLoc)
+
+	start := time.Date(
+		now.Year(),
+		now.Month(),
+		now.Day(),
+		0,
+		0,
+		0,
+		0,
+		userLoc,
+	)
+
+	end := start.Add(time.Hour * 24)
+
+	events, eventsError := p.GetUserEvents(user, start.Format(EventDateTimeLayout), end.Format(EventDateTimeLayout))
+
+	if eventsError != nil {
+		p.API.LogError(eventsError.Error())
+		return nil, eventsError
+	}
+
+	message := `| time | title | channel |
+				| -----| ------| ------- |
+`
+	for _, event := range *events {
+		line := fmt.Sprintf("|%s|%s|", event.Start.Format(EventDateTimeLayout), event.Title)
+		if event.Channel != nil {
+			eventChannel, eventChError := p.API.GetChannel(*event.Channel)
+			if eventChError != nil {
+				continue
+			}
+			line += fmt.Sprintf("%s|", eventChannel.DisplayName)
+		} else {
+			line += fmt.Sprintf("%s|", "empty")
+		}
+		message += fmt.Sprintf("%s\n", line)
+	}
+
+	dChannel, dChannelErr := p.API.GetDirectChannel(user.Id, p.BotId)
+	if dChannelErr != nil {
+		p.API.LogError(dChannelErr.Error())
+		return nil, SomethingWentWrong
+	}
+
+	_, postCreateError := p.API.CreatePost(&model.Post{
+		UserId:    p.BotId,
+		Message:   message,
+		ChannelId: dChannel.Id,
+	})
+	if postCreateError != nil {
+		return nil, postCreateError
+	}
+	return &model.CommandResponse{}, nil
+}
+
+func (p *Plugin) executeWeekCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+	user, appErr := p.API.GetUser(args.UserId)
+	if appErr != nil {
+		return nil, NotAuthorizedError
+	}
+
+	userLoc := p.GetUserLocation(user)
+
+	now := time.Now().UTC().In(userLoc)
+
+	today := time.Date(
+		now.Year(),
+		now.Month(),
+		now.Day(),
+		0,
+		0,
+		0,
+		0,
+		userLoc,
+	)
+
+	start := today.Add(-time.Hour * 24 * time.Duration(today.Weekday()))
+
+	end := start.Add(time.Hour * 24 * 7)
+
+	events, eventsError := p.GetUserEvents(user, start.Format(EventDateTimeLayout), end.Format(EventDateTimeLayout))
+
+	if eventsError != nil {
+		p.API.LogError(eventsError.Error())
+		return nil, eventsError
+	}
+
+	message := `| time | title | channel |
+				| -----| ------| ------- |
+	`
+	sort.Slice(*events, func(i, j int) bool {
+		return (*events)[j].Start.After((*events)[i].Start)
+	})
+	for _, event := range *events {
+		line := fmt.Sprintf("|%s|%s|", event.Start.Format(EventDateTimeLayout), event.Title)
+		if event.Channel != nil {
+			eventChannel, eventChError := p.API.GetChannel(*event.Channel)
+			if eventChError != nil {
+				p.API.LogError(eventChError.Error())
+				continue
+			}
+			line += fmt.Sprintf("%s|", eventChannel.DisplayName)
+		} else {
+			line += fmt.Sprintf("%s|", "empty")
+		}
+		message += fmt.Sprintf("%s\n", line)
+	}
+
+	dChannel, dChannelErr := p.API.GetDirectChannel(user.Id, p.BotId)
+	if dChannelErr != nil {
+		p.API.LogError(dChannelErr.Error())
+		return nil, SomethingWentWrong
+	}
+
+	_, postCreateError := p.API.CreatePost(&model.Post{
+		UserId:    p.BotId,
+		Message:   message,
+		ChannelId: dChannel.Id,
+	})
+	if postCreateError != nil {
+		return nil, postCreateError
+	}
+	return &model.CommandResponse{}, nil
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -34,7 +35,7 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 
 	postForSend := &model.Post{
 		UserId:    botId,
-		Message:   testEvent.Title,
+		Message:   ":dart: *test event for channel* :dart:\n",
 		ChannelId: channelId,
 	}
 
@@ -88,7 +89,7 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 
 	postForSend := &model.Post{
 		UserId:    botId,
-		Message:   testEvent.Title,
+		Message:   ":dart: *test event for channel* :dart:\n**members:** @userName, @userName, \n",
 		ChannelId: channelId,
 	}
 
@@ -99,6 +100,12 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 
 	api.On("GetGroupChannel", attendees).Return(foundChannel, nil)
 	api.On("CreatePost", postForSend).Return(nil, nil)
+	api.On("GetUser", "first-id").Return(&model.User{
+		Username: "userName",
+	}, nil)
+	api.On("GetUser", "second-id").Return(&model.User{
+		Username: "userName",
+	}, nil)
 
 	pluginT := &Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
@@ -117,14 +124,6 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	botId := "bot-id"
 	api := plugintest.API{}
-
-	postForSendChannel := &model.Post{
-		UserId:    botId,
-		Message:   "test event",
-		ChannelId: "channel-id",
-	}
-
-	api.On("CreatePost", postForSendChannel).Return(nil, nil)
 
 	pluginT := &Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
@@ -155,6 +154,19 @@ func TestProcessEventWithChannel(t *testing.T) {
 		0,
 		utcLoc,
 	)
+
+	featureTime := sqlQueryTime.Add(time.Hour * 24 * 4)
+
+	postForSendChannel := &model.Post{
+		UserId:    botId,
+		Message:   ":dart: *test event* :dart:\n**members:** @userName, \n",
+		ChannelId: "channel-id",
+	}
+
+	api.On("CreatePost", postForSendChannel).Return(nil, nil)
+	api.On("GetUser", "user-Id").Return(&model.User{
+		Username: "userName",
+	}, nil)
 
 	background := NewBackgroundJob(pluginT, botId, dbx)
 
@@ -188,7 +200,8 @@ func TestProcessEventWithChannel(t *testing.T) {
 		"recurrent",
 		"recurrence"},
 	).AddRow("qwcw", "test event", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		"owner_id", "channel-id", "user-Id", false, "[]")
+		"owner_id", "channel-id", "user-Id", false, "[]").AddRow("rec-ev", "test event recevent", featureTime, featureTime, featureTime,
+		"owner_id", "channel-id", "user-Id", true, fmt.Sprintf("[%v]", int(featureTime.Weekday())))
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -206,19 +219,6 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	botId := "bot-id"
 
 	api := plugintest.API{}
-
-	postForSendGroup := &model.Post{
-		UserId:    botId,
-		Message:   "tests event without channel",
-		ChannelId: "channel-id",
-	}
-
-	foundChannel := &model.Channel{
-		Id: "channel-id",
-	}
-
-	api.On("GetGroupChannel", []string{"user-id", "owner-id", "bot-id"}).Return(foundChannel, nil)
-	api.On("CreatePost", postForSendGroup).Return(nil, nil)
 
 	pluginT := &Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
@@ -249,6 +249,22 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		0,
 		utcLoc,
 	)
+
+	postForSendGroup := &model.Post{
+		UserId:    botId,
+		Message:   ":dart: *tests event without channel* :dart:\n**members:** @userName, \n",
+		ChannelId: "channel-id",
+	}
+
+	foundChannel := &model.Channel{
+		Id: "channel-id",
+	}
+
+	api.On("GetGroupChannel", []string{"user-id", "owner-id", "bot-id"}).Return(foundChannel, nil)
+	api.On("CreatePost", postForSendGroup).Return(nil, nil)
+	api.On("GetUser", "user-id").Return(&model.User{
+		Username: "userName",
+	}, nil)
 
 	background := NewBackgroundJob(pluginT, botId, dbx)
 

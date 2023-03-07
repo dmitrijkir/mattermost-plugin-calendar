@@ -1,3 +1,6 @@
 package main
 
-const PluginId = "com.dmkir.calendar"
+const (
+	PluginId            = "com.dmkir.calendar"
+	EventDateTimeLayout = "2006-01-02T15:04:05"
+)
