@@ -9,9 +9,99 @@ import (
 	"time"
 )
 
-const (
-	EventDateTimeLayout = "2006-01-02T15:04:05"
-)
+func (p *Plugin) GetUserEvents(user *model.User, start, end string) (*[]Event, *model.AppError) {
+	userLoc := p.GetUserLocation(user)
+	utcLoc, _ := time.LoadLocation("UTC")
+
+	startEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, start, userLoc)
+	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, end, userLoc)
+
+	var events []Event
+
+	rows, errSelect := p.DB.Queryx(`
+									   SELECT ce.id,
+											  ce.title,
+											  ce."start",
+											  ce."end",
+											  ce.created,
+											  ce."owner",
+											  ce."channel",
+											  ce.recurrent,
+											  ce.recurrence
+									   FROM calendar_events ce
+										    FULL JOIN calendar_members cm 
+										           ON ce.id = cm."event"
+									   WHERE (cm."user" = $1 OR ce."owner" = $2)
+											AND (
+											     (ce."start" >= $3 AND ce."start" <= $4) 
+											         or ce.recurrent = true
+											    )
+                                       `, user.Id, user.Id, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
+
+	if errSelect != nil {
+		p.API.LogError(errSelect.Error())
+		return nil, SomethingWentWrong
+	}
+
+	addedEvent := map[string]bool{}
+	recurrenEvents := map[int][]Event{}
+
+	for rows.Next() {
+
+		var eventDb Event
+
+		errScan := rows.StructScan(&eventDb)
+
+		if errScan != nil {
+			p.API.LogError("Can't scan row to struct")
+			continue
+		}
+
+		eventDb.Start = eventDb.Start.In(userLoc)
+		eventDb.End = eventDb.End.In(userLoc)
+
+		if addedEvent[eventDb.Id] {
+			continue
+		}
+
+		if eventDb.Recurrent {
+			for _, recurrentDay := range *eventDb.Recurrence {
+				recurrenEvents[recurrentDay] = append(recurrenEvents[recurrentDay], eventDb)
+			}
+			addedEvent[eventDb.Id] = true
+			continue
+		}
+
+		if !eventDb.Recurrent {
+			events = append(events, eventDb)
+			addedEvent[eventDb.Id] = true
+		}
+	}
+
+	currientDate := startEventLocal
+	for currientDate.Before(EndEventLocal) {
+		for _, ev := range recurrenEvents[int(currientDate.Weekday())] {
+			eventTime := ev.End.Sub(ev.Start)
+			ev.Start = time.Date(
+				currientDate.Year(),
+				currientDate.Month(),
+				currientDate.Day(),
+				ev.Start.Hour(),
+				ev.Start.Minute(),
+				ev.Start.Second(),
+				ev.Start.Nanosecond(),
+				ev.Start.Location(),
+			)
+
+			ev.End = ev.Start.Add(eventTime)
+
+			events = append(events, ev)
+		}
+		currientDate = currientDate.Add(time.Hour * 24)
+	}
+
+	return &events, nil
+}
 
 func (p *Plugin) GetUserLocation(user *model.User) *time.Location {
 	userTimeZone := ""
@@ -153,92 +243,10 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	userLoc := p.GetUserLocation(user)
-	utcLoc, _ := time.LoadLocation("UTC")
-
-	startEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, start, userLoc)
-	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, end, userLoc)
-
-	var events []Event
-
-	rows, errSelect := p.DB.Queryx(`
-									   SELECT ce.id,
-											  ce.title,
-											  ce."start",
-											  ce."end",
-											  ce.created,
-											  ce."owner",
-											  ce."channel",
-											  ce.recurrent,
-											  ce.recurrence
-									   FROM calendar_events ce
-										    FULL JOIN calendar_members cm 
-										           ON ce.id = cm."event"
-									   WHERE (cm."user" = $1 OR ce."owner" = $2)
-											AND (
-											     (ce."start" >= $3 AND ce."start" <= $4) 
-											         or ce.recurrent = true
-											    )
-                                       `, user.Id, user.Id, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
-
-	if errSelect != nil {
-		p.API.LogError(errSelect.Error())
-		apiResponse(w, &events)
-		return
+	events, eventsError := p.GetUserEvents(user, start, end)
+	if eventsError != nil {
+		errorResponse(w, eventsError)
 	}
-
-	addedEvent := map[string]bool{}
-	recurrenEvents := map[int][]Event{}
-
-	for rows.Next() {
-
-		var eventDb Event
-
-		errScan := rows.StructScan(&eventDb)
-
-		if errScan != nil {
-			p.API.LogError("Can't scan row to struct")
-			continue
-		}
-
-		eventDb.Start = eventDb.Start.In(userLoc)
-		eventDb.End = eventDb.End.In(userLoc)
-
-		if eventDb.Recurrent {
-			for _, recurrentDay := range *eventDb.Recurrence {
-				recurrenEvents[recurrentDay] = append(recurrenEvents[recurrentDay], eventDb)
-			}
-			continue
-		}
-
-		if !addedEvent[eventDb.Id] && !eventDb.Recurrent {
-			events = append(events, eventDb)
-			addedEvent[eventDb.Id] = true
-		}
-	}
-
-	currientDate := startEventLocal
-	for currientDate.Before(EndEventLocal) {
-		for _, ev := range recurrenEvents[int(currientDate.Weekday())] {
-			eventTime := ev.End.Sub(ev.Start)
-			ev.Start = time.Date(
-				currientDate.Year(),
-				currientDate.Month(),
-				currientDate.Day(),
-				ev.Start.Hour(),
-				ev.Start.Minute(),
-				ev.Start.Second(),
-				ev.Start.Nanosecond(),
-				ev.Start.Location(),
-			)
-
-			ev.End = ev.Start.Add(eventTime)
-
-			events = append(events, ev)
-		}
-		currientDate = currientDate.Add(time.Hour * 24)
-	}
-
 	apiResponse(w, &events)
 	return
 }

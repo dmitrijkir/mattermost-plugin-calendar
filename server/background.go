@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"time"
@@ -33,6 +34,27 @@ func (b *Background) Stop() {
 	b.Done <- true
 }
 
+func (b *Background) getMessageFromEvent(event *Event) string {
+	message := ""
+	message += fmt.Sprintf(":dart: *%s* :dart:\n", event.Title)
+
+	if len(event.Attendees) > 0 {
+		members := ""
+		for _, member := range event.Attendees {
+			user, userErr := b.plugin.API.GetUser(member)
+
+			if userErr != nil {
+				continue
+			}
+
+			members += fmt.Sprintf("@%s, ", user.Username)
+		}
+		message += fmt.Sprintf("**members:** %s\n", members)
+	}
+
+	return message
+}
+
 func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 	var attendees []string
 
@@ -47,7 +69,7 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 
 		_, postCreateError := b.plugin.API.CreatePost(&model.Post{
 			UserId:    b.botId,
-			Message:   event.Title,
+			Message:   b.getMessageFromEvent(event),
 			ChannelId: dChannel.Id,
 		})
 		if postCreateError != nil {
@@ -72,7 +94,7 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 
 	_, postCreateError := b.plugin.API.CreatePost(&model.Post{
 		UserId:    b.botId,
-		Message:   event.Title,
+		Message:   b.getMessageFromEvent(event),
 		ChannelId: foundChannel.Id,
 	})
 	if postCreateError != nil {
@@ -137,7 +159,10 @@ func (b *Background) process(t *time.Time) {
 			events[eventDb.Id].Attendees = append(events[eventDb.Id].Attendees, *eventDb.User)
 		} else {
 
-			if eventDb.Recurrent && contains[int](*eventDb.Recurrence, int(t.Weekday())) {
+			if eventDb.Recurrent && !contains[int](*eventDb.Recurrence, int(t.Weekday())) {
+				continue
+			}
+			if eventDb.Recurrent {
 				eventTime := eventDb.End.Sub(eventDb.Start)
 				eventDb.Start = time.Date(
 					t.Year(),
@@ -176,7 +201,7 @@ func (b *Background) process(t *time.Time) {
 		if value.Channel != nil {
 			_, postErr := b.plugin.API.CreatePost(&model.Post{
 				ChannelId: *value.Channel,
-				Message:   value.Title,
+				Message:   b.getMessageFromEvent(value),
 				UserId:    b.botId,
 			})
 			if postErr != nil {

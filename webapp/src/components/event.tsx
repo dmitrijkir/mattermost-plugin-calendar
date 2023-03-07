@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef} from 'react';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
@@ -150,6 +150,7 @@ const EventModalComponent = () => {
 
     const [usersAutocomplete, setUsersAutocomplete] = useState<UserProfile[]>([]);
     const [usersAdded, setUsersAdded] = useState<UserProfile[]>([]);
+    const UserInputRef = useRef();
 
     const [searchUsersInput, setSearchUsersInput] = useState("");
 
@@ -223,7 +224,6 @@ const EventModalComponent = () => {
         }
 
         setshowUserList(false);
-
     }
 
     const onInputChannelAction = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -391,6 +391,7 @@ const EventModalComponent = () => {
                     usersAutocomplete.map((user) => {
                         return <div onClick={() => {
                             let foundIndex = usersAdded.findIndex(e => e.id === user.id);
+                            UserInputRef.current.focus();
                             if (foundIndex > -1) {
                                 setSearchUsersInput("");
                                 setshowUserList(false);
@@ -453,7 +454,7 @@ const EventModalComponent = () => {
 
 
     return (
-        <Modal className='modal-view-event' show={isOpenEventModal} onHide={ViewEventModalHandleClose} centered animation={false}>
+        <Modal className='modal-view-event' show={isOpenEventModal} onHide={ViewEventModalHandleClose} centered animation={false} backdrop='static'>
             <Modal.Header closeButton className='create-event-modal-header' style={{ backgroundColor: theme.sidebarTeamBarBg, color: theme.sidebarHeaderTextColor }}>
                 <Modal.Title className='create-event-modal-title'>Create new event</Modal.Title>
             </Modal.Header>
@@ -484,7 +485,7 @@ const EventModalComponent = () => {
                         <i className='icon fa fa-user-plus' />
                         <div className='event-input-container'>
                             <div className='event-input-users-wrapper'>
-                                <FormControl type="text" placeholder='Add users' value={searchUsersInput} onChange={onInputUserAction}></FormControl>
+                                <FormControl type="text" placeholder='Add users' value={searchUsersInput} onChange={onInputUserAction} ref={UserInputRef}></FormControl>
                                 <UserListAutocomplite />
                             </div>
 

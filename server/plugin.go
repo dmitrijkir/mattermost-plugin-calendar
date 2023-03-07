@@ -25,11 +25,16 @@ type Plugin struct {
 	// setConfiguration for usage.
 	configuration *configuration
 
-	DB *sqlx.DB
+	DB    *sqlx.DB
+	BotId string
 }
 
 func (p *Plugin) SetDB(db *sqlx.DB) {
 	p.DB = db
+}
+
+func (p *Plugin) SetBotId(botId string) {
+	p.BotId = botId
 }
 
 func (p *Plugin) OnActivate() error {
@@ -38,6 +43,15 @@ func (p *Plugin) OnActivate() error {
 
 	db := initDb(*config.SqlSettings.DriverName, *config.SqlSettings.DataSource)
 	p.SetDB(db)
+
+	command, err := p.createCalCommand()
+	if err != nil {
+		return err
+	}
+
+	if err = p.API.RegisterCommand(command); err != nil {
+		return err
+	}
 
 	GetBotsResp, GetBotError := p.API.GetBots(&model.BotGetOptions{
 		Page:           0,
@@ -78,7 +92,7 @@ func (p *Plugin) OnActivate() error {
 		botId = createdBot.UserId
 
 	}
-
+	p.SetBotId(botId)
 	go NewBackgroundJob(p, botId, db).Start()
 	return nil
 }
