@@ -11,7 +11,6 @@ type Background struct {
 	Ticker *time.Ticker
 	Done   chan bool
 	plugin *Plugin
-	botId  string
 	DB     *sqlx.DB
 }
 
@@ -61,14 +60,14 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 	attendees = append(attendees, event.Attendees...)
 
 	if len(attendees) == 0 {
-		dChannel, dChannelErr := b.plugin.API.GetDirectChannel(event.Owner, b.botId)
+		dChannel, dChannelErr := b.plugin.API.GetDirectChannel(event.Owner, b.plugin.BotId)
 		if dChannelErr != nil {
 			b.plugin.API.LogError(dChannelErr.Error())
 			return
 		}
 
 		_, postCreateError := b.plugin.API.CreatePost(&model.Post{
-			UserId:    b.botId,
+			UserId:    b.plugin.BotId,
 			Message:   b.getMessageFromEvent(event),
 			ChannelId: dChannel.Id,
 		})
@@ -84,7 +83,7 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 		attendees = append(attendees, event.Owner)
 	}
 
-	attendees = append(attendees, b.botId)
+	attendees = append(attendees, b.plugin.BotId)
 
 	foundChannel, foundChannelError := b.plugin.API.GetGroupChannel(attendees)
 	if foundChannelError != nil {
@@ -93,7 +92,7 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 	}
 
 	_, postCreateError := b.plugin.API.CreatePost(&model.Post{
-		UserId:    b.botId,
+		UserId:    b.plugin.BotId,
 		Message:   b.getMessageFromEvent(event),
 		ChannelId: foundChannel.Id,
 	})
@@ -202,7 +201,7 @@ func (b *Background) process(t *time.Time) {
 			_, postErr := b.plugin.API.CreatePost(&model.Post{
 				ChannelId: *value.Channel,
 				Message:   b.getMessageFromEvent(value),
-				UserId:    b.botId,
+				UserId:    b.plugin.BotId,
 			})
 			if postErr != nil {
 				b.plugin.API.LogError(postErr.Error())
@@ -229,12 +228,11 @@ func (b *Background) process(t *time.Time) {
 
 }
 
-func NewBackgroundJob(plugin *Plugin, userId string, db *sqlx.DB) *Background {
+func NewBackgroundJob(plugin *Plugin, db *sqlx.DB) *Background {
 	return &Background{
 		Ticker: time.NewTicker(15 * time.Second),
 		Done:   make(chan bool),
 		plugin: plugin,
-		botId:  userId,
 		DB:     db,
 	}
 }

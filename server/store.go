@@ -12,11 +12,5 @@ func initDb(driver, connectionString string) *sqlx.DB {
 
 	}
 
-	db.MustExec(sqlSchema)
-
-	return db
-}
-
-func GetDb() *sqlx.DB {
 	return db
 }
