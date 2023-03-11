@@ -1,7 +1,9 @@
-import React, { useEffect, useState, useRef} from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
+import Dropdown from 'react-bootstrap/Dropdown';
+import DropdownButton from 'react-bootstrap/DropdownButton';
 import FormControl from 'react-bootstrap/FormControl';
 import { Client4 } from 'mattermost-redux/client';
 import { UserProfile } from 'mattermost-redux/types/users';
@@ -154,6 +156,8 @@ const EventModalComponent = () => {
 
     const [searchUsersInput, setSearchUsersInput] = useState("");
 
+    const [selectedColor, setSelectedColor] = useState("#D0D0D0");
+
     const [channelsAutocomplete, setChannelsAutocomplete] = useState<Channel[]>([]);
     const [searchChannelInput, setSearchChannelInput] = useState("");
     const [selectedChannel, setSelectedChannel] = useState({});
@@ -190,6 +194,7 @@ const EventModalComponent = () => {
 
         setSelectedChannel({});
         setUsersAdded([]);
+        setSelectedColor("#D0D0D0");
 
     }
     const onTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -278,6 +283,7 @@ const EventModalComponent = () => {
                 members,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                 selectedDays,
+                selectedColor
             );
             CalendarRef.current.getApi().getEventSources()[0].refetch();
             cleanState();
@@ -292,6 +298,7 @@ const EventModalComponent = () => {
                 members,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                 selectedDays,
+                selectedColor,
             );
             CalendarRef.current.getApi().getEventSources()[0].refetch();
             cleanState();
@@ -317,6 +324,14 @@ const EventModalComponent = () => {
         ViewEventModalHandleClose();
     }
 
+    const onSelectColor = (color: string | null) => {
+        if (color == null) {
+            setSelectedColor("#D0D0D0");
+            return
+        }
+        setSelectedColor(color);
+    }
+
     useEffect(() => {
         let mounted = true;
         if (mounted && selectedEvent?.event?.id != null) {
@@ -329,6 +344,7 @@ const EventModalComponent = () => {
                 setUsersAdded(data.data.attendees);
                 setStartEventTime(data.data.start.split('T')[1].split(':')[0] + ':' + data.data.start.split('T')[1].split(':')[1]);
                 setEndEventTime(data.data.end.split('T')[1].split(':')[0] + ':' + data.data.end.split('T')[1].split(':')[1]);
+                setSelectedColor(data.data.color!);
 
                 if (data.data.recurrence != null) {
                     setSelectedDays(data.data.recurrence);
@@ -568,6 +584,28 @@ const EventModalComponent = () => {
                             checked={onSelectedDay(0)}
                             onChange={() => onDaySelected(0)}
                         />
+                    </div>
+                    <div className='event-color-container'>
+                        <i className='icon fa fa-eyedropper' />
+                        <div className='event-color-button'>
+                            <Dropdown onSelect={(e) => onSelectColor(e)}>
+                                <Dropdown.Toggle variant="" id="dropdown-basic" className='dropdown-color-button' style={{ color: selectedColor, borderColor: "unset" }}>
+                                    {/* {selectedColrText} */}
+                                    <i className='icon fa fa-circle' /><i className='icon fa fa-sort-down fa-sort-down-color'/>
+                                </Dropdown.Toggle>
+                                <Dropdown.Menu className='dropdown-menu-color'>
+                                    {/* fa fa-circle */}
+                                    <Dropdown.Item href="" className='event-color-items event-color-default'><i className='icon fa fa-circle' /></Dropdown.Item>
+                                    <Dropdown.Item href="#F2B3B3" className='event-color-items event-color-red'><i className='icon fa fa-circle' /></Dropdown.Item>
+                                    <Dropdown.Item href="#FCECBE" className='event-color-items event-color-yellow'><i className='icon fa fa-circle' /></Dropdown.Item>
+                                    <Dropdown.Item href="#B6D9C7" className='event-color-items event-color-green'><i className='icon fa fa-circle' /></Dropdown.Item>
+                                    <Dropdown.Item href="#B3E1F7" className='event-color-items event-color-blue'><i className='icon fa fa-circle' /></Dropdown.Item>
+                                    
+                                </Dropdown.Menu>
+                            </Dropdown>
+                        </div>
+
+
                     </div>
                 </Form>
             </Modal.Body>

@@ -39,4 +39,5 @@ type Event struct {
 	Processed  *time.Time      `json:"-" db:"processed"`
 	Recurrent  bool            `json:"-" db:"recurrent"`
 	Recurrence *RecurrenceItem `json:"recurrence" db:"recurrence"`
+	Color      *string         `json:"color" db:"color"`
 }

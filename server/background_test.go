@@ -45,6 +45,7 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 	api.On("CreatePost", postForSend).Return(nil, nil)
 
 	pluginT := &Plugin{
+		BotId: botId,
 		MattermostPlugin: plugin.MattermostPlugin{
 			API:    &api,
 			Driver: nil,
@@ -59,7 +60,7 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
-	background := NewBackgroundJob(pluginT, botId, dbx)
+	background := NewBackgroundJob(pluginT, dbx)
 	background.sendGroupOrPersonalEventNotification(testEvent)
 
 }
@@ -108,13 +109,14 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 	}, nil)
 
 	pluginT := &Plugin{
+		BotId: botId,
 		MattermostPlugin: plugin.MattermostPlugin{
 			API:    &api,
 			Driver: nil,
 		},
 	}
 
-	background := NewBackgroundJob(pluginT, botId, nil)
+	background := NewBackgroundJob(pluginT, nil)
 
 	background.sendGroupOrPersonalEventNotification(testEvent)
 }
@@ -126,6 +128,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 	api := plugintest.API{}
 
 	pluginT := &Plugin{
+		BotId: botId,
 		MattermostPlugin: plugin.MattermostPlugin{
 			API:    &api,
 			Driver: nil,
@@ -168,7 +171,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, botId, dbx)
+	background := NewBackgroundJob(pluginT, dbx)
 
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
 			SELECT ce.id,
@@ -221,6 +224,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	api := plugintest.API{}
 
 	pluginT := &Plugin{
+		BotId: botId,
 		MattermostPlugin: plugin.MattermostPlugin{
 			API:    &api,
 			Driver: nil,
@@ -266,7 +270,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, botId, dbx)
+	background := NewBackgroundJob(pluginT, dbx)
 
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
 			SELECT ce.id,

@@ -79,7 +79,8 @@ func TestGetEvents(t *testing.T) {
 				   ce."owner",
 				   ce."channel",
 				   ce.recurrent,
-				   ce.recurrence
+				   ce.recurrence,
+				   ce.color
 		    FROM calendar_events ce
 				 FULL JOIN calendar_members cm 
 					    ON ce.id = cm."event"
@@ -99,13 +100,15 @@ func TestGetEvents(t *testing.T) {
 		"owner",
 		"channel",
 		"recurrent",
-		"recurrence"},
+		"recurrence",
+		"color",
+	},
 	).AddRow("event-1", "test event 1", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		"owner_id", "channel-id", false, "[]").AddRow("event-2", "test event 2", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		"owner_id", "channel-id", false, "[]").AddRow("event-3", "test event 3", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		"owner_id", "channel-id", true, "[1,2,3]").AddRow("event-3", "test event 3 another user", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		"owner_id", "channel-id", true, "[1,2,3]").AddRow("event-3", "test event 3 another user", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		"owner_id", "channel-id", true, "[1,2,3]")
+		"owner_id", "channel-id", false, "[]", nil).AddRow("event-2", "test event 2", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		"owner_id", "channel-id", false, "[]", "#D0D0D0").AddRow("event-3", "test event 3", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		"owner_id", "channel-id", true, "[1,2,3]", "#D0D0D0").AddRow("event-3", "test event 3 another user", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		"owner_id", "channel-id", true, "[1,2,3]", "#D0D0D0").AddRow("event-3", "test event 3 another user", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		"owner_id", "channel-id", true, "[1,2,3]", "#D0D0D0")
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -129,23 +132,20 @@ func TestGetEvents(t *testing.T) {
 	bodyBytes, err := io.ReadAll(result.Body)
 	assert.Nil(err)
 
-	expectedResponse := `{"data":[{"id":"event-1","title":"test event 1",
-						  "start":"2023-02-27T00:00:00+03:00","end":"2023-03-06T00:00:00+03:00",
-						  "attendees":null,"created":"2023-03-05T21:00:00Z","owner":"owner_id",
-						  "channel":"channel-id","recurrence":[]},{"id":"event-2","title":"test event 2",
-						  "start":"2023-02-27T00:00:00+03:00","end":"2023-03-06T00:00:00+03:00",
-						  "attendees":null,"created":"2023-03-05T21:00:00Z","owner":"owner_id",
-						  "channel":"channel-id","recurrence":[]},{"id":"event-3",
-						  "title":"test event 3","start":"2023-02-27T00:00:00+03:00",
-					      "end":"2023-03-06T00:00:00+03:00","attendees":null,
-						  "created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
-						  "recurrence":[1,2,3]},{"id":"event-3","title":"test event 3",
-					      "start":"2023-02-28T00:00:00+03:00","end":"2023-03-07T00:00:00+03:00",
-					      "attendees":null,"created":"2023-03-05T21:00:00Z","owner":"owner_id",
-						  "channel":"channel-id","recurrence":[1,2,3]},{"id":"event-3",
-						  "title":"test event 3","start":"2023-03-01T00:00:00+03:00",
-					      "end":"2023-03-08T00:00:00+03:00","attendees":null,
-						  "created":"2023-03-05T21:00:00Z","owner":"owner_id",
-						  "channel":"channel-id","recurrence":[1,2,3]}]}`
+	expectedResponse := `{"data":[{"id":"event-1","title":"test event 1","start":"2023-02-27T00:00:00+03:00",
+						 "end":"2023-03-06T00:00:00+03:00","attendees":null,"created":"2023-03-05T21:00:00Z",
+						 "owner":"owner_id","channel":"channel-id","recurrence":[],"color":"#D0D0D0"},{"id":"event-2",
+						 "title":"test event 2","start":"2023-02-27T00:00:00+03:00","end":"2023-03-06T00:00:00+03:00",
+						 "attendees":null,"created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
+						 "recurrence":[],"color":"#D0D0D0"},{"id":"event-3","title":"test event 3",
+					     "start":"2023-02-27T00:00:00+03:00","end":"2023-03-06T00:00:00+03:00","attendees":null,
+						 "created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
+						 "recurrence":[1,2,3],"color":"#D0D0D0"},{"id":"event-3","title":"test event 3",
+						 "start":"2023-02-28T00:00:00+03:00","end":"2023-03-07T00:00:00+03:00","attendees":null,
+						 "created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
+						 "recurrence":[1,2,3],"color":"#D0D0D0"},{"id":"event-3","title":"test event 3",
+						 "start":"2023-03-01T00:00:00+03:00","end":"2023-03-08T00:00:00+03:00","attendees":null,
+						 "created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
+						 "recurrence":[1,2,3],"color":"#D0D0D0"}]}`
 	assert.JSONEq(string(bodyBytes), expectedResponse)
 }
