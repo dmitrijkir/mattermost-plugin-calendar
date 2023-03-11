@@ -44,6 +44,11 @@ func (p *Plugin) OnActivate() error {
 	db := initDb(*config.SqlSettings.DriverName, *config.SqlSettings.DataSource)
 	p.SetDB(db)
 
+	migrator := newMigrator(db, p)
+	if errMigrate := migrator.migrate(); errMigrate != nil {
+		return errMigrate
+	}
+
 	command, err := p.createCalCommand()
 	if err != nil {
 		return err
@@ -92,8 +97,10 @@ func (p *Plugin) OnActivate() error {
 		botId = createdBot.UserId
 
 	}
+
 	p.SetBotId(botId)
-	go NewBackgroundJob(p, botId, db).Start()
+
+	go NewBackgroundJob(p, db).Start()
 	return nil
 }
 

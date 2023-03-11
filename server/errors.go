@@ -52,6 +52,13 @@ var (
 		Where:      PluginId,
 	}
 
+	CantMakeMigration = &model.AppError{
+		Id:         "cant_make_migration",
+		Message:    "cant_make_migration",
+		StatusCode: 500,
+		Where:      PluginId,
+	}
+
 	SomethingWentWrong = &model.AppError{
 		Id:         "something_went_wrong",
 		Message:    "Something went wrong",
