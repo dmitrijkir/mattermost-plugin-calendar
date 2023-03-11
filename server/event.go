@@ -27,7 +27,8 @@ func (p *Plugin) GetUserEvents(user *model.User, start, end string) (*[]Event, *
 											  ce."owner",
 											  ce."channel",
 											  ce.recurrent,
-											  ce.recurrence
+											  ce.recurrence,
+											  ce.color
 									   FROM calendar_events ce
 										    FULL JOIN calendar_members cm 
 										           ON ce.id = cm."event"
@@ -56,12 +57,16 @@ func (p *Plugin) GetUserEvents(user *model.User, start, end string) (*[]Event, *
 			p.API.LogError("Can't scan row to struct")
 			continue
 		}
+		if addedEvent[eventDb.Id] {
+			continue
+		}
 
 		eventDb.Start = eventDb.Start.In(userLoc)
 		eventDb.End = eventDb.End.In(userLoc)
 
-		if addedEvent[eventDb.Id] {
-			continue
+		if eventDb.Color == nil {
+			color := DefaultColor
+			eventDb.Color = &color
 		}
 
 		if eventDb.Recurrent {
@@ -156,6 +161,7 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
                                               ce."owner",
                                               ce."channel",
                                               ce.recurrence,
+                                              ce.color,
                                               cm."user"
                                        FROM   calendar_events ce
                                               LEFT JOIN calendar_members cm
@@ -204,6 +210,7 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
 		Owner:      eventDb.Owner,
 		Channel:    eventDb.Channel,
 		Recurrence: eventDb.Recurrence,
+		Color:      eventDb.Color,
 	}
 
 	userLoc := p.GetUserLocation(user)
@@ -326,7 +333,8 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
                                                    owner,
                                                    channel,
                                                    recurrent,
-                                                   recurrence)
+                                                   recurrence,
+                                                   color)
                                       VALUES      (:id,
                                                    :title,
                                                    :start,
@@ -335,7 +343,8 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
                                                    :owner,
                                                    :channel,
                                                    :recurrent,
-                                                   :recurrence) `, &event)
+                                                   :recurrence,
+                                                   :color) `, &event)
 
 	if errInsert != nil {
 		p.API.LogError(errInsert.Error())
@@ -478,7 +487,8 @@ func (p *Plugin) UpdateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 										    "end" = :end,
 										    channel = :channel,
 										    recurrence = :recurrence,
-										    recurrent = :recurrent
+										    recurrent = :recurrent,
+										    color = :color
                               			WHERE id = :id`,
 		&event)
 

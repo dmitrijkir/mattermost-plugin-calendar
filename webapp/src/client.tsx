@@ -15,6 +15,7 @@ export declare type GetEventResponse = {
     owner: string;
     channel?: string;
     recurrence: number[];
+    color?: string
 }
 
 export declare type GetEventsResponse = {
@@ -24,6 +25,7 @@ export declare type GetEventsResponse = {
     end: string;
     created: string;
     owner: string;
+    color?: string;
 }
 export declare type RemoveEventResponse = {
     success: boolean
@@ -100,7 +102,7 @@ export class ApiClient implements ApiClientInterface {
         let data = await response.json();
         return data;
     }
-    static async createEvent(title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string[]): Promise<ApiResponse<GetEventResponse>> {
+    static async createEvent(title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string[], color?: string): Promise<ApiResponse<GetEventResponse>> {
         let response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
             Client4.getOptions({
@@ -114,7 +116,8 @@ export class ApiClient implements ApiClientInterface {
                     "end": end,
                     "attendees": attendees,
                     "channel": channel,
-                    "recurrence": recurrence
+                    "recurrence": recurrence,
+                    "color": color,
                 })
             })
         )
@@ -123,7 +126,7 @@ export class ApiClient implements ApiClientInterface {
     }
 
 
-    static async updateEvent(id: string, title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string[]): Promise<ApiResponse<GetEventResponse>> {
+    static async updateEvent(id: string, title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string[], color?: string): Promise<ApiResponse<GetEventResponse>> {
         let response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/event`,
             Client4.getOptions({
@@ -138,7 +141,8 @@ export class ApiClient implements ApiClientInterface {
                     "end": end,
                     "attendees": attendees,
                     "channel": channel,
-                    "recurrence": recurrence
+                    "recurrence": recurrence,
+                    "color": color
                 })
             })
         )

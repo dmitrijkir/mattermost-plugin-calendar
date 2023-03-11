@@ -1,0 +1,1 @@
+ALTER TABLE calendar_events ADD color varchar(7)
