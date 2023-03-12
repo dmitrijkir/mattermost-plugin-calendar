@@ -59,6 +59,7 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 	background := NewBackgroundJob(pluginT, dbx)
 
 	postForSend.SetProps(background.getMessageProps(testEvent))
+
 	api.On("GetDirectChannel", testEvent.Owner, botId).Return(foundChannel, nil)
 	api.On("CreatePost", postForSend).Return(nil, nil)
 
@@ -125,7 +126,6 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 
 // process event with channel
 func TestProcessEventWithChannel(t *testing.T) {
-
 	botId := "bot-id"
 	api := plugintest.API{}
 
@@ -179,6 +179,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		Title:     "test event",
 		Attendees: []string{"user-Id"},
 	}
+
 	postForSendChannel.SetProps(background.getMessageProps(testEvent))
 
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
@@ -264,8 +265,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	)
 
 	postForSendGroup := &model.Post{
-		UserId: botId,
-		//Message:   ":dart: *tests event without channel* :dart:\n**members:** @userName, \n",
+		UserId:    botId,
 		ChannelId: "channel-id",
 	}
 
@@ -285,7 +285,9 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		Title:     "tests event without channel",
 		Attendees: []string{"user-id"},
 	}
+
 	postForSendGroup.SetProps(background.getMessageProps(testEvent))
+
 	api.On("CreatePost", postForSendGroup).Return(nil, nil)
 
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
