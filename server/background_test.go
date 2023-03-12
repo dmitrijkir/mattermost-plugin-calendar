@@ -35,14 +35,10 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 
 	postForSend := &model.Post{
 		UserId:    botId,
-		Message:   ":dart: *test event for channel* :dart:\n",
 		ChannelId: channelId,
 	}
 
 	api := plugintest.API{}
-
-	api.On("GetDirectChannel", testEvent.Owner, botId).Return(foundChannel, nil)
-	api.On("CreatePost", postForSend).Return(nil, nil)
 
 	pluginT := &Plugin{
 		BotId: botId,
@@ -61,6 +57,12 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 	dbx := sqlx.NewDb(db, "sqlmock")
 
 	background := NewBackgroundJob(pluginT, dbx)
+
+	postForSend.SetProps(background.getMessageProps(testEvent))
+
+	api.On("GetDirectChannel", testEvent.Owner, botId).Return(foundChannel, nil)
+	api.On("CreatePost", postForSend).Return(nil, nil)
+
 	background.sendGroupOrPersonalEventNotification(testEvent)
 
 }
@@ -90,7 +92,6 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 
 	postForSend := &model.Post{
 		UserId:    botId,
-		Message:   ":dart: *test event for channel* :dart:\n**members:** @userName, @userName, \n",
 		ChannelId: channelId,
 	}
 
@@ -100,7 +101,6 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 	attendees = append(attendees, botId)
 
 	api.On("GetGroupChannel", attendees).Return(foundChannel, nil)
-	api.On("CreatePost", postForSend).Return(nil, nil)
 	api.On("GetUser", "first-id").Return(&model.User{
 		Username: "userName",
 	}, nil)
@@ -118,12 +118,14 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 
 	background := NewBackgroundJob(pluginT, nil)
 
+	postForSend.SetProps(background.getMessageProps(testEvent))
+	api.On("CreatePost", postForSend).Return(nil, nil)
+
 	background.sendGroupOrPersonalEventNotification(testEvent)
 }
 
 // process event with channel
 func TestProcessEventWithChannel(t *testing.T) {
-
 	botId := "bot-id"
 	api := plugintest.API{}
 
@@ -162,7 +164,6 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	postForSendChannel := &model.Post{
 		UserId:    botId,
-		Message:   ":dart: *test event* :dart:\n**members:** @userName, \n",
 		ChannelId: "channel-id",
 	}
 
@@ -172,6 +173,14 @@ func TestProcessEventWithChannel(t *testing.T) {
 	}, nil)
 
 	background := NewBackgroundJob(pluginT, dbx)
+
+	testEvent := &Event{
+		Id:        "qwcw",
+		Title:     "test event",
+		Attendees: []string{"user-Id"},
+	}
+
+	postForSendChannel.SetProps(background.getMessageProps(testEvent))
 
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
 			SELECT ce.id,
@@ -183,7 +192,8 @@ func TestProcessEventWithChannel(t *testing.T) {
                    ce."channel",
                    cm."user",
                    ce.recurrent,
-                   ce.recurrence
+                   ce.recurrence,
+                   ce.color
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"
@@ -256,7 +266,6 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 
 	postForSendGroup := &model.Post{
 		UserId:    botId,
-		Message:   ":dart: *tests event without channel* :dart:\n**members:** @userName, \n",
 		ChannelId: "channel-id",
 	}
 
@@ -265,12 +274,21 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	}
 
 	api.On("GetGroupChannel", []string{"user-id", "owner-id", "bot-id"}).Return(foundChannel, nil)
-	api.On("CreatePost", postForSendGroup).Return(nil, nil)
 	api.On("GetUser", "user-id").Return(&model.User{
 		Username: "userName",
 	}, nil)
 
 	background := NewBackgroundJob(pluginT, dbx)
+
+	testEvent := &Event{
+		Id:        "",
+		Title:     "tests event without channel",
+		Attendees: []string{"user-id"},
+	}
+
+	postForSendGroup.SetProps(background.getMessageProps(testEvent))
+
+	api.On("CreatePost", postForSendGroup).Return(nil, nil)
 
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
 			SELECT ce.id,
@@ -282,7 +300,8 @@ func TestProcessEventWithoutChannel(t *testing.T) {
                    ce."channel",
                    cm."user",
                    ce.recurrent,
-                   ce.recurrence
+                   ce.recurrence,
+                   ce.color
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"

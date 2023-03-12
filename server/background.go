@@ -65,12 +65,12 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 			b.plugin.API.LogError(dChannelErr.Error())
 			return
 		}
-
-		_, postCreateError := b.plugin.API.CreatePost(&model.Post{
+		postModel := &model.Post{
 			UserId:    b.plugin.BotId,
-			Message:   b.getMessageFromEvent(event),
 			ChannelId: dChannel.Id,
-		})
+		}
+		postModel.SetProps(b.getMessageProps(event))
+		_, postCreateError := b.plugin.API.CreatePost(postModel)
 		if postCreateError != nil {
 			b.plugin.API.LogError(postCreateError.Error())
 			return
@@ -91,11 +91,14 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 		return
 	}
 
-	_, postCreateError := b.plugin.API.CreatePost(&model.Post{
+	postModel := &model.Post{
 		UserId:    b.plugin.BotId,
-		Message:   b.getMessageFromEvent(event),
 		ChannelId: foundChannel.Id,
-	})
+	}
+
+	postModel.SetProps(b.getMessageProps(event))
+
+	_, postCreateError := b.plugin.API.CreatePost(postModel)
 	if postCreateError != nil {
 		b.plugin.API.LogError(postCreateError.Error())
 		return
@@ -125,7 +128,8 @@ func (b *Background) process(t *time.Time) {
                    ce."channel",
                    cm."user",
                    ce.recurrent,
-                   ce.recurrence
+                   ce.recurrence,
+                   ce.color
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"
@@ -191,6 +195,7 @@ func (b *Background) process(t *time.Time) {
 				Channel:    eventDb.Channel,
 				Recurrence: eventDb.Recurrence,
 				Recurrent:  false,
+				Color:      eventDb.Color,
 			}
 
 		}
@@ -198,11 +203,13 @@ func (b *Background) process(t *time.Time) {
 
 	for _, value := range events {
 		if value.Channel != nil {
-			_, postErr := b.plugin.API.CreatePost(&model.Post{
+			postModel := &model.Post{
 				ChannelId: *value.Channel,
-				Message:   b.getMessageFromEvent(value),
 				UserId:    b.plugin.BotId,
-			})
+			}
+
+			postModel.SetProps(b.getMessageProps(value))
+			_, postErr := b.plugin.API.CreatePost(postModel)
 			if postErr != nil {
 				b.plugin.API.LogError(postErr.Error())
 				continue
@@ -226,6 +233,22 @@ func (b *Background) process(t *time.Time) {
 
 	}
 
+}
+
+func (b *Background) getMessageProps(event *Event) model.StringInterface {
+	color := DefaultColor
+	if event.Color == nil {
+		event.Color = &color
+	}
+
+	slackAttachment := model.SlackAttachment{
+		Text:  b.getMessageFromEvent(event),
+		Color: *event.Color,
+	}
+
+	return model.StringInterface{
+		"attachments": []*model.SlackAttachment{&slackAttachment},
+	}
 }
 
 func NewBackgroundJob(plugin *Plugin, db *sqlx.DB) *Background {
