@@ -1,15 +1,15 @@
 import FullCalendar from '@fullcalendar/react'
 import enLocale from '@fullcalendar/core/locales/en-gb';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import CalendarRef from './calendar';
 import getSiteURL from './utils';
 import interactionPlugin from '@fullcalendar/interaction';
-import { useDispatch, useSelector } from 'react-redux';
-import { eventSelected, openEventModal } from 'actions';
-import { Client4 } from 'mattermost-redux/client';
-import { id as PluginId } from '../manifest';
-import {getTheme} from  "mattermost-redux/selectors/entities/preferences";
+import {useDispatch, useSelector} from 'react-redux';
+import {eventSelected, openEventModal} from 'actions';
+import {Client4} from 'mattermost-redux/client';
+import {id as PluginId} from '../manifest';
+import {getTheme} from "mattermost-redux/selectors/entities/preferences";
 
 
 const eventDataTransformation = (content, response) => {
@@ -25,7 +25,7 @@ const onDateTimeSelected = (dateTimeSelectInfo, dispatch) => {
         }
     }));
     dispatch(openEventModal())
-    
+
 }
 
 const CalendarContent = () => {
@@ -67,7 +67,12 @@ const CalendarContent = () => {
             selectable={true}
             timeZone={userTimezone}
             handleWindowResize={true}
-            // nowIndicatorClassNames=""
+            headerToolbar={{
+                start: 'today,prev,next',
+                center: 'title',
+                end: ''
+            }}
+            nowIndicatorClassNames="now-indicator"
             // now={() => {
             //     return new Date()
             // }}
@@ -79,7 +84,7 @@ const CalendarContent = () => {
 
             //     }
             // }}
-            dayHeaderFormat={{ weekday: 'long', day: 'numeric', omitCommas: true }}
+            dayHeaderFormat={{day: 'numeric', weekday: 'short', omitCommas: true}}
             // weekends={true}
             // weekNumberCalculation="ISO"
             // firstDay={1}
@@ -91,7 +96,20 @@ const CalendarContent = () => {
             eventBackgroundColor={theme.sidebarHeaderBg}
             eventBorderColor={theme.sidebarHeaderBg}
             eventTextColor={theme.sidebarHeaderTextColor}
-            
+
+            dayHeaderContent={(props) => {
+                function dayOfWeekAsString(dayIndex: number) {
+                    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dayIndex] || '';
+                }
+
+                return <>
+                    <div className={`custom-day-header  ${props.isToday ? "custom-day-today" : ""}`}>
+                        <div className='custom-day-header-day'>{props.date.getDate()}</div>
+                        <div className='custom-day-header-weekday'>{dayOfWeekAsString(props.date.getDay())}</div>
+                    </div>
+                </>
+            }}
+            dayCellClassNames="custom-day-cell"
             ref={CalendarRef}
             // headerToolbar={{
             //     left: 'prev,next today',
@@ -110,7 +128,7 @@ const CalendarContent = () => {
     return (
         <div>
             <div className='calendar-main-greed'>
-                <CalendarComponent />
+                <CalendarComponent/>
             </div>
         </div>
     );

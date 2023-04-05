@@ -31,35 +31,45 @@
 } */
 .datetime-container {
     display: flex;
+    align-items: flex-start;
     margin-top: 15px;
 
 }
 
 .datetime-container>i {
     color: var(--sidebar-teambar-bg);
+    width: 20px;
 }
 
 .event-title-container {
     display: flex;
+    align-items: center;
 }
 
 .event-title-container>i {
-    color: var(--sidebar-teambar-bg);
+    width: 20px;
 }
 
 .event-add-users-container {
     display: flex;
+    align-items: center;
     margin-top: 15px;
 }
 
 .event-add-users-container>i {
     color: var(--sidebar-teambar-bg);
+    width: 20px;
 }
 
 .event-input-container {
-    padding-left: 30px;
     width: 100%;
     display: flex;
+    padding-left: 30px
+}
+
+.event-input-title {
+    padding-left: 0px !important;
+    width: 95%;
 }
 
 .event-input-container>i {
@@ -68,9 +78,9 @@
 
 .calendar-header-container {
     display: flex;
-    justify-content: flex-end;
+    justify-content: flex-start;
     padding-top: 20px;
-    padding-right: 20px;
+    padding-left: 20px;
 }
 
 .create-event-button-inner-container {
@@ -78,11 +88,12 @@
 }
 
 .add-users-list {
-    width: 100%;
+    width: 95%;
     top: 37px;
     position: absolute;
     background-color: #ffffff;
     border: solid 1px #ccc;
+    border-radius: 4px;
     z-index: 10;
     overflow-y: auto;
     max-height: 190px;
@@ -94,20 +105,25 @@
     width: 100%;
 }
 
+.event-input-users {
+    width: 95%;
+}
+
 .added-user-badge-container {
-    padding: 5px;
-    padding-left: 15px;
     padding-right: 15px;
-    background-color: var(--sidebar-bg);
-    border-radius: 25px;
+    background-color: var(--colorNeutralBackground1Hover);
+    border-radius: 1.5rem;
     color: var(--sidebar-text);
     width: auto;
     display: flex;
     margin-top: 3px;
+    align-items: center;
 }
 
-.added-user-badge-container>i {
-    margin-left: 7px;
+.added-user-badge-icon-container {
+    color: var(--colorNeutralForeground1);
+    margin-left: 12px;
+    cursor: pointer;
 }
 
 .added-users-list {
@@ -117,17 +133,6 @@
     flex-wrap: wrap;
 }
 
-.user-list-item {
-    padding-top: 5px;
-    padding-bottom: 5px;
-    padding-left: 5px;
-    background-color: #ffffff;
-    cursor: pointer;
-}
-
-.user-list-item:hover {
-    background-color: #f0f0f1;
-}
 
 .create-event-form {
     padding-bottom: 70px;
@@ -138,12 +143,91 @@
 /* ///////////////////////////// */
 
 .calendar-main-greed {
-    --fc-button-bg-color: var(--sidebar-teambar-bg) !important;
-    --fc-button-hover-bg-color: var(--sidebar-text-hover-bg) !important;
-    --fc-button-text-color: var(--sidebar-text) !important;
+    --fc-button-bg-color: var(--colorNeutralBackground1) !important;
+    --fc-button-hover-bg-color: var(--colorNeutralBackground1Hover) !important;
+    --fc-button-text-color: var(--colorNeutralForeground1) !important;
+
     --fc-event-text-color: rgba(var(--global-header-text-rgb), 0.9) !important;
-    /* --fc-border-color: var(--sidebar-text-hover-bg) !important; */
     --fc-border-color: rgba(var(--center-channel-color-rgb), 0.16) !important;
+
+    --fc-now-indicator-color: var(--colorBrandBackground) !important;
+}
+
+/* calendar toolbar */
+
+.fc .fc-toolbar {
+    justify-content: flex-start !important;
+
+}
+.fc-toolbar-chunk {
+    margin-right: 20px;
+}
+/* end calrndar toolbar */
+
+/* day header */
+.custom-day-header {
+    display: flex;
+    align-items: baseline;
+    padding-top: 12px;
+    padding-bottom: 3px;
+    font-weight: 400;
+}
+
+.custom-day-header-day {
+    margin-right: 8px;
+    font-size: 20px;
+    color: var(--neutralPrimaryAlt)
+}
+
+.custom-day-today {
+    color: var(--colorBrandBackground);
+    font-weight: 600;
+}
+
+.fc-day-today {
+    position: relative !important;
+}
+
+.fc-day-today > .fc-scrollgrid-sync-inner::after {
+    border-top: 4px solid;
+    border-color: var(--colorBrandBackground);
+    box-sizing: border-box;
+    content: "";
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+}
+
+/* end day header */
+
+/* calendar now indicator */
+.fc .fc-timegrid-now-indicator-line {
+    border-width: 3px 0px 0px !important;
+
+}
+.fc .fc-timegrid-now-indicator-line::before {
+    background-color: var(--colorBrandBackground);
+    content: "";
+    display: block;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    margin-top: -8px;
+    /* /* margin-left: -7px; */
+}
+
+/* end calrndar now indicator */
+.fc .fc-timegrid-col.fc-day-today {
+    background-color: inherit !important;
+}
+.fc .fc-col-header-cell-cushion {
+    color: var(--colorNeutralForeground1) !important;
+    font-weight: 300;
+}
+
+.fc .fc-col-header-cell-cushion {
+    text-decoration: none;
 }
 
 table {
@@ -154,6 +238,7 @@ table {
     color: #3C4043;
     font-weight: 600;
 }
+
 .fc-event-time {
     color: #3C4043;
 }
@@ -171,6 +256,10 @@ table {
     padding-left: 6px;
     padding-right: 6px;
     margin: auto;
+}
+
+.date-arrow>i {
+    width: 10px;
 }
 
 .create-event-modal-title {
@@ -197,8 +286,9 @@ table {
 
 .recurrence-container {
     display: flex;
-    padding-left: 45px;
+    padding-left: 0px;
     margin-top: 10px;
+    position: relative;
 }
 
 .form-check-days {
@@ -215,12 +305,17 @@ table {
 
 .event-channel-container>i {
     color: var(--sidebar-teambar-bg);
+    width: 20px;
 }
 
 .event-channel-input-container {
     padding-left: 30px;
     width: 100%;
     display: flex;
+}
+
+.event-channel-input {
+    width: 95%;
 }
 
 .event-input-channel-wrapper {
@@ -230,11 +325,12 @@ table {
 }
 
 .add-channels-list {
-    width: 100%;
+    width: 95%;
     top: 37px;
     position: absolute;
     background-color: #fff;
     border: solid 1px #ccc;
+    border-radius: 4px;
     z-index: 10;
     overflow-y: auto;
     max-height: 150px;
@@ -252,8 +348,10 @@ table {
     display: flex;
     margin-top: 15px;
 }
+
 .event-color-container>i {
     color: var(--sidebar-teambar-bg);
+    width: 20px;
 }
 
 .event-color-button {
@@ -261,10 +359,12 @@ table {
     width: 100%;
     display: flex;
 }
+
 .dropdown-menu-color {
     width: 40px;
     min-width: 40px !important;
 }
+
 .event-color-items {
     display: block;
     color: #fff !important;
@@ -273,37 +373,130 @@ table {
     border-radius: 2px;
     margin-bottom: 5px;
 }
+
 .event-color-red>i {
     color: #D50000;
 }
+
 .event-color-green>i {
     color: #0B8043;
 }
+
 .event-color-blue>i {
     color: #039BE5;
 }
+
 .event-color-yellow>i {
     color: #F6BF26;
 }
+
 .event-color-default>i {
     color: #616161;
 }
+
 .dropdown-color-button {
     background-color: var(--center-channel-bg);
     border: unset;
     width: 50px;
 }
+
 .dropdown-color-button:hover {
     background-color: unset;
     border: unset;
     opacity: 1;
-    background: rgba(0,0,0,.1);
+    background: rgba(0, 0, 0, .1);
 }
+
 .dropdown-color-button:active {
     background-color: unset;
     border: unset;
 }
+
 .fa-sort-down-color {
     margin-top: -3px;
     color: #6c757d;
+}
+
+.time-selector {
+    margin-left: 5px;
+}
+
+
+/* repeat */
+
+.repeat-container {
+    padding-left: 53px;
+    margin-top: 10px;
+}
+
+.repeat-select {
+    width: 140px;
+}
+
+.repeat-type-selector {
+    margin-top: 10px;
+    width: 140px;
+}
+
+.repeat-every-input {
+    margin-top: 10px;
+    width: 140px;
+    margin-left: 5px;
+}
+
+.repeat-type-select-container {
+    display: flex;
+    align-items: baseline;
+}
+
+.repeat-type-containe {
+    display: block;
+}
+.repeat-every-label {
+    margin-left: 7px;
+}
+
+/* end repeat */
+
+/* fl ui */
+.event-input-container-datetime {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.datetime-group {
+    display: flex;
+}
+
+.datetime-group-end {
+    margin-top: 8px;
+}
+
+.weekday-day-button {
+    border: none;
+    border-radius: 50%;
+    font-size: 14px !important;
+    height: 32px !important;
+    margin-right: 5px !important;
+    min-width: 0 !important;
+    padding: 0;
+    width: 32px !important;
+    --colorNeutralBackground1Selected: var(--colorBrandBackground) !important;
+    --colorNeutralBackground1Hover: var(--colorBrandBackground) !important;
+    --colorNeutralForeground1Hover: #fff !important;
+    --colorNeutralForeground1Selected: #fff !important;
+}
+
+.modal-container {
+    /* padding-top: 15px !important; */
+    /* padding-bottom: 80px !important; */
+}
+
+.event-modal {
+    min-height: 335px;
+}
+
+.calendar-full-content {
+    
 }

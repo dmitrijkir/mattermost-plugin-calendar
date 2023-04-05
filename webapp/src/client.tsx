@@ -102,7 +102,7 @@ export class ApiClient implements ApiClientInterface {
         let data = await response.json();
         return data;
     }
-    static async createEvent(title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string[], color?: string): Promise<ApiResponse<GetEventResponse>> {
+    static async createEvent(title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string, color?: string): Promise<ApiResponse<GetEventResponse>> {
         let response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
             Client4.getOptions({
@@ -126,7 +126,7 @@ export class ApiClient implements ApiClientInterface {
     }
 
 
-    static async updateEvent(id: string, title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string[], color?: string): Promise<ApiResponse<GetEventResponse>> {
+    static async updateEvent(id: string, title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string, color?: string): Promise<ApiResponse<GetEventResponse>> {
         let response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/event`,
             Client4.getOptions({
