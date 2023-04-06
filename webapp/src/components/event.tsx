@@ -220,8 +220,11 @@ const EventModalComponent = () => {
         setSelectedChannelText('');
         setSelectedChannel({});
         setSearchUsersInput('');
-        setShowCustomRepeat(false);
 
+        // repeat state
+        setShowCustomRepeat(false);
+        setRepeatOptionsSelected(['empty']);
+        setRepeatOption('Don\'t repeat');
         repeatRule.current = '';
 
         setSelectedChannel({});

@@ -1,26 +1,19 @@
-import React, {useEffect, useState} from 'react';
-import CalendarContent from 'components/calendar-content';
-import HeaderComponent from 'components/header';
+import React, {useEffect} from 'react';
+
+import {FluentProvider, webDarkTheme, webLightTheme} from '@fluentui/react-components';
+import {useSelector} from 'react-redux';
+import {getTheme} from 'mattermost-redux/selectors/entities/preferences';
+import {Theme} from 'mattermost-redux/types/preferences';
+
 import EventModalComponent from 'components/event';
-import {FluentProvider, webLightTheme, webDarkTheme} from '@fluentui/react-components';
-import {useSelector} from "react-redux";
-import {getTheme} from "mattermost-redux/selectors/entities/preferences";
+import HeaderComponent from 'components/header';
+import CalendarContent from 'components/calendar-content';
 
 const MainApp = () => {
-    const theme = useSelector(getTheme);
-    const [selectedTheme, setSelectedTheme] = useState(webLightTheme);
-
-    useEffect(() => {
-        if (['quartz', 'denim', 'sapphire'].includes(theme.type)) {
-            setSelectedTheme(webLightTheme);
-        } else {
-            setSelectedTheme(webDarkTheme);
-        }
-    }, [theme]);
-
+    const theme: Theme = useSelector(getTheme);
     return (
         <FluentProvider
-            theme={selectedTheme}
+            theme={['indigo', 'Onyx'].includes(theme.type!) ? webDarkTheme : webLightTheme}
             className='calendar-full-content'
         >
             <EventModalComponent/>
