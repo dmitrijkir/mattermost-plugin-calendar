@@ -10,10 +10,11 @@ import {selectIsOpenEventModal, selectSelectedEvent} from 'selectors';
 import {closeEventModal, eventSelected} from 'actions';
 import {getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
 import {getUserStatuses} from 'mattermost-redux/selectors/entities/users';
-import {getTeammateNameDisplaySetting, getTheme} from "mattermost-redux/selectors/entities/preferences";
+import {getTeammateNameDisplaySetting} from "mattermost-redux/selectors/entities/preferences";
 import RepeatEventCustom from './repeat-event';
 import {
     ChatMultiple24Regular,
+    Circle20Filled,
     Clock24Regular,
     Delete16Regular,
     Dismiss12Regular,
@@ -29,6 +30,7 @@ import {
     DialogBody,
     DialogContent,
     DialogSurface,
+    DialogTitle,
     DialogTrigger,
     Input,
     Option,
@@ -168,8 +170,6 @@ const EventModalComponent = () => {
 
     const displayNameSettings = useSelector(getTeammateNameDisplaySetting);
 
-    const theme = useSelector(getTheme);
-
     const CurrentTeamId = useSelector(getCurrentTeamId);
     const UserStatusSelector = useSelector(getUserStatuses);
 
@@ -180,10 +180,11 @@ const EventModalComponent = () => {
 
     const [usersAutocomplete, setUsersAutocomplete] = useState<UserProfile[]>([]);
     const [usersAdded, setUsersAdded] = useState<UserProfile[]>([]);
-    // const UserInputRef = useRef();
 
     const [searchUsersInput, setSearchUsersInput] = useState('');
+
     const [selectedColor, setSelectedColor] = useState('#D0D0D0');
+    const [selectedColorStyle, setSelectedColorStyle] = useState('event-color-default');
 
     const [channelsAutocomplete, setChannelsAutocomplete] = useState<Channel[]>([]);
     const [selectedChannel, setSelectedChannel] = useState({});
@@ -323,12 +324,17 @@ const EventModalComponent = () => {
         viewEventModalHandleClose();
     };
 
-    const onSelectColor = (color: string | null) => {
-        if (color == null) {
-            setSelectedColor('#D0D0D0');
-            return;
-        }
-        setSelectedColor(color);
+    const colorsMap: { [name: string]: string } = {
+        '': 'event-color-default',
+        'default': 'event-color-default',
+        '#F2B3B3': 'event-color-red',
+        '#FCECBE': 'event-color-yellow',
+        '#B6D9C7': 'event-color-green',
+        '#B3E1F7': 'event-color-blue',
+    };
+    const onSelectColor = (event: SelectionEvents, data: OptionOnSelectData) => {
+        setSelectedColor(data.optionValue!);
+        setSelectedColorStyle(colorsMap[data.optionValue!]);
     };
 
     useEffect(() => {
@@ -344,6 +350,7 @@ const EventModalComponent = () => {
                 setStartEventTime(data.data.start.split('T')[1].split(':')[0] + ':' + data.data.start.split('T')[1].split(':')[1]);
                 setEndEventTime(data.data.end.split('T')[1].split(':')[0] + ':' + data.data.end.split('T')[1].split(':')[1]);
                 setSelectedColor(data.data.color!);
+                setSelectedColorStyle(colorsMap[data.data.color!]);
 
                 if (data.data.recurrence != null) {
                     // setSelectedDays(data.data.recurrence);
@@ -429,10 +436,15 @@ const EventModalComponent = () => {
 
     const RemoveEventButton = () => {
         if (selectedEvent?.event?.id != null) {
-            return <DialogTrigger disableButtonEnhancement>
-                <Button appearance="secondary" icon={<Delete16Regular/>}
-                        onClick={viewEventModalHandleClose}>Remove</Button>
-            </DialogTrigger>
+            return (<DialogActions position='star'>
+                <Button
+                    appearance='outline'
+                    icon={<Delete16Regular/>}
+                    onClick={viewEventModalHandleClose}
+                >
+                    Remove
+                </Button>
+            </DialogActions>);
 
         }
         return <></>
@@ -456,7 +468,57 @@ const EventModalComponent = () => {
         <Dialog open={isOpenEventModal}>
             <DialogSurface>
                 <DialogBody className='event-modal'>
+                    <DialogTitle className='event-modal-title'/>
                     <DialogContent className='modal-container'>
+                        <div className='event-color-button'>
+                            <Combobox
+                                onOptionSelect={onSelectColor}
+                                className={`dropdown-color-button ${selectedColorStyle}`}
+                                style={{color: selectedColor, borderColor: 'unset'}}
+                                defaultSelectedOptions={['default']}
+                                expandIcon={<Circle20Filled className={selectedColorStyle}/>}
+                                width='50px'
+                                listbox={{
+                                    className: 'dropdown-color-button-listbox',
+                                }}
+                            >
+                                <Option
+                                    key='default'
+                                    text='default'
+                                    className='event-color-items event-color-default'
+                                >
+                                    <i className='icon fa fa-circle'/>
+                                </Option>
+                                <Option
+                                    key='default'
+                                    text='#F2B3B3'
+                                    className='event-color-items event-color-red'
+                                >
+                                    <i className='icon fa fa-circle'/>
+                                </Option>
+                                <Option
+                                    key='default'
+                                    text='#FCECBE'
+                                    className='event-color-items event-color-yellow'
+                                >
+                                    <i className='icon fa fa-circle'/>
+                                </Option>
+                                <Option
+                                    key='default'
+                                    text='#B6D9C7'
+                                    className='event-color-items event-color-green'
+                                >
+                                    <i className='icon fa fa-circle'/>
+                                </Option>
+                                <Option
+                                    key='default'
+                                    text='#B3E1F7'
+                                    className='event-color-items event-color-blue'
+                                >
+                                    <i className='icon fa fa-circle'/>
+                                </Option>
+                            </Combobox>
+                        </div>
                         <div className='event-title-container'>
                             <Pen24Regular/>
                             <div className='event-input-container'>
@@ -536,7 +598,7 @@ const EventModalComponent = () => {
                                         onChange={onInputUserAction}
                                         onOptionSelect={(event, data) => {
                                             usersAutocomplete.map((user) => {
-                                                if (user.id === data.optionValue) {
+                                                if (user.id === data.optionValue && !usersAdded.includes(user)) {
                                                     setUsersAdded(usersAdded.concat([user]));
                                                     return;
                                                 }
@@ -606,8 +668,8 @@ const EventModalComponent = () => {
                         </div>
 
                     </DialogContent>
-                    <DialogActions>
-                        <RemoveEventButton/>
+                    <RemoveEventButton/>
+                    <DialogActions position='end'>
                         <DialogTrigger disableButtonEnhancement>
                             <Button
                                 appearance='secondary'
@@ -627,7 +689,8 @@ const EventModalComponent = () => {
                 </DialogBody>
             </DialogSurface>
         </Dialog>
-    );
+    )
+        ;
 };
 
 export default EventModalComponent;

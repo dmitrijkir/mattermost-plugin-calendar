@@ -11,22 +11,13 @@ import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 
 import {id as PluginId} from '../manifest';
 import {eventSelected, openEventModal} from 'actions';
+import {DateSelectArg, EventClickArg} from '@fullcalendar/common';
 
 import getSiteURL from './utils';
 import CalendarRef from './calendar';
 
 const eventDataTransformation = (content, response) => {
     return content.data;
-};
-
-const onDateTimeSelected = (dateTimeSelectInfo, dispatch) => {
-    dispatch(eventSelected({
-        event: {
-            start: dateTimeSelectInfo.start.toISOString(),
-            end: dateTimeSelectInfo.end.toISOString(),
-        },
-    }));
-    dispatch(openEventModal());
 };
 
 const CalendarContent = () => {
@@ -43,8 +34,18 @@ const CalendarContent = () => {
     useEffect(() => {
     }, [user]);
 
-    const onEventClicked = (eventInfo) => {
+    const onEventClicked = (eventInfo: EventClickArg) => {
         dispatch(eventSelected(eventInfo));
+        dispatch(openEventModal());
+    };
+
+    const onDateTimeSelected = (dateTimeSelectInfo: DateSelectArg) => {
+        dispatch(eventSelected({
+            event: {
+                start: dateTimeSelectInfo.start.toISOString(),
+                end: dateTimeSelectInfo.end.toISOString(),
+            },
+        }));
         dispatch(openEventModal());
     };
 
@@ -66,7 +67,7 @@ const CalendarContent = () => {
                         end: '',
                     }}
                     nowIndicatorClassNames='now-indicator'
-                    select={(info) => onDateTimeSelected(info, dispatch)}
+                    select={(info: DateSelectArg) => onDateTimeSelected(info)}
                     dayHeaderFormat={{day: 'numeric', weekday: 'short', omitCommas: true}}
                     nowIndicator={true}
                     locales={[enLocale]}

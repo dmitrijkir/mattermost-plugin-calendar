@@ -13,7 +13,7 @@
 
 }
 
-.modal-view-event>.modal-content {
+.modal-view-event > .modal-content {
     background-color: var(--center-channel-bg) !important;
     color: var(--center-channel-bg) !important;
 }
@@ -22,7 +22,7 @@
     opacity: 0.5 !important;
 }
 
-.input-group>a {
+.input-group > a {
     display: block;
 }
 
@@ -36,7 +36,7 @@
 
 }
 
-.datetime-container>i {
+.datetime-container > i {
     color: var(--sidebar-teambar-bg);
     width: 20px;
 }
@@ -46,7 +46,7 @@
     align-items: center;
 }
 
-.event-title-container>i {
+.event-title-container > i {
     width: 20px;
 }
 
@@ -56,7 +56,7 @@
     margin-top: 15px;
 }
 
-.event-add-users-container>i {
+.event-add-users-container > i {
     color: var(--sidebar-teambar-bg);
     width: 20px;
 }
@@ -72,7 +72,7 @@
     width: 95%;
 }
 
-.event-input-container>i {
+.event-input-container > i {
     color: var(--sidebar-teambar-bg);
 }
 
@@ -159,9 +159,11 @@
     justify-content: flex-start !important;
 
 }
+
 .fc-toolbar-chunk {
     margin-right: 20px;
 }
+
 /* end calrndar toolbar */
 
 /* day header */
@@ -206,6 +208,7 @@
     border-width: 3px 0px 0px !important;
 
 }
+
 .fc .fc-timegrid-now-indicator-line::before {
     background-color: var(--colorBrandBackground);
     content: "";
@@ -221,6 +224,7 @@
 .fc .fc-timegrid-col.fc-day-today {
     background-color: inherit !important;
 }
+
 .fc .fc-col-header-cell-cushion {
     color: var(--colorNeutralForeground1) !important;
     font-weight: 300;
@@ -243,7 +247,7 @@ table {
     color: #3C4043;
 }
 
-.fc-col-header-cell-cushion>a {
+.fc-col-header-cell-cushion > a {
     color: var(--sidebar-text) !important;
 }
 
@@ -258,13 +262,13 @@ table {
     margin: auto;
 }
 
-.date-arrow>i {
+.date-arrow > i {
     width: 10px;
 }
 
-.create-event-modal-title {
-    color: var(--global-header-text-rgb);
-    font-weight: bold;
+.event-modal-title {
+    display: flex;
+    flex-direction: row-reverse;
 }
 
 .close {
@@ -303,7 +307,7 @@ table {
     margin-top: 15px;
 }
 
-.event-channel-container>i {
+.event-channel-container > i {
     color: var(--sidebar-teambar-bg);
     width: 20px;
 }
@@ -349,15 +353,16 @@ table {
     margin-top: 15px;
 }
 
-.event-color-container>i {
+.event-color-container > i {
     color: var(--sidebar-teambar-bg);
     width: 20px;
 }
 
 .event-color-button {
-    padding-left: 31px;
-    width: 100%;
-    display: flex;
+    border: unset;
+    position: absolute;
+    right: 8px;
+    top: 5px;
 }
 
 .dropdown-menu-color {
@@ -366,52 +371,62 @@ table {
 }
 
 .event-color-items {
-    display: block;
-    color: #fff !important;
-    margin-right: 7px;
-    margin-left: 7px;
-    border-radius: 2px;
-    margin-bottom: 5px;
+
 }
 
-.event-color-red>i {
+.event-color-red {
+    color: #D50000;
+}
+.event-color-red > i {
     color: #D50000;
 }
 
-.event-color-green>i {
+.event-color-green {
+    color: #0B8043;
+}
+.event-color-green > i {
     color: #0B8043;
 }
 
-.event-color-blue>i {
+.event-color-blue {
+    color: #039BE5;
+}
+.event-color-blue > i {
     color: #039BE5;
 }
 
-.event-color-yellow>i {
+.event-color-yellow {
+    color: #F6BF26;
+}
+.event-color-yellow > i {
     color: #F6BF26;
 }
 
-.event-color-default>i {
+.event-color-default {
+    color: #616161;
+}
+.event-color-default > i {
     color: #616161;
 }
 
 .dropdown-color-button {
-    background-color: var(--center-channel-bg);
-    border: unset;
-    width: 50px;
+    min-width: 18px !important;
+    width: 16px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: unset !important;
 }
 
-.dropdown-color-button:hover {
-    background-color: unset;
-    border: unset;
-    opacity: 1;
-    background: rgba(0, 0, 0, .1);
+.dropdown-color-button > input {
+    visibility: hidden;
 }
-
-.dropdown-color-button:active {
-    background-color: unset;
-    border: unset;
+.dropdown-color-button-listbox {
+    min-width: 60px !important;
+    left: 115px !important;
 }
-
 .fa-sort-down-color {
     margin-top: -3px;
     color: #6c757d;
@@ -452,6 +467,7 @@ table {
 .repeat-type-containe {
     display: block;
 }
+
 .repeat-every-label {
     margin-left: 7px;
 }
@@ -491,12 +507,18 @@ table {
 .modal-container {
     /* padding-top: 15px !important; */
     /* padding-bottom: 80px !important; */
+    /*margin-top: 10px;*/
 }
 
 .event-modal {
     min-height: 335px;
+    margin-top: 10px;
+}
+
+.modal-container::-webkit-scrollbar {
+    width: 5px;
 }
 
 .calendar-full-content {
-    
+
 }
