@@ -49,6 +49,10 @@ func (p *Plugin) OnActivate() error {
 		return errMigrate
 	}
 
+	if errMigrate := migrator.migrateLegacyRecurrentEvents(); errMigrate != nil {
+		return errMigrate
+	}
+
 	command, err := p.createCalCommand()
 	if err != nil {
 		return err

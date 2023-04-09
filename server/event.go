@@ -5,8 +5,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/teambition/rrule-go"
 	"net/http"
-	"time"
+	time "time"
 )
 
 func (p *Plugin) GetUserEvents(user *model.User, start, end string) (*[]Event, *model.AppError) {
@@ -45,7 +46,6 @@ func (p *Plugin) GetUserEvents(user *model.User, start, end string) (*[]Event, *
 	}
 
 	addedEvent := map[string]bool{}
-	recurrenEvents := map[int][]Event{}
 
 	for rows.Next() {
 
@@ -70,40 +70,62 @@ func (p *Plugin) GetUserEvents(user *model.User, start, end string) (*[]Event, *
 		}
 
 		if eventDb.Recurrent {
-			for _, recurrentDay := range *eventDb.Recurrence {
-				recurrenEvents[recurrentDay] = append(recurrenEvents[recurrentDay], eventDb)
+			eventRule, errRrule := rrule.StrToRRule(eventDb.Recurrence)
+			if errRrule != nil {
+				p.API.LogError(errRrule.Error())
+				continue
 			}
-			addedEvent[eventDb.Id] = true
-			continue
-		}
+			eventRule.DTStart(eventDb.Start)
+			eventStartUtc := startEventLocal.In(utcLoc)
+			eventDates := eventRule.Between(
+				time.Date(
+					eventStartUtc.Year(),
+					eventStartUtc.Month(),
+					eventStartUtc.Day(),
+					0,
+					0,
+					0,
+					0,
+					eventStartUtc.Location(),
+				),
+				EndEventLocal.In(utcLoc), false)
 
-		if !eventDb.Recurrent {
+			if errRrule != nil {
+				p.API.LogError(errRrule.Error())
+				continue
+			}
+
+			for _, eventDate := range eventDates {
+				eventTime := eventDb.End.Sub(eventDb.Start)
+				eventDb.Start = time.Date(
+					eventDate.Year(),
+					eventDate.Month(),
+					eventDate.Day(),
+					eventDb.Start.Hour(),
+					eventDb.Start.Minute(),
+					eventDb.Start.Second(),
+					eventDb.Start.Nanosecond(),
+					eventDb.Start.Location(),
+				)
+				eventDb.End = eventDb.Start.Add(eventTime)
+
+				events = append(events, eventDb)
+			}
+		} else {
 			events = append(events, eventDb)
-			addedEvent[eventDb.Id] = true
 		}
+		addedEvent[eventDb.Id] = true
+
 	}
 
-	currientDate := startEventLocal
-	for currientDate.Before(EndEventLocal) {
-		for _, ev := range recurrenEvents[int(currientDate.Weekday())] {
-			eventTime := ev.End.Sub(ev.Start)
-			ev.Start = time.Date(
-				currientDate.Year(),
-				currientDate.Month(),
-				currientDate.Day(),
-				ev.Start.Hour(),
-				ev.Start.Minute(),
-				ev.Start.Second(),
-				ev.Start.Nanosecond(),
-				ev.Start.Location(),
-			)
-
-			ev.End = ev.Start.Add(eventTime)
-
-			events = append(events, ev)
-		}
-		currientDate = currientDate.Add(time.Hour * 24)
-	}
+	//for _, ev := range events {
+	//	if !ev.Recurrent {
+	//		continue
+	//	}
+	//
+	//
+	//
+	//}
 
 	return &events, nil
 }
@@ -318,7 +340,7 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 	event.Start = startDateInLocalTimeZone.In(utcLoc)
 	event.End = endDateInLocalTimeZone.In(utcLoc)
 
-	if event.Recurrence != nil && len(*event.Recurrence) > 0 {
+	if event.Recurrence != "" && len(event.Recurrence) > 0 {
 		event.Recurrent = true
 	} else {
 		event.Recurrent = false
@@ -467,7 +489,7 @@ func (p *Plugin) UpdateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 	event.Start = startDateInLocalTimeZone.In(utcLoc)
 	event.End = endDateInLocalTimeZone.In(utcLoc)
 
-	if event.Recurrence != nil && len(*event.Recurrence) > 0 {
+	if event.Recurrence != "" && len(event.Recurrence) > 0 {
 		event.Recurrent = true
 	} else {
 		event.Recurrent = false

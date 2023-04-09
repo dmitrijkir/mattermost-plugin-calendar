@@ -4,11 +4,22 @@ import (
 	"encoding/json"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"net/http"
+	"time"
 )
 
 func contains[K comparable](arr []K, item K) bool {
 	for _, v := range arr {
 		if v == item {
+			return true
+		}
+	}
+
+	return false
+}
+
+func containsTime(arr []time.Time, item time.Time) bool {
+	for _, v := range arr {
+		if v.Equal(item) {
 			return true
 		}
 	}

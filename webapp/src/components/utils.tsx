@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 type WindowObject = {
     location: {
@@ -9,6 +9,7 @@ type WindowObject = {
     };
     basename?: string;
 }
+
 function getSiteURLFromWindowObject(obj: WindowObject): string {
     let siteURL = '';
     if (obj.location.origin) {

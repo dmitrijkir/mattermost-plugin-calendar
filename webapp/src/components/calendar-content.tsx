@@ -10,6 +10,7 @@ import {DayHeaderContentArg} from '@fullcalendar/core';
 import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 
 import {id as PluginId} from '../manifest';
+
 import {eventSelected, openEventModal} from 'actions';
 import {DateSelectArg, EventClickArg} from '@fullcalendar/common';
 import {Button} from "@fluentui/react-components";
@@ -63,7 +64,7 @@ const CalendarContent = () => {
     };
 
     useEffect(() => {
-        console.log(user);
+        // console.log(user);
     }, [user]);
 
     const onEventClicked = (eventInfo: EventClickArg) => {
@@ -74,8 +75,8 @@ const CalendarContent = () => {
     const onDateTimeSelected = (dateTimeSelectInfo: DateSelectArg) => {
         dispatch(eventSelected({
             event: {
-                start: dateTimeSelectInfo.start.toISOString(),
-                end: dateTimeSelectInfo.end.toISOString(),
+                start: dateTimeSelectInfo.start.setMinutes(dateTimeSelectInfo.start.getMinutes() + dateTimeSelectInfo.start.getTimezoneOffset()),
+                end: dateTimeSelectInfo.end.setMinutes(dateTimeSelectInfo.end.getMinutes() + dateTimeSelectInfo.end.getTimezoneOffset()),
             },
         }));
         dispatch(openEventModal());

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/teambition/rrule-go"
 	"time"
 )
 
@@ -161,23 +162,51 @@ func (b *Background) process(t *time.Time) {
 		if events[eventDb.Id] != nil && eventDb.User != nil {
 			events[eventDb.Id].Attendees = append(events[eventDb.Id].Attendees, *eventDb.User)
 		} else {
-
-			if eventDb.Recurrent && !contains[int](*eventDb.Recurrence, int(t.Weekday())) {
-				continue
-			}
 			if eventDb.Recurrent {
+				eventRule, errRrule := rrule.StrToRRule(eventDb.Recurrence)
+				if errRrule != nil {
+					b.plugin.API.LogError(errRrule.Error())
+					continue
+				}
 				eventTime := eventDb.End.Sub(eventDb.Start)
-				eventDb.Start = time.Date(
-					t.Year(),
-					t.Month(),
-					t.Day(),
-					eventDb.Start.Hour(),
-					eventDb.Start.Minute(),
-					eventDb.Start.Second(),
-					eventDb.Start.Nanosecond(),
-					eventDb.Start.Location(),
-				)
-				eventDb.End = eventDb.Start.Add(eventTime)
+				eventEnd := t.Add(eventTime)
+				eventRule.DTStart(time.Date(
+					eventDb.Start.Year(),
+					eventDb.Start.Month(),
+					eventDb.Start.Day(),
+					0,
+					0,
+					0,
+					0,
+					utcLoc,
+				))
+				eventDates := eventRule.Between(
+					time.Date(
+						t.Year(),
+						t.Month(),
+						t.Day(),
+						0,
+						0,
+						0,
+						0,
+						utcLoc,
+					),
+					eventEnd,
+					true)
+				if len(eventDates) == 1 {
+					recEventTime := eventDb.End.Sub(eventDb.Start)
+					eventDb.Start = time.Date(
+						t.Year(),
+						t.Month(),
+						t.Day(),
+						eventDb.Start.Hour(),
+						eventDb.Start.Minute(),
+						eventDb.Start.Second(),
+						eventDb.Start.Nanosecond(),
+						eventDb.Start.Location(),
+					)
+					eventDb.End = eventDb.Start.Add(recEventTime)
+				}
 			}
 
 			var att []string

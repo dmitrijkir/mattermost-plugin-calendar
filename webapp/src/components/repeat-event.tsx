@@ -55,6 +55,10 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
         if (selectedUntil) {
             rruleString += `UNTIL=${format(selectedUntil, "yyyyMMdd'T'HHmmss'Z'")};`;
         }
+
+        if (rruleString.endsWith(';')) {
+            rruleString = rruleString.slice(0, -1);
+        }
         return rruleString;
     };
 

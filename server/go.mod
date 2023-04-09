@@ -49,6 +49,7 @@ require (
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
+	github.com/teambition/rrule-go v1.8.2 // indirect
 	github.com/tinylib/msgp v1.1.6 // indirect
 	github.com/wiggin77/merror v1.0.3 // indirect
 	github.com/wiggin77/srslog v1.0.1 // indirect

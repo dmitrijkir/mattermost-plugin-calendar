@@ -36,6 +36,8 @@ import {
     Persona,
     Select,
 } from "@fluentui/react-components";
+import {format, parse} from "date-fns";
+import {InputOnChangeData} from "@fluentui/react-input";
 
 interface AddedUserComponentProps {
     user: UserProfile
@@ -175,7 +177,8 @@ const EventModalComponent = () => {
     const dispatch = useDispatch();
 
     const now = new Date();
-    const initialDate = now.toISOString().split('T')[0];
+    // const initialDate = now.toISOString().split('T')[0];
+    const initialDate = now;
 
     const [usersAutocomplete, setUsersAutocomplete] = useState<UserProfile[]>([]);
     const [usersAdded, setUsersAdded] = useState<UserProfile[]>([]);
@@ -196,9 +199,7 @@ const EventModalComponent = () => {
     const [startEventTime, setStartEventTime] = useState(initialStartTime);
     const [endEventTime, setEndEventTime] = useState(initialEndTime);
 
-    // const repeatRule = useRef("RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=TU,SA");
-    // const repeatRule = useRef('');
-    const [repeatRule, setRepeatRule] = useState('');
+    const [repeatRule, setRepeatRule] = useState<string>('');
     const [showCustomRepeat, setShowCustomRepeat] = useState(false);
     const [repeatOption, setRepeatOption] = useState("Don't repeat");
     const [repeatOptionsSelected, setRepeatOptionsSelected] = useState(['empty'])
@@ -214,8 +215,10 @@ const EventModalComponent = () => {
         setTitleEvent('');
         setStartEventTime(initialStartTime);
         setEndEventTime(initialEndTime);
+
         setStartEventDate(initialDate);
         setEndEventDate(initialDate);
+
         setUsersAutocomplete([]);
         setChannelsAutocomplete([]);
         setSelectedChannelText('');
@@ -226,7 +229,7 @@ const EventModalComponent = () => {
         setShowCustomRepeat(false);
         setRepeatOptionsSelected(['empty']);
         setRepeatOption('Don\'t repeat');
-        // repeatRule.current = '';
+        setRepeatRule('');
 
         setSelectedChannel({});
         setUsersAdded([]);
@@ -237,20 +240,20 @@ const EventModalComponent = () => {
         setTitleEvent(event.target.value);
     };
 
-    const onStartDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setStartEventDate(event.target.value);
+    const onStartDateChange = (event: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
+        setStartEventDate(parse(data.value, 'yyyy-MM-dd', new Date()));
     };
 
-    const onEndDateChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setEndEventDate(event.target.value);
+    const onEndDateChange = (event: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
+        setEndEventDate(parse(data.value, 'yyyy-MM-dd', new Date()));
     };
 
     const onStartTimeChange = (event: React.ChangeEvent<HTMLSelectElement>, data: any) => {
-        setStartEventTime(event.target.value);
+        setStartEventTime(data.value);
     };
 
     const onEndTimeChange = (event: React.ChangeEvent<HTMLSelectElement>, data: any) => {
-        setEndEventTime(event.target.value);
+        setEndEventTime(data.value);
     };
 
     const onInputUserAction = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -284,15 +287,18 @@ const EventModalComponent = () => {
 
     const onSaveEvent = async () => {
         const members: string[] = usersAdded.map((user) => user.id);
-        console.log(selectedEvent);
+        let repeat = '';
+        if (repeatOption === 'Custom') {
+            repeat = repeatRule;
+        }
         if (selectedEvent?.event?.id == null) {
             const response = await ApiClient.createEvent(
                 titleEvent,
-                startEventData + 'T' + startEventTime + ':00Z',
-                endEventData + 'T' + endEventTime + ':00Z',
+                format(startEventData, 'yyyy-MM-dd') + 'T' + startEventTime + ':00Z',
+                format(endEventData, 'yyyy-MM-dd') + 'T' + endEventTime + ':00Z',
                 members,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
-                repeatRule,
+                repeat,
                 selectedColor,
             );
             CalendarRef.current.getApi().getEventSources()[0].refetch();
@@ -303,11 +309,11 @@ const EventModalComponent = () => {
             let response = await ApiClient.updateEvent(
                 selectedEvent.event.id,
                 titleEvent,
-                startEventData + 'T' + startEventTime + ':00Z',
-                endEventData + 'T' + endEventTime + ':00Z',
+                format(startEventData, 'yyyy-MM-dd') + 'T' + startEventTime + ':00Z',
+                format(endEventData, 'yyyy-MM-dd') + 'T' + endEventTime + ':00Z',
                 members,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
-                repeatRule,
+                repeat,
                 selectedColor,
             );
             CalendarRef.current.getApi().getEventSources()[0].refetch();
@@ -340,37 +346,41 @@ const EventModalComponent = () => {
     useEffect(() => {
         let mounted = true;
         if (mounted && selectedEvent?.event?.id != null) {
-            console.log("display settings");
-            console.log(displayNameSettings);
             ApiClient.getEventById(selectedEvent.event.id).then((data) => {
                 setTitleEvent(data.data.title);
-                setStartEventDate(data.data.start.split('T')[0]);
-                setEndEventDate(data.data.end.split('T')[0]);
+
+                const startEventResp: Date = parse(data.data.start, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
+                const endEventResp: Date = parse(data.data.end, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
+                setStartEventDate(startEventResp);
+                setEndEventDate(endEventResp);
                 setUsersAdded(data.data.attendees);
-                setStartEventTime(data.data.start.split('T')[1].split(':')[0] + ':' + data.data.start.split('T')[1].split(':')[1]);
-                setEndEventTime(data.data.end.split('T')[1].split(':')[0] + ':' + data.data.end.split('T')[1].split(':')[1]);
+
+                setStartEventTime(format(startEventResp, 'HH:mm'));
+                setEndEventTime(format(endEventResp, 'HH:mm'));
                 setSelectedColor(data.data.color!);
                 setSelectedColorStyle(colorsMap[data.data.color!]);
 
-                if (data.data.recurrence != null) {
-                    // setSelectedDays(data.data.recurrence);
+                if (data.data.recurrence.length !== 0) {
+                    setRepeatRule(data.data.recurrence);
+                    setRepeatOption('Custom');
+                    setShowCustomRepeat(true);
                 }
 
                 if (data.data.channel != null) {
                     Client4.getChannel(data.data.channel).then((channel) => {
                         setSelectedChannel(channel);
+                        setSelectedChannelText(channel.display_name);
                     });
                 }
             });
         } else if (mounted && selectedEvent?.event?.id == null && selectedEvent?.event?.start != null) {
-            setStartEventDate(selectedEvent?.event.start.split('T')[0]);
-            setEndEventDate(selectedEvent?.event.end.split('T')[0]);
+            setStartEventDate(selectedEvent?.event.start);
+            setEndEventDate(selectedEvent?.event.end);
 
-            setStartEventTime(selectedEvent?.event.start.split('T')[1].split(':')[0] + ':' + selectedEvent?.event.start.split('T')[1].split(':')[1]);
-            setEndEventTime(selectedEvent?.event.end.split('T')[1].split(':')[0] + ':' + selectedEvent?.event.end.split('T')[1].split(':')[1]);
+            setStartEventTime(format(selectedEvent?.event.start, 'HH:mm'));
+            setEndEventTime(format(selectedEvent?.event.end, 'HH:mm'));
         }
         mounted = false;
-        return;
 
     }, [selectedEvent]);
 
@@ -537,7 +547,7 @@ const EventModalComponent = () => {
                                     <Input
                                         type='date'
                                         className='start-date-input'
-                                        value={startEventData}
+                                        value={format(startEventData, 'yyyy-MM-dd')}
                                         onChange={onStartDateChange}
                                     />
                                     <Select
@@ -551,7 +561,7 @@ const EventModalComponent = () => {
                                     <Input
                                         type='date'
                                         className='end-date-input'
-                                        value={endEventData}
+                                        value={format(endEventData, 'yyyy-MM-dd')}
                                         onChange={onEndDateChange}
                                     />
                                     <Select

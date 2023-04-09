@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"database/sql/driver"
 	"embed"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/morph"
@@ -10,10 +14,30 @@ import (
 	"github.com/mattermost/morph/sources"
 	"github.com/mattermost/morph/sources/embedded"
 	"path/filepath"
+	"strings"
 )
 
 //go:embed migrations
 var assets embed.FS
+
+type RecurrenceItem []int
+
+func (r *RecurrenceItem) Scan(val interface{}) error {
+	switch v := val.(type) {
+	case []byte:
+		json.Unmarshal(v, &r)
+		return nil
+	case string:
+		json.Unmarshal([]byte(v), &r)
+		return nil
+	default:
+		return errors.New(fmt.Sprintf("Unsupported type: %T", v))
+	}
+}
+
+func (r *RecurrenceItem) Value() (driver.Value, error) {
+	return json.Marshal(r)
+}
 
 type Migrator struct {
 	DB     *sqlx.DB
@@ -74,6 +98,61 @@ func (m *Migrator) migrate() *model.AppError {
 	if err != nil {
 		m.plugin.API.LogError(err.Error())
 		return CantMakeMigration
+	}
+
+	return nil
+}
+func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
+	rows, errSelect := m.DB.Queryx(`
+			SELECT id, recurrence FROM calendar_events WHERE recurrence LIKE '[%' and recurrent = true
+`)
+	if errSelect != nil {
+		m.plugin.API.LogError(errSelect.Error())
+	}
+
+	type EventFromDb struct {
+		Id         string          `json:"id" db:"id"`
+		Recurrence *RecurrenceItem `json:"recurrence" db:"recurrence"`
+	}
+
+	dayOfWeek := map[int]string{
+		0: "MO",
+		1: "TU",
+		2: "WE",
+		3: "TH",
+		4: "FR",
+		5: "SA",
+		6: "SU",
+	}
+
+	for rows.Next() {
+		var eventDb EventFromDb
+
+		errScan := rows.StructScan(&eventDb)
+
+		if errScan != nil {
+			m.plugin.API.LogError(errSelect.Error())
+			continue
+		}
+
+		recurrenceDays := []string{}
+
+		for value := range *eventDb.Recurrence {
+			recurrenceDays = append(recurrenceDays, dayOfWeek[value])
+		}
+
+		rrule := "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=" + strings.Join(recurrenceDays, ",")
+
+		_, errUpdate := m.DB.NamedExec(`UPDATE PUBLIC.calendar_events
+                                           SET recurrence = :recurrence
+                                           WHERE id = :eventId`, map[string]interface{}{
+			"recurrence": rrule,
+			"eventId":    eventDb.Id,
+		})
+		if errUpdate != nil {
+			m.plugin.API.LogError(errUpdate.Error())
+			continue
+		}
 	}
 
 	return nil
