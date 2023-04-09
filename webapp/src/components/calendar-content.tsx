@@ -1,7 +1,7 @@
 import FullCalendar from '@fullcalendar/react';
 import enLocale from '@fullcalendar/core/locales/en-gb';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import React, {useEffect} from 'react';
+import React, {useEffect, useState} from 'react';
 
 import interactionPlugin from '@fullcalendar/interaction';
 import {useDispatch, useSelector} from 'react-redux';
@@ -12,12 +12,43 @@ import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 import {id as PluginId} from '../manifest';
 import {eventSelected, openEventModal} from 'actions';
 import {DateSelectArg, EventClickArg} from '@fullcalendar/common';
-
+import {Button} from "@fluentui/react-components";
 import getSiteURL from './utils';
 import CalendarRef from './calendar';
+import {DayPicker} from "react-day-picker";
+import {en} from "date-fns/locale";
+import {addMonths, isSameMonth} from 'date-fns';
+
 
 const eventDataTransformation = (content, response) => {
     return content.data;
+};
+
+const LeftBarCalendar = () => {
+    const today = new Date();
+    const nextMonth = addMonths(new Date(), 1);
+    const [month, setMonth] = useState<Date>(nextMonth);
+
+    const footer = (
+        <Button
+            disabled={isSameMonth(today, month)}
+            onClick={() => setMonth(today)}
+        >
+            Go to Today
+        </Button>
+    );
+    return (<DayPicker
+        mode='single'
+
+        onDayClick={(day: Date) => {
+            CalendarRef.current.getApi().gotoDate(day);
+        }}
+        locale={en}
+        weekStartsOn={1}
+        month={month}
+        onMonthChange={setMonth}
+        footer={footer}
+    />);
 };
 
 const CalendarContent = () => {
@@ -32,6 +63,7 @@ const CalendarContent = () => {
     };
 
     useEffect(() => {
+        console.log(user);
     }, [user]);
 
     const onEventClicked = (eventInfo: EventClickArg) => {
@@ -50,7 +82,10 @@ const CalendarContent = () => {
     };
 
     return (
-        <div>
+        <div className='calendar-content'>
+            <div className='left-bar-calendar-content'>
+                <LeftBarCalendar/>
+            </div>
             <div className='calendar-main-greed'>
                 <FullCalendar
                     plugins={[timeGridPlugin, interactionPlugin]}

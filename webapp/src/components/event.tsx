@@ -1,5 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
-// import Button from 'react-bootstrap/Button';
+import React, {useEffect, useState} from 'react';
 import {Client4} from 'mattermost-redux/client';
 import {UserProfile} from 'mattermost-redux/types/users';
 import {Channel} from 'mattermost-redux/types/channels';
@@ -198,7 +197,8 @@ const EventModalComponent = () => {
     const [endEventTime, setEndEventTime] = useState(initialEndTime);
 
     // const repeatRule = useRef("RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=TU,SA");
-    const repeatRule = useRef('');
+    // const repeatRule = useRef('');
+    const [repeatRule, setRepeatRule] = useState('');
     const [showCustomRepeat, setShowCustomRepeat] = useState(false);
     const [repeatOption, setRepeatOption] = useState("Don't repeat");
     const [repeatOptionsSelected, setRepeatOptionsSelected] = useState(['empty'])
@@ -226,7 +226,7 @@ const EventModalComponent = () => {
         setShowCustomRepeat(false);
         setRepeatOptionsSelected(['empty']);
         setRepeatOption('Don\'t repeat');
-        repeatRule.current = '';
+        // repeatRule.current = '';
 
         setSelectedChannel({});
         setUsersAdded([]);
@@ -292,7 +292,7 @@ const EventModalComponent = () => {
                 endEventData + 'T' + endEventTime + ':00Z',
                 members,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
-                repeatRule.current,
+                repeatRule,
                 selectedColor,
             );
             CalendarRef.current.getApi().getEventSources()[0].refetch();
@@ -307,7 +307,7 @@ const EventModalComponent = () => {
                 endEventData + 'T' + endEventTime + ':00Z',
                 members,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
-                repeatRule.current,
+                repeatRule,
                 selectedColor,
             );
             CalendarRef.current.getApi().getEventSources()[0].refetch();
@@ -454,11 +454,8 @@ const EventModalComponent = () => {
     const RepeatComponent = () => {
         if (showCustomRepeat) {
             return <RepeatEventCustom
-                rrule={repeatRule.current}
-                onChange={(respRule) => {
-                    console.log(respRule);
-                    repeatRule.current = respRule;
-                }}
+                selected={repeatRule}
+                onSelect={setRepeatRule}
             />;
         }
         return <></>;
@@ -598,7 +595,7 @@ const EventModalComponent = () => {
                                         onChange={onInputUserAction}
                                         onOptionSelect={(event, data) => {
                                             usersAutocomplete.map((user) => {
-                                                if (user.id === data.optionValue && !usersAdded.includes(user)) {
+                                                if (user.id === data.optionValue && !usersAdded.some((u) => u.id === data.optionValue)) {
                                                     setUsersAdded(usersAdded.concat([user]));
                                                     return;
                                                 }
@@ -689,8 +686,7 @@ const EventModalComponent = () => {
                 </DialogBody>
             </DialogSurface>
         </Dialog>
-    )
-        ;
+    );
 };
 
 export default EventModalComponent;

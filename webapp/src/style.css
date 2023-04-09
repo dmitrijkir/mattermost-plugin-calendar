@@ -5,6 +5,7 @@
 .calendar-main-greed {
     padding: 20px;
     height: 100%;
+    flex-grow: 1;
 }
 
 .modal-view-event {
@@ -361,8 +362,8 @@ table {
 .event-color-button {
     border: unset;
     position: absolute;
-    right: 8px;
-    top: 5px;
+    left: 8px;
+    top: 0;
 }
 
 .dropdown-menu-color {
@@ -520,5 +521,29 @@ table {
 }
 
 .calendar-full-content {
-
+}
+.calendar-content {
+    display: flex;
+}
+.left-bar-calendar-content {
+    padding-top: 10px;
+}
+.left-bar-calendar-content .rdp {
+    --rdp-cell-size: 25px !important;
+}
+.event-until-container {
+    margin-top: 7px;
+}
+.selected-date-until {
+    margin-left: 9px;
+}
+.repeat-date-until-popover .rdp {
+    --rdp-cell-size: 25px !important;
+}
+.remove-selected-date-until {
+    margin-left: 9px;
+    color: var(--colorBrandBackground);
+}
+.event-until-open-calendar {
+    color: var(--colorBrandBackground);
 }
