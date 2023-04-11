@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React from 'react';
 
 import {FluentProvider, webDarkTheme, webLightTheme} from '@fluentui/react-components';
 import {useSelector} from 'react-redux';
@@ -13,12 +13,14 @@ const MainApp = () => {
     const theme: Theme = useSelector(getTheme);
     return (
         <FluentProvider
-            theme={['indigo', 'Onyx'].includes(theme.type!) ? webDarkTheme : webLightTheme}
-            className='calendar-full-content'
+            theme={['indigo', 'onyx'].includes(theme.type!) ? webDarkTheme : webLightTheme}
+            className='calendar-full-content-provider'
         >
-            <EventModalComponent/>
-            <HeaderComponent/>
-            <CalendarContent/>
+            <span className='calendar-full-content'>
+                <EventModalComponent/>
+                <HeaderComponent/>
+                <CalendarContent/>
+            </span>
         </FluentProvider>
     );
 };

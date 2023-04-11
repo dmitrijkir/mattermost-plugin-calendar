@@ -1,6 +1,8 @@
 import FullCalendar from '@fullcalendar/react';
 import enLocale from '@fullcalendar/core/locales/en-gb';
 import timeGridPlugin from '@fullcalendar/timegrid';
+import dayGridPlugin from '@fullcalendar/daygrid';
+
 import React, {useEffect, useState} from 'react';
 
 import interactionPlugin from '@fullcalendar/interaction';
@@ -34,13 +36,13 @@ const LeftBarCalendar = () => {
         <Button
             disabled={isSameMonth(today, month)}
             onClick={() => setMonth(today)}
+            appearance='transparent'
         >
             Go to Today
         </Button>
     );
     return (<DayPicker
         mode='single'
-
         onDayClick={(day: Date) => {
             CalendarRef.current.getApi().gotoDate(day);
         }}
@@ -64,7 +66,7 @@ const CalendarContent = () => {
     };
 
     useEffect(() => {
-        // console.log(user);
+        // console.log(CalendarRef);
     }, [user]);
 
     const onEventClicked = (eventInfo: EventClickArg) => {
@@ -89,7 +91,7 @@ const CalendarContent = () => {
             </div>
             <div className='calendar-main-greed'>
                 <FullCalendar
-                    plugins={[timeGridPlugin, interactionPlugin]}
+                    plugins={[timeGridPlugin, interactionPlugin, dayGridPlugin]}
                     initialView='timeGridWeek'
                     allDaySlot={false}
                     slotDuration='00:30:00'

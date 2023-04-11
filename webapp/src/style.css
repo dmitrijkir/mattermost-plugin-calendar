@@ -3,9 +3,17 @@
 }
 
 .calendar-main-greed {
-    padding: 20px;
+    /*padding: 20px;*/
     height: 100%;
     flex-grow: 1;
+    padding-top: 20px;
+    background-color: var(--colorNeutralBackground1);
+    height: 100%;
+    flex-grow: 1;
+    padding-left: 20px;
+    margin-right: 5px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
 }
 
 .modal-view-event {
@@ -82,6 +90,17 @@
     justify-content: flex-start;
     padding-top: 20px;
     padding-left: 20px;
+    padding-right: 5px;
+}
+
+.calendar-header-toolbar {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px;
+    width: 100%;
+    border-radius: 4px;
+    background-color: var(--colorNeutralBackground1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, .14);
 }
 
 .create-event-button-inner-container {
@@ -382,6 +401,7 @@ table {
 .event-color-red {
     color: #D50000;
 }
+
 .event-color-red > i {
     color: #D50000;
 }
@@ -389,6 +409,7 @@ table {
 .event-color-green {
     color: #0B8043;
 }
+
 .event-color-green > i {
     color: #0B8043;
 }
@@ -396,6 +417,7 @@ table {
 .event-color-blue {
     color: #039BE5;
 }
+
 .event-color-blue > i {
     color: #039BE5;
 }
@@ -403,6 +425,7 @@ table {
 .event-color-yellow {
     color: #F6BF26;
 }
+
 .event-color-yellow > i {
     color: #F6BF26;
 }
@@ -410,6 +433,7 @@ table {
 .event-color-default {
     color: #616161;
 }
+
 .event-color-default > i {
     color: #616161;
 }
@@ -428,10 +452,12 @@ table {
 .dropdown-color-button > input {
     visibility: hidden;
 }
+
 .dropdown-color-button-listbox {
     min-width: 60px !important;
     left: 115px !important;
 }
+
 .fa-sort-down-color {
     margin-top: -3px;
     color: #6c757d;
@@ -525,29 +551,62 @@ table {
 }
 
 .calendar-full-content {
+    background-color: rgb(50 67 98 / 27%);
+    display: block;
+    height: 100%;
+    width: 100%;
 }
+
+.calendar-full-content-provider {
+    height: 100%;
+}
+
 .calendar-content {
     display: flex;
+    padding-top: 10px;
 }
+
 .left-bar-calendar-content {
     padding-top: 10px;
 }
+
 .left-bar-calendar-content .rdp {
     --rdp-cell-size: 25px !important;
 }
+
 .event-until-container {
     margin-top: 7px;
 }
+
 .selected-date-until {
     margin-left: 9px;
 }
+
 .repeat-date-until-popover .rdp {
     --rdp-cell-size: 25px !important;
 }
+
 .remove-selected-date-until {
     margin-left: 9px;
     color: var(--colorBrandBackground);
 }
+
 .event-until-open-calendar {
     color: var(--colorBrandBackground);
+}
+
+.fc .fc-timegrid-slot {
+    height: 2.5em !important;
+    border-bottom-style: dashed !important;
+}
+
+/* day-picker.css */
+/* Paint the today's date in red */
+.rdp-day_today:not(.rdp-day_outside) {
+    color: var(--colorNeutralForegroundOnBrand);
+    background-color: var(--colorBrandBackground);
+}
+
+.rdp-button:not([disabled]) {
+    font-weight: 500;
 }

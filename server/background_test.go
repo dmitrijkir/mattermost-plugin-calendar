@@ -540,3 +540,5 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	background.process(&processingTime)
 
 }
+
+// TODO: if event start time equal current time into events added 2 event.
