@@ -7,7 +7,7 @@ import {ApiClient} from 'client';
 import {useDispatch, useSelector} from 'react-redux';
 import {selectIsOpenEventModal, selectSelectedEvent} from 'selectors';
 import {closeEventModal, eventSelected} from 'actions';
-import {getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
+import {getCurrentTeam, getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
 import {getUserStatuses} from 'mattermost-redux/selectors/entities/users';
 import {getTeammateNameDisplaySetting} from "mattermost-redux/selectors/entities/preferences";
 import RepeatEventCustom from './repeat-event';
@@ -176,9 +176,7 @@ const EventModalComponent = () => {
 
     const dispatch = useDispatch();
 
-    const now = new Date();
-    // const initialDate = now.toISOString().split('T')[0];
-    const initialDate = now;
+    const initialDate = new Date();
 
     const [usersAutocomplete, setUsersAutocomplete] = useState<UserProfile[]>([]);
     const [usersAdded, setUsersAdded] = useState<UserProfile[]>([]);

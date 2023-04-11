@@ -148,9 +148,13 @@
     --fc-button-hover-bg-color: var(--colorNeutralBackground1Hover) !important;
     --fc-button-text-color: var(--colorNeutralForeground1) !important;
 
+    --fc-button-active-border-color: var(--colorNeutralForeground1Pressed) !important;
     --fc-event-text-color: rgba(var(--global-header-text-rgb), 0.9) !important;
-    --fc-border-color: rgba(var(--center-channel-color-rgb), 0.16) !important;
 
+    /* color of main table */
+    --fc-border-color: var(colorNeutralStroke2) !important;
+
+    /* now indicator */
     --fc-now-indicator-color: var(--colorBrandBackground) !important;
 }
 

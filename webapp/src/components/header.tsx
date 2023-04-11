@@ -9,7 +9,7 @@ const HeaderComponent = () => {
 
     return (
         <div className='calendar-header-container'>
-            <Button appearance='primary' onClick={() => dispatch(openEventModal())} icon={<CalendarEmpty16Filled/>}>
+            <Button appearance='primary' size='large' onClick={() => dispatch(openEventModal())} icon={<CalendarEmpty16Filled/>}>
                 <div className='create-event-button-text'>New event</div>
             </Button>
         </div>
