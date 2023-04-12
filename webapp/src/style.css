@@ -103,6 +103,71 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, .14);
 }
 
+.dayCell-110 {
+    text-align: center;
+    color: var(--colorNeutralForeground);
+}
+.monthAndYear-101 {
+    color: var(--colorNeutralForeground);
+}
+.monthAndYear-101:hover {
+    color: var(--colorNeutralForeground1Hover) !important;
+    background-color: var(--colorNeutralBackground1Hover) !important;
+}
+.headerIconButton-103 {
+    color: var(--colorNeutralForeground) !important;
+}
+.headerIconButton-103:hover {
+    color: var(--colorNeutralForeground1Hover) !important;
+    background-color: var(--colorNeutralBackground1Hover) !important;
+}
+
+.itemButton-143 {
+    color: var(--colorNeutralForeground);
+}
+.currentItemButton-135 {
+    color: var(--colorNeutralForeground);
+}
+.currentItemButton-135:hover {
+    color: var(--colorNeutralForeground1Hover) !important;
+    background-color: var(--colorNeutralBackground1Hover) !important;
+}
+.itemButton-140 {
+    color: var(--colorNeutralForeground);
+}
+.itemButton-140:hover {
+    color: var(--colorNeutralForeground1Hover) !important;
+    background-color: var(--colorNeutralBackground1Hover) !important;
+}
+.selected-142 {
+    background-color: var(--colorNeutralBackground1Selected) !important;
+}
+
+.goTodayButton-97 {
+    color: var(--colorNeutralForeground1Hover) !important;
+}
+.goTodayButton-97:disabled {
+    color: var(--colorNeutralBackground1Selected) !important;
+}
+.navigationButton-137 {
+    color: var(--colorNeutralForeground);
+}
+.navigationButton-137:hover {
+    color: var(--colorNeutralForeground1Hover) !important;
+    background-color: var(--colorNeutralBackground1Hover) !important;
+}
+
+.itemButton-143:hover {
+    color: var(--colorNeutralForeground1Hover) !important;
+    background-color: var(--colorNeutralBackground1Hover) !important;
+}
+.dayCell-110.ms-CalendarDay-hoverStyle {
+    background-color: var(--colorNeutralBackground1Hover);
+}
+
+.dayCell-110.ms-CalendarDay-daySelected {
+    background-color: var(--colorNeutralBackground1Hover) !important;
+}
 .create-event-button-inner-container {
     display: flex;
 }
@@ -589,6 +654,7 @@ table {
 .remove-selected-date-until {
     margin-left: 9px;
     color: var(--colorBrandBackground);
+    cursor: pointer;
 }
 
 .event-until-open-calendar {
@@ -597,6 +663,9 @@ table {
 
 .fc .fc-timegrid-slot {
     height: 2.5em !important;
+    border-bottom-style: dashed !important;
+}
+.fc .fc-timegrid-slot-minor {
     border-bottom-style: dashed !important;
 }
 

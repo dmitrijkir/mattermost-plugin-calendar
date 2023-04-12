@@ -16,12 +16,12 @@ import {id as PluginId} from '../manifest';
 import {eventSelected, openEventModal} from 'actions';
 import {DateSelectArg, EventClickArg} from '@fullcalendar/common';
 import {Button} from "@fluentui/react-components";
+import {Calendar, DateRangeType, DayOfWeek, initializeIcons} from '@fluentui/react';
 import getSiteURL from './utils';
 import CalendarRef from './calendar';
-import {DayPicker} from "react-day-picker";
-import {en} from "date-fns/locale";
 import {addMonths, isSameMonth} from 'date-fns';
 
+initializeIcons();
 
 const eventDataTransformation = (content, response) => {
     return content.data;
@@ -32,6 +32,15 @@ const LeftBarCalendar = () => {
     const nextMonth = addMonths(new Date(), 1);
     const [month, setMonth] = useState<Date>(nextMonth);
 
+    const [selectedDate, setSelectedDate] = useState<Date>();
+    const dateRangeType = DateRangeType.Week;
+    const firstDayOfWeek = DayOfWeek.Monday;
+
+    const onSelectDate = React.useCallback((date: Date, dateRangeArray: Date[]): void => {
+        setSelectedDate(date);
+        CalendarRef.current.getApi().gotoDate(date);
+    }, []);
+
     const footer = (
         <Button
             disabled={isSameMonth(today, month)}
@@ -41,17 +50,31 @@ const LeftBarCalendar = () => {
             Go to Today
         </Button>
     );
-    return (<DayPicker
-        mode='single'
-        onDayClick={(day: Date) => {
-            CalendarRef.current.getApi().gotoDate(day);
-        }}
-        locale={en}
-        weekStartsOn={1}
-        month={month}
-        onMonthChange={setMonth}
-        footer={footer}
-    />);
+
+    return (
+        <Calendar
+            showMonthPickerAsOverlay={true}
+            dateRangeType={dateRangeType}
+            highlightSelectedMonth={true}
+            showGoToToday={true}
+            onSelectDate={onSelectDate}
+            value={selectedDate}
+            firstDayOfWeek={firstDayOfWeek}
+            // Calendar uses English strings by default. For localized apps, you must override this prop.
+            // strings={defaultCalendarStrings}
+        />
+    );
+    // return (<DayPicker
+    //     mode='single'
+    //     onDayClick={(day: Date) => {
+    //         CalendarRef.current.getApi().gotoDate(day);
+    //     }}
+    //     locale={en}
+    //     weekStartsOn={1}
+    //     month={month}
+    //     onMonthChange={setMonth}
+    //     footer={footer}
+    // />);
 };
 
 const CalendarContent = () => {

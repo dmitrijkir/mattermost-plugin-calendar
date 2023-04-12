@@ -169,7 +169,7 @@ func (b *Background) process(t *time.Time) {
 					continue
 				}
 				eventTime := eventDb.End.Sub(eventDb.Start)
-				eventEnd := t.Add(eventTime)
+				eventEnd := tickWithZone.Add(eventTime)
 				eventRule.DTStart(time.Date(
 					eventDb.Start.Year(),
 					eventDb.Start.Month(),
@@ -182,9 +182,9 @@ func (b *Background) process(t *time.Time) {
 				))
 				eventDates := eventRule.Between(
 					time.Date(
-						t.Year(),
-						t.Month(),
-						t.Day(),
+						tickWithZone.Year(),
+						tickWithZone.Month(),
+						tickWithZone.Day(),
 						0,
 						0,
 						0,
@@ -193,20 +193,22 @@ func (b *Background) process(t *time.Time) {
 					),
 					eventEnd,
 					true)
-				if len(eventDates) == 1 {
-					recEventTime := eventDb.End.Sub(eventDb.Start)
-					eventDb.Start = time.Date(
-						t.Year(),
-						t.Month(),
-						t.Day(),
-						eventDb.Start.Hour(),
-						eventDb.Start.Minute(),
-						eventDb.Start.Second(),
-						eventDb.Start.Nanosecond(),
-						eventDb.Start.Location(),
-					)
-					eventDb.End = eventDb.Start.Add(recEventTime)
+				// Skip this event if recurrent event doesn't exist between two dates
+				if len(eventDates) < 1 {
+					continue
 				}
+				recEventTime := eventDb.End.Sub(eventDb.Start)
+				eventDb.Start = time.Date(
+					tickWithZone.Year(),
+					tickWithZone.Month(),
+					tickWithZone.Day(),
+					eventDb.Start.Hour(),
+					eventDb.Start.Minute(),
+					eventDb.Start.Second(),
+					eventDb.Start.Nanosecond(),
+					eventDb.Start.Location(),
+				)
+				eventDb.End = eventDb.Start.Add(recEventTime)
 			}
 
 			var att []string

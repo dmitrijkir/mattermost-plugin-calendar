@@ -1,7 +1,5 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {
-    OnOpenChangeData,
-    OpenPopoverEvents,
     Popover,
     PopoverSurface,
     PopoverTrigger,
@@ -12,10 +10,10 @@ import {
     Text,
     ToggleButton,
 } from '@fluentui/react-components';
-import {DayPicker} from 'react-day-picker';
-import {en} from 'date-fns/locale';
+import {useBoolean} from '@fluentui/react-hooks';
 import {format, parse} from 'date-fns';
-import 'react-day-picker/dist/style.css';
+import {Calendar, DayOfWeek} from '@fluentui/react';
+import {OnOpenChangeData, OpenPopoverEvents} from '@fluentui/react-popover';
 
 type RepeatRuleOnChange = (rule: string) => void;
 
@@ -45,7 +43,13 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
     const [repeatEvery, setRepeatEvery] = useState(1);
     const didMount = useRef(false);
     const [selectedUntil, setSelectedUntil] = useState<Date>();
-    const [isSelectedUntilOpen, setIsSelectedUntilOpen] = useState(false);
+
+    const [isShowCalendar, {
+        toggle: toggleShowCalendar,
+        setFalse: hideCalendar,
+        setTrue: showCalendar,
+    }] = useBoolean(false);
+    const firstDayOfWeek = DayOfWeek.Monday;
 
     const buildRruleString = () => {
         let rruleString = `RRULE:FREQ=${repeatType};INTERVAL=${repeatEvery};`;
@@ -66,7 +70,6 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
         if (props.onSelect === undefined) {
             return;
         }
-        console.log(buildRruleString());
         props.onSelect(buildRruleString());
     };
 
@@ -90,10 +93,12 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
         setRepeatType(event.target.value);
     };
 
-    const onUntilDaySelected = (day: Date) => {
+    const onUntilDaySelected = (day: Date, dateRangeArray: Date[]) => {
         setSelectedUntil(day);
-        setIsSelectedUntilOpen(false);
+        hideCalendar();
     };
+    const InputEveryElem = useRef<HTMLInputElement>(null);
+
     const RepeatTypeSettingsView = () => {
         if (repeatType === RepeatFreq.Weekly) {
             return (<div className='recurrence-container'>
@@ -219,6 +224,7 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
                 {/* <option value="custom_monthly">Monthly</option> */}
             </Select>
             <p><Text className='repeat-every-label'>every:</Text><SpinButton
+                ref={InputEveryElem}
                 defaultValue={1}
                 min={1}
                 max={10}
@@ -235,24 +241,27 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
 
         <div className='event-until-container'>
             <Popover
-                trapFocus
-                open={isSelectedUntilOpen}
+                trapFocus={true}
+                open={isShowCalendar}
                 closeOnScroll={true}
                 unstable_disableAutoFocus={true}
-                onOpenChange={(e: OpenPopoverEvents, data: OnOpenChangeData) => setIsSelectedUntilOpen(data.open)}
+                onOpenChange={(e: OpenPopoverEvents, data: OnOpenChangeData) => data.open ? showCalendar() : hideCalendar()}
             >
                 <PopoverTrigger disableButtonEnhancement>
-                    <Text className='event-until-open-calendar' onClick={() => setIsSelectedUntilOpen(true)}>Choose an
-                        end date</Text>
+                    <Text
+                        className='event-until-open-calendar'
+                        onClick={toggleShowCalendar}
+                    >Choose an end date
+                    </Text>
                 </PopoverTrigger>
 
                 <PopoverSurface className='repeat-date-until-popover'>
-                    <DayPicker
-                        mode='single'
-                        selected={selectedUntil}
-                        onDayClick={onUntilDaySelected}
-                        locale={en}
-                        weekStartsOn={1}
+                    <Calendar
+                        showMonthPickerAsOverlay={true}
+                        highlightSelectedMonth={true}
+                        showGoToToday={true}
+                        onSelectDate={onUntilDaySelected}
+                        firstDayOfWeek={firstDayOfWeek}
                     />
                 </PopoverSurface>
             </Popover>

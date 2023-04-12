@@ -155,6 +155,15 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 		}
 	}
 
+	// clear empty rows
+	_, errUpdate := m.DB.Exec(`UPDATE calendar_events 
+									 SET recurrence = '' 
+									 WHERE recurrence = '[]' or recurrence = 'null'`)
+	if errUpdate != nil {
+		m.plugin.API.LogError(errUpdate.Error())
+		return CantMakeMigration
+	}
+
 	return nil
 }
 

@@ -75,7 +75,6 @@
     "mattermost-redux": "5.33.1",
     "react": "16.13.1",
     "react-bootstrap": "1.6.6",
-    "react-day-picker": "8.6.0",
     "react-redux": "7.2.0",
     "redux": "4.0.5",
     "redux-devtools-extension": "2.13.9",

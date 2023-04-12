@@ -64,6 +64,10 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 
 	background.sendGroupOrPersonalEventNotification(testEvent)
 
+	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
+		t.Errorf("there were unfulfilled expectations: %v", callsLen)
+	}
+
 }
 
 // Test group notification
@@ -121,6 +125,10 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 	api.On("CreatePost", postForSend).Return(nil, nil)
 
 	background.sendGroupOrPersonalEventNotification(testEvent)
+
+	if callsLen := len(api.ExpectedCalls); callsLen != 4 {
+		t.Errorf("there were unfulfilled expectations: %v", callsLen)
+	}
 }
 
 // process event with channel
@@ -220,6 +228,13 @@ func TestProcessEventWithChannel(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	background.process(&processingTime)
+
+	if err := dbMock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
+		t.Errorf("there were unfulfilled expectations: %v", callsLen)
+	}
 
 }
 
@@ -325,6 +340,13 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	background.process(&processingTime)
+	if err := dbMock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
+	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
+		t.Errorf("there were unfulfilled expectations: %v", callsLen)
+	}
 
 }
 
@@ -430,6 +452,14 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	background.process(&processingTime)
+
+	if err := dbMock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
+	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
+		t.Errorf("there were unfulfilled expectations: %v", callsLen)
+	}
 
 }
 
@@ -539,6 +569,129 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 
 	background.process(&processingTime)
 
+	if err := dbMock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
+	if callsLen := len(api.ExpectedCalls); callsLen != 3 {
+		t.Errorf("there were unfulfilled expectations: %v", callsLen)
+	}
+
 }
 
-// TODO: if event start time equal current time into events added 2 event.
+// process event not in valid day
+func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
+	botId := "bot-id"
+	api := plugintest.API{}
+
+	pluginT := &Plugin{
+		BotId: botId,
+		MattermostPlugin: plugin.MattermostPlugin{
+			API:    &api,
+			Driver: nil,
+		},
+	}
+
+	db, dbMock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	utcLoc, _ := time.LoadLocation("UTC")
+
+	processingTime := time.Date(
+		2023,
+		04,
+		12,
+		0,
+		0,
+		0,
+		0,
+		utcLoc,
+	)
+
+	sqlQueryTime := time.Date(
+		processingTime.Year(),
+		processingTime.Month(),
+		processingTime.Day(),
+		processingTime.Hour(),
+		processingTime.Minute(),
+		0,
+		0,
+		utcLoc,
+	)
+
+	featureTime := sqlQueryTime.Add(time.Hour * 2)
+
+	recurrentEventTimeStart := time.Date(2023, time.March, 11, sqlQueryTime.Hour(), sqlQueryTime.Minute(), sqlQueryTime.Second(), sqlQueryTime.Nanosecond(), utcLoc)
+	recurrentEventTimeEnd := time.Date(2023, time.March, 11, featureTime.Hour(), featureTime.Minute(), featureTime.Second(), featureTime.Nanosecond(), utcLoc)
+
+	postForSendChannel := &model.Post{
+		UserId:    botId,
+		ChannelId: "channel-id",
+	}
+
+	api.On("CreatePost", postForSendChannel).Return(nil, nil)
+	api.On("GetUser", "user-Id").Return(&model.User{
+		Username: "userName",
+	}, nil)
+
+	background := NewBackgroundJob(pluginT, dbx)
+
+	testEvent := &Event{
+		Id:        "qwcw",
+		Title:     "test event recurrent",
+		Attendees: []string{"user-Id"},
+	}
+
+	postForSendChannel.SetProps(background.getMessageProps(testEvent))
+
+	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
+			SELECT ce.id,
+				   ce.title,
+                   ce."start",
+                   ce."end",
+                   ce.created,
+                   ce."owner",
+                   ce."channel",
+                   cm."user",
+                   ce.recurrent,
+                   ce.recurrence,
+                   ce.color
+			FROM   calendar_events ce
+                FULL JOIN calendar_members cm
+                       ON ce.id = cm."event"
+			WHERE (ce."start" = $1 OR (ce.recurrent = true AND ce."start"::time = $2)) 
+			  	   AND (ce."processed" isnull OR ce."processed" != $3)
+			`)).WithArgs(sqlQueryTime, sqlQueryTime, sqlQueryTime)
+
+	eventsRow := sqlmock.NewRows([]string{
+		"id",
+		"title",
+		"start",
+		"end",
+		"created",
+		"owner",
+		"channel",
+		"user",
+		"recurrent",
+		"recurrence"},
+	).AddRow("rec-ev", "test event recurrent", recurrentEventTimeStart, recurrentEventTimeEnd, recurrentEventTimeStart,
+		"owner_id", "channel-id", "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,MO")
+
+	expectedQuery.WillReturnRows(eventsRow)
+
+	background.process(&processingTime)
+
+	if err := dbMock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
+	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
+		t.Errorf("there were unfulfilled expectations: %v", callsLen)
+	}
+
+}

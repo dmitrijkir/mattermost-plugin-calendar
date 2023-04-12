@@ -12,41 +12,29 @@ import (
 const calCommand = "cal"
 
 func (p *Plugin) createCalCommand() (*model.Command, error) {
-	//iconData, err := command.GetIconData(p.API, "assets/icon.svg")
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "failed to get icon data")
-	//}
 	return &model.Command{
 		Trigger:          calCommand,
 		AutoComplete:     true,
 		AutoCompleteDesc: "Get calendar events.",
 		AutoCompleteHint: "[command]",
-		//AutocompleteData:     getAutocompleteData(),
-		//AutocompleteIconData: iconData,
 	}, nil
 }
 
 func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 	split := strings.Fields(args.Command)
 	command := split[0]
-	//var parameters []string
 	action := ""
 	if len(split) > 1 {
 		action = split[1]
 	}
-	//if len(split) > 2 {
-	//	parameters = split[2:]
-	//}
 
 	if command != "/"+calCommand {
 		return &model.CommandResponse{}, nil
 	}
 
-	p.API.LogError(action)
-	p.API.LogError("=============")
 	switch action {
 	case "help":
-		p.API.LogError("=============")
+		p.API.LogError("======help=======")
 	case "week":
 		return p.executeWeekCommand(c, args)
 	default:

@@ -118,15 +118,6 @@ func (p *Plugin) GetUserEvents(user *model.User, start, end string) (*[]Event, *
 
 	}
 
-	//for _, ev := range events {
-	//	if !ev.Recurrent {
-	//		continue
-	//	}
-	//
-	//
-	//
-	//}
-
 	return &events, nil
 }
 
