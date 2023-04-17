@@ -17,7 +17,7 @@
 | end        | required | datetime  | N/A         | 2023-01-28T01:00:00Z                   |
 | attendees  | optional | []string  | N/A         | ["sh9d5kji7tf49echstq79dm36r",]        |
 | channel    | optional | string    | N/A         | 516netffp7dgxx6denw6tbk9br             |
-| recurrence | optional | []int     | N/A         | []                                     |
+| recurrence | required | string    | N/A         | ""                                     |
 | created    | required | datetime  | N/A         | 2023-01-28T20:09:40.829475047Z         |
 | owner      | required | string    | N/A         | sh9d5kji7tf49echstq79dm36r             |
 
@@ -44,7 +44,7 @@
       "created": "2023-01-28T20:09:40.829475047Z",
       "owner": "sh9d5kji7tf49echstq79dm36r",
       "channel": "516netffp7dgxx6denw6tbk9br",
-      "recurrence": []
+      "recurrence": ""
     }
   ]
 }

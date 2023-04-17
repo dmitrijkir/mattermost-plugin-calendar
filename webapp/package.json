@@ -63,6 +63,7 @@
     "webpack-cli": "3.3.12"
   },
   "dependencies": {
+    "@fluentui/react-components": "9.18.6",
     "@fullcalendar/core": "5.11.3",
     "@fullcalendar/daygrid": "5.11.3",
     "@fullcalendar/interaction": "5.11.3",
@@ -70,11 +71,13 @@
     "@fullcalendar/timegrid": "5.11.3",
     "bootstrap": "5.2.3",
     "core-js": "3.6.5",
+    "date-fns": "2.29.3",
     "mattermost-redux": "5.33.1",
     "react": "16.13.1",
     "react-bootstrap": "1.6.6",
     "react-redux": "7.2.0",
     "redux": "4.0.5",
+    "redux-devtools-extension": "2.13.9",
     "sass": "1.57.1",
     "typescript": "3.9.6"
   },
