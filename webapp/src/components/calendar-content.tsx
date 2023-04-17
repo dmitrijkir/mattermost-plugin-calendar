@@ -15,11 +15,10 @@ import {id as PluginId} from '../manifest';
 
 import {eventSelected, openEventModal} from 'actions';
 import {DateSelectArg, EventClickArg} from '@fullcalendar/common';
-import {Button} from "@fluentui/react-components";
 import {Calendar, DateRangeType, DayOfWeek, initializeIcons} from '@fluentui/react';
 import getSiteURL from './utils';
 import CalendarRef from './calendar';
-import {addMonths, isSameMonth} from 'date-fns';
+import {addMonths} from 'date-fns';
 
 initializeIcons();
 
@@ -41,15 +40,6 @@ const LeftBarCalendar = () => {
         CalendarRef.current.getApi().gotoDate(date);
     }, []);
 
-    const footer = (
-        <Button
-            disabled={isSameMonth(today, month)}
-            onClick={() => setMonth(today)}
-            appearance='transparent'
-        >
-            Go to Today
-        </Button>
-    );
 
     return (
         <Calendar
@@ -60,21 +50,9 @@ const LeftBarCalendar = () => {
             onSelectDate={onSelectDate}
             value={selectedDate}
             firstDayOfWeek={firstDayOfWeek}
-            // Calendar uses English strings by default. For localized apps, you must override this prop.
             // strings={defaultCalendarStrings}
         />
     );
-    // return (<DayPicker
-    //     mode='single'
-    //     onDayClick={(day: Date) => {
-    //         CalendarRef.current.getApi().gotoDate(day);
-    //     }}
-    //     locale={en}
-    //     weekStartsOn={1}
-    //     month={month}
-    //     onMonthChange={setMonth}
-    //     footer={footer}
-    // />);
 };
 
 const CalendarContent = () => {

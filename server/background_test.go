@@ -131,9 +131,10 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 	}
 }
 
-// process event with channel
+// process event with channel notification
 func TestProcessEventWithChannel(t *testing.T) {
 	botId := "bot-id"
+	channelId := "channel-id"
 	api := plugintest.API{}
 
 	pluginT := &Plugin{
@@ -169,7 +170,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	postForSendChannel := &model.Post{
 		UserId:    botId,
-		ChannelId: "channel-id",
+		ChannelId: channelId,
 	}
 
 	api.On("CreatePost", postForSendChannel).Return(nil, nil)
@@ -218,7 +219,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		"recurrent",
 		"recurrence"},
 	).AddRow("qwcw", "test event", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		"owner_id", "channel-id", "user-Id", false, "")
+		"owner_id", channelId, "user-Id", false, "")
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -241,6 +242,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 // process recurrent event
 func TestProcessEventWithChannelRecurrent(t *testing.T) {
 	botId := "bot-id"
+	channelId := "channel-id"
 	api := plugintest.API{}
 
 	pluginT := &Plugin{
@@ -276,12 +278,30 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 	featureTime := sqlQueryTime.Add(time.Hour * 24 * 4)
 
-	recurrentEventTimeStart := time.Date(2023, time.February, 26, 21, 0, 0, 0, utcLoc)
-	recurrentEventTimeEnd := time.Date(2023, time.February, 26, 22, 0, 0, 0, utcLoc)
+	recurrentEventTimeStart := time.Date(
+		2023,
+		time.February,
+		26,
+		21,
+		0,
+		0,
+		0,
+		utcLoc,
+	)
+	recurrentEventTimeEnd := time.Date(
+		2023,
+		time.February,
+		26,
+		22,
+		0,
+		0,
+		0,
+		utcLoc,
+	)
 
 	postForSendChannel := &model.Post{
 		UserId:    botId,
-		ChannelId: "channel-id",
+		ChannelId: channelId,
 	}
 
 	api.On("CreatePost", postForSendChannel).Return(nil, nil)
@@ -329,8 +349,12 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		"user",
 		"recurrent",
 		"recurrence"},
-	).AddRow("rec-ev", "test event recevent", recurrentEventTimeStart, recurrentEventTimeEnd, featureTime,
-		"owner_id", "channel-id", "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU")
+	).AddRow(
+		"rec-ev", "test event recevent", recurrentEventTimeStart,
+		recurrentEventTimeEnd, featureTime,
+		"owner_id", channelId, "user-Id", true,
+		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
+	)
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -350,9 +374,10 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 }
 
-// event start in processing time
+// recurrent event start in processing time
 func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 	botId := "bot-id"
+	channelId := "channel-id"
 	api := plugintest.API{}
 
 	pluginT := &Plugin{
@@ -388,12 +413,30 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 
 	featureTime := sqlQueryTime.Add(time.Hour * 2)
 
-	recurrentEventTimeStart := time.Date(2023, time.February, 26, sqlQueryTime.Hour(), sqlQueryTime.Minute(), sqlQueryTime.Second(), sqlQueryTime.Nanosecond(), utcLoc)
-	recurrentEventTimeEnd := time.Date(2023, time.February, 26, featureTime.Hour(), featureTime.Minute(), featureTime.Second(), featureTime.Nanosecond(), utcLoc)
+	recurrentEventTimeStart := time.Date(
+		2023,
+		time.February,
+		26,
+		sqlQueryTime.Hour(),
+		sqlQueryTime.Minute(),
+		sqlQueryTime.Second(),
+		sqlQueryTime.Nanosecond(),
+		utcLoc,
+	)
+	recurrentEventTimeEnd := time.Date(
+		2023,
+		time.February,
+		26,
+		featureTime.Hour(),
+		featureTime.Minute(),
+		featureTime.Second(),
+		featureTime.Nanosecond(),
+		utcLoc,
+	)
 
 	postForSendChannel := &model.Post{
 		UserId:    botId,
-		ChannelId: "channel-id",
+		ChannelId: channelId,
 	}
 
 	api.On("CreatePost", postForSendChannel).Return(nil, nil)
@@ -441,8 +484,12 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		"user",
 		"recurrent",
 		"recurrence"},
-	).AddRow("rec-ev", "test event recurrent", recurrentEventTimeStart, recurrentEventTimeEnd, recurrentEventTimeStart,
-		"owner_id", "channel-id", "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU")
+	).AddRow(
+		"rec-ev", "test event recurrent", recurrentEventTimeStart,
+		recurrentEventTimeEnd, recurrentEventTimeStart,
+		"owner_id", channelId, "user-Id", true,
+		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
+	)
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -466,6 +513,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 // process event without channel
 func TestProcessEventWithoutChannel(t *testing.T) {
 	botId := "bot-id"
+	channelId := "channel-id"
 
 	api := plugintest.API{}
 
@@ -502,11 +550,11 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 
 	postForSendGroup := &model.Post{
 		UserId:    botId,
-		ChannelId: "channel-id",
+		ChannelId: channelId,
 	}
 
 	foundChannel := &model.Channel{
-		Id: "channel-id",
+		Id: channelId,
 	}
 
 	api.On("GetGroupChannel", []string{"user-id", "owner-id", "bot-id"}).Return(foundChannel, nil)
@@ -579,9 +627,10 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 
 }
 
-// process event not in valid day
+// The process event isn't in the rule for the day
 func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 	botId := "bot-id"
+	channelId := "channel-id"
 	api := plugintest.API{}
 
 	pluginT := &Plugin{
@@ -626,12 +675,30 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 
 	featureTime := sqlQueryTime.Add(time.Hour * 2)
 
-	recurrentEventTimeStart := time.Date(2023, time.March, 11, sqlQueryTime.Hour(), sqlQueryTime.Minute(), sqlQueryTime.Second(), sqlQueryTime.Nanosecond(), utcLoc)
-	recurrentEventTimeEnd := time.Date(2023, time.March, 11, featureTime.Hour(), featureTime.Minute(), featureTime.Second(), featureTime.Nanosecond(), utcLoc)
+	recurrentEventTimeStart := time.Date(
+		2023,
+		time.March,
+		11,
+		sqlQueryTime.Hour(),
+		sqlQueryTime.Minute(),
+		sqlQueryTime.Second(),
+		sqlQueryTime.Nanosecond(),
+		utcLoc,
+	)
+	recurrentEventTimeEnd := time.Date(
+		2023,
+		time.March,
+		11,
+		featureTime.Hour(),
+		featureTime.Minute(),
+		featureTime.Second(),
+		featureTime.Nanosecond(),
+		utcLoc,
+	)
 
 	postForSendChannel := &model.Post{
 		UserId:    botId,
-		ChannelId: "channel-id",
+		ChannelId: channelId,
 	}
 
 	api.On("CreatePost", postForSendChannel).Return(nil, nil)
@@ -679,8 +746,11 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		"user",
 		"recurrent",
 		"recurrence"},
-	).AddRow("rec-ev", "test event recurrent", recurrentEventTimeStart, recurrentEventTimeEnd, recurrentEventTimeStart,
-		"owner_id", "channel-id", "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,MO")
+	).AddRow(
+		"rec-ev", "test event recurrent",
+		recurrentEventTimeStart, recurrentEventTimeEnd, recurrentEventTimeStart,
+		"owner_id", channelId, "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,MO",
+	)
 
 	expectedQuery.WillReturnRows(eventsRow)
 
