@@ -11,14 +11,18 @@ import {useDispatch, useSelector} from 'react-redux';
 import {DayHeaderContentArg} from '@fullcalendar/core';
 import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 
-import {id as PluginId} from '../manifest';
-
-import {eventSelected, openEventModal} from 'actions';
 import {DateSelectArg, EventClickArg} from '@fullcalendar/common';
 import {Calendar, DateRangeType, DayOfWeek, initializeIcons} from '@fluentui/react';
-import getSiteURL from './utils';
-import CalendarRef from './calendar';
+
 import {addMonths} from 'date-fns';
+
+import {eventSelected, openEventModal} from 'actions';
+import {id as PluginId} from '../manifest';
+import {CalendarSettings} from '../types/settings';
+import {getCalendarSettings} from '../selectors';
+
+import CalendarRef from './calendar';
+import getSiteURL from './utils';
 
 initializeIcons();
 
@@ -35,29 +39,36 @@ const LeftBarCalendar = () => {
     const dateRangeType = DateRangeType.Week;
     const firstDayOfWeek = DayOfWeek.Monday;
 
+    const settings: CalendarSettings = useSelector(getCalendarSettings);
+
     const onSelectDate = React.useCallback((date: Date, dateRangeArray: Date[]): void => {
         setSelectedDate(date);
         CalendarRef.current.getApi().gotoDate(date);
     }, []);
 
+    if (settings.isOpenCalendarLeftBar) {
+        return (
+            <Calendar
+                showMonthPickerAsOverlay={true}
+                dateRangeType={dateRangeType}
+                highlightSelectedMonth={true}
+                showGoToToday={true}
+                onSelectDate={onSelectDate}
+                value={selectedDate}
+                firstDayOfWeek={settings.firstDayOfWeek}
 
-    return (
-        <Calendar
-            showMonthPickerAsOverlay={true}
-            dateRangeType={dateRangeType}
-            highlightSelectedMonth={true}
-            showGoToToday={true}
-            onSelectDate={onSelectDate}
-            value={selectedDate}
-            firstDayOfWeek={firstDayOfWeek}
-            // strings={defaultCalendarStrings}
-        />
-    );
+                // strings={defaultCalendarStrings}
+            />
+        );
+    }
+
+    return <div className='hided-left-bar-calendar'/>;
 };
 
 const CalendarContent = () => {
     const dispatch = useDispatch();
     const user = useSelector(getCurrentUser);
+    const settings = useSelector(getCalendarSettings);
 
     const getUserTimeZoneString = () => {
         if (user.timezone?.useAutomaticTimezone) {
@@ -67,12 +78,25 @@ const CalendarContent = () => {
     };
 
     useEffect(() => {
-        // console.log(CalendarRef);
     }, [user]);
 
     const onEventClicked = (eventInfo: EventClickArg) => {
         dispatch(eventSelected(eventInfo));
         dispatch(openEventModal());
+    };
+
+    const calcHiddenDays = (): number[] => {
+        if (!settings.hideNonWorkingDays) {
+            return [];
+        }
+        let noneWorkingDays: number[] = [];
+        const allDays = [0, 1, 2, 3, 4, 5, 6];
+        allDays.forEach((item) => {
+            if (!settings.businessDays.includes(item)) {
+                noneWorkingDays.push(item);
+            }
+        });
+        return noneWorkingDays;
     };
 
     const onDateTimeSelected = (dateTimeSelectInfo: DateSelectArg) => {
@@ -97,7 +121,12 @@ const CalendarContent = () => {
                     allDaySlot={false}
                     slotDuration='00:30:00'
                     selectable={true}
-
+                    firstDay={settings.firstDayOfWeek}
+                    businessHours={{
+                        startTime: settings.businessStartTime,
+                        endTime: settings.businessEndTime,
+                        daysOfWeek: settings.businessDays,
+                    }}
                     timeZone={getUserTimeZoneString()}
                     handleWindowResize={true}
                     headerToolbar={{
@@ -105,6 +134,7 @@ const CalendarContent = () => {
                         center: 'title',
                         end: '',
                     }}
+                    hiddenDays={calcHiddenDays()}
                     nowIndicatorClassNames='now-indicator'
                     select={(info: DateSelectArg) => onDateTimeSelected(info)}
                     dayHeaderFormat={{day: 'numeric', weekday: 'short', omitCommas: true}}

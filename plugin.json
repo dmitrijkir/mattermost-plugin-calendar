@@ -6,7 +6,7 @@
     "support_url": "https://github.com/dmitrijkir/mattermost-plugin-calendar/issues",
     "release_notes_url": "",
     "icon_path": "assets/starter-template-icon.svg",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "min_server_version": "7.1.0",
     "server": {
         "executables": {
@@ -23,6 +23,31 @@
     "settings_schema": {
         "header": "",
         "footer": "",
-        "settings": []
+        "settings": [
+            {
+                "key": "BusinessStartTime",
+                "display_name": "Business start time by UTC",
+                "type": "text",
+                "help_text": "Business start time by UTC for exp: 08:00",
+                "default": "08:00",
+                "placeholder": "08:00"
+            },
+            {
+                "key": "BusinessEndTime",
+                "display_name": "Business end time by UTC",
+                "type": "text",
+                "help_text": "Business end time by UTC for exp: 19:00",
+                "default": "19:00",
+                "placeholder": "19:00"
+            },
+            {
+                "key": "BusinessDays",
+                "display_name": "Business days",
+                "type": "text",
+                "help_text": "Business days for exp: '1,2,3,4,5' from mon to fri",
+                "default": "1,2,3,4,5",
+                "placeholder": "1"
+            }
+        ]
     }
 }

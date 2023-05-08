@@ -43,7 +43,10 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	return &model.CommandResponse{}, nil
 }
 
-func (p *Plugin) executeTodayCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+func (p *Plugin) executeTodayCommand(
+	c *plugin.Context,
+	args *model.CommandArgs,
+) (*model.CommandResponse, *model.AppError) {
 	user, appErr := p.API.GetUser(args.UserId)
 	if appErr != nil {
 		return nil, NotAuthorizedError
@@ -73,9 +76,7 @@ func (p *Plugin) executeTodayCommand(c *plugin.Context, args *model.CommandArgs)
 		return nil, eventsError
 	}
 
-	message := `| time | title | channel |
-				| -----| ------| ------- |
-`
+	message := "| time | title | channel |\n| -----| ------| ------- |\n"
 	for _, event := range *events {
 		line := fmt.Sprintf("|%s|%s|", event.Start.Format(EventDateTimeLayout), event.Title)
 		if event.Channel != nil {
@@ -107,7 +108,10 @@ func (p *Plugin) executeTodayCommand(c *plugin.Context, args *model.CommandArgs)
 	return &model.CommandResponse{}, nil
 }
 
-func (p *Plugin) executeWeekCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+func (p *Plugin) executeWeekCommand(
+	c *plugin.Context,
+	args *model.CommandArgs,
+) (*model.CommandResponse, *model.AppError) {
 	user, appErr := p.API.GetUser(args.UserId)
 	if appErr != nil {
 		return nil, NotAuthorizedError
@@ -139,9 +143,7 @@ func (p *Plugin) executeWeekCommand(c *plugin.Context, args *model.CommandArgs) 
 		return nil, eventsError
 	}
 
-	message := `| time | title | channel |
-				| -----| ------| ------- |
-	`
+	message := "| time | title | channel |\n| -----| ------| ------- |\n"
 	sort.Slice(*events, func(i, j int) bool {
 		return (*events)[j].Start.After((*events)[i].Start)
 	})

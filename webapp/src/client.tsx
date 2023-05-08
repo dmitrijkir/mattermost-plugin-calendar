@@ -3,6 +3,7 @@ import {Client4} from 'mattermost-redux/client';
 import getSiteURL from 'components/utils';
 import {UserProfile} from 'mattermost-redux/types/users';
 import {id as PluginId} from './manifest';
+import {CalendarSettings} from "./types/settings";
 
 export declare type GetEventResponse = {
     id: string;
@@ -153,6 +154,39 @@ export class ApiClient implements ApiClientInterface {
         )
         let data = await response.json();
         return data;
+    }
+
+    static async getCalendarSettings(): Promise<CalendarSettings> {
+        let response = await fetch(
+            getSiteURL() + `/plugins/${PluginId}/settings`,
+            Client4.getOptions({
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+        );
+        let data = await response.json();
+        return data.data;
+    };
+
+    static async updateCalendarSettings(settings: CalendarSettings): Promise<CalendarSettings> {
+        let response = await fetch(
+            getSiteURL() + `/plugins/${PluginId}/settings`,
+            Client4.getOptions({
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    "isOpenCalendarLeftBar": settings.isOpenCalendarLeftBar,
+                    "firstDayOfWeek": settings.firstDayOfWeek,
+                    "hideNonWorkingDays": settings.hideNonWorkingDays,
+                }),
+            })
+        );
+        let data = await response.json();
+        return data.data;
     }
 
 }

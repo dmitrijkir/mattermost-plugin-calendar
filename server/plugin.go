@@ -128,7 +128,8 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 			p.GetEvents(c, w, r)
 		case "/event":
 			p.GetEvent(c, w, r)
-
+		case "/settings":
+			p.GetSettings(c, w, r)
 		}
 	case "DELETE":
 		switch r.URL.Path {
@@ -139,6 +140,8 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		switch r.URL.Path {
 		case "/event":
 			p.UpdateEvent(c, w, r)
+		case "/settings":
+			p.UpdateSettings(c, w, r)
 		}
 	default:
 		fmt.Fprint(w, "ping")

@@ -141,6 +141,9 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 			recurrenceDays = append(recurrenceDays, dayOfWeek[value])
 		}
 
+		if len(recurrenceDays) < 1 {
+			continue
+		}
 		rrule := "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=" + strings.Join(recurrenceDays, ",")
 
 		_, errUpdate := m.DB.NamedExec(`UPDATE PUBLIC.calendar_events
