@@ -350,10 +350,21 @@ table {
     color: #3C4043;
 }
 
+.fc-v-event .fc-event-main-frame {
+    flex-direction: column-reverse !important;
+}
+
+.fc-v-event .fc-event-time {
+    flex-shrink: 1 !important;
+}
+
 .fc-col-header-cell-cushion > a {
     color: var(--sidebar-text) !important;
 }
 
+.dayCell-114 {
+    text-align: center !important;
+}
 
 .date-arrow {
     padding-left: 6px;
