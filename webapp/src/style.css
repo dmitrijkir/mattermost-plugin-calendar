@@ -107,16 +107,20 @@
     text-align: center;
     color: var(--colorNeutralForeground);
 }
+
 .monthAndYear-101 {
     color: var(--colorNeutralForeground);
 }
+
 .monthAndYear-101:hover {
     color: var(--colorNeutralForeground1Hover) !important;
     background-color: var(--colorNeutralBackground1Hover) !important;
 }
+
 .headerIconButton-103 {
     color: var(--colorNeutralForeground) !important;
 }
+
 .headerIconButton-103:hover {
     color: var(--colorNeutralForeground1Hover) !important;
     background-color: var(--colorNeutralBackground1Hover) !important;
@@ -125,20 +129,25 @@
 .itemButton-143 {
     color: var(--colorNeutralForeground);
 }
+
 .currentItemButton-135 {
     color: var(--colorNeutralForeground);
 }
+
 .currentItemButton-135:hover {
     color: var(--colorNeutralForeground1Hover) !important;
     background-color: var(--colorNeutralBackground1Hover) !important;
 }
+
 .itemButton-140 {
     color: var(--colorNeutralForeground);
 }
+
 .itemButton-140:hover {
     color: var(--colorNeutralForeground1Hover) !important;
     background-color: var(--colorNeutralBackground1Hover) !important;
 }
+
 .selected-142 {
     background-color: var(--colorNeutralBackground1Selected) !important;
 }
@@ -146,12 +155,15 @@
 .goTodayButton-97 {
     color: var(--colorNeutralForeground1Hover) !important;
 }
+
 .goTodayButton-97:disabled {
     color: var(--colorNeutralBackground1Selected) !important;
 }
+
 .navigationButton-137 {
     color: var(--colorNeutralForeground);
 }
+
 .navigationButton-137:hover {
     color: var(--colorNeutralForeground1Hover) !important;
     background-color: var(--colorNeutralBackground1Hover) !important;
@@ -161,6 +173,7 @@
     color: var(--colorNeutralForeground1Hover) !important;
     background-color: var(--colorNeutralBackground1Hover) !important;
 }
+
 .dayCell-110.ms-CalendarDay-hoverStyle {
     background-color: var(--colorNeutralBackground1Hover);
 }
@@ -168,6 +181,7 @@
 .dayCell-110.ms-CalendarDay-daySelected {
     background-color: var(--colorNeutralBackground1Hover) !important;
 }
+
 .create-event-button-inner-container {
     display: flex;
 }
@@ -336,14 +350,21 @@ table {
     color: #3C4043;
 }
 
+.fc-v-event .fc-event-main-frame {
+    flex-direction: column-reverse !important;
+}
+
+.fc-v-event .fc-event-time {
+    flex-shrink: 1 !important;
+}
+
 .fc-col-header-cell-cushion > a {
     color: var(--sidebar-text) !important;
 }
 
-.fc-button-primary {
-    border-color: var(--sidebar-teambar-bg) !important;
+.dayCell-114 {
+    text-align: center !important;
 }
-
 
 .date-arrow {
     padding-left: 6px;
@@ -639,6 +660,14 @@ table {
     --rdp-cell-size: 25px !important;
 }
 
+.hided-left-bar-calendar {
+    padding-left: 20px;
+}
+
+.settings-right-bar-content {
+    padding-top: 20px;
+}
+
 .event-until-container {
     margin-top: 7px;
 }
@@ -665,6 +694,7 @@ table {
     height: 2.5em !important;
     border-bottom-style: dashed !important;
 }
+
 .fc .fc-timegrid-slot-minor {
     border-bottom-style: dashed !important;
 }

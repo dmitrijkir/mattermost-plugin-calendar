@@ -2,15 +2,13 @@ import React, {useEffect, useState} from 'react';
 import {Client4} from 'mattermost-redux/client';
 import {UserProfile} from 'mattermost-redux/types/users';
 import {Channel} from 'mattermost-redux/types/channels';
-import CalendarRef from './calendar';
-import {ApiClient} from 'client';
+
 import {useDispatch, useSelector} from 'react-redux';
-import {selectIsOpenEventModal, selectSelectedEvent} from 'selectors';
-import {closeEventModal, eventSelected} from 'actions';
+
 import {getCurrentTeam, getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
 import {getUserStatuses} from 'mattermost-redux/selectors/entities/users';
-import {getTeammateNameDisplaySetting} from "mattermost-redux/selectors/entities/preferences";
-import RepeatEventCustom from './repeat-event';
+import {getTeammateNameDisplaySetting} from 'mattermost-redux/selectors/entities/preferences';
+
 import {
     ChatMultiple24Regular,
     Circle20Filled,
@@ -20,7 +18,7 @@ import {
     Pen24Regular,
     PersonAdd24Regular,
     Save16Regular,
-} from "@fluentui/react-icons";
+} from '@fluentui/react-icons';
 import {
     Button,
     Combobox,
@@ -35,9 +33,17 @@ import {
     Option,
     Persona,
     Select,
-} from "@fluentui/react-components";
-import {format, parse} from "date-fns";
-import {InputOnChangeData} from "@fluentui/react-input";
+} from '@fluentui/react-components';
+import {format, parse} from 'date-fns';
+import {InputOnChangeData} from '@fluentui/react-input';
+
+import {closeEventModal, eventSelected} from 'actions';
+import {selectIsOpenEventModal, selectSelectedEvent} from 'selectors';
+import {ApiClient} from 'client';
+
+import RepeatEventCustom from './repeat-event';
+
+import CalendarRef from './calendar';
 
 interface AddedUserComponentProps {
     user: UserProfile
@@ -60,111 +66,116 @@ declare type OptionOnSelectData = {
 
 function formatTimeWithZero(i: number) {
     if (i < 10) {
-        return "0" + i.toString();
+        return '0' + i.toString();
     }
     return i.toString();
 }
 
-
 const TimeSelectItems = (props: TimeSelectItemsProps) => {
-    let now = new Date();
-    let times = [
-        "00:00",
-        "00:30",
-        "01:00",
-        "01:30",
-        "02:00",
-        "02:30",
-        "03:00",
-        "03:30",
-        "04:00",
-        "04:30",
-        "05:00",
-        "05:30",
-        "06:00",
-        "06:30",
-        "07:00",
-        "07:30",
-        "08:00",
-        "08:30",
-        "09:00",
-        "09:30",
-        "10:00",
-        "10:30",
-        "11:00",
-        "11:30",
-        "12:00",
-        "12:30",
-        "13:00",
-        "13:30",
-        "14:00",
-        "14:30",
-        "15:00",
-        "15:30",
-        "16:00",
-        "16:30",
-        "17:00",
-        "17:30",
-        "18:00",
-        "18:30",
-        "19:00",
-        "19:30",
-        "20:00",
-        "20:30",
-        "21:00",
-        "21:30",
-        "22:00",
-        "22:30",
-        "23:00",
-        "23:30"
+    const now = new Date();
+    const times = [
+        '00:00',
+        '00:30',
+        '01:00',
+        '01:30',
+        '02:00',
+        '02:30',
+        '03:00',
+        '03:30',
+        '04:00',
+        '04:30',
+        '05:00',
+        '05:30',
+        '06:00',
+        '06:30',
+        '07:00',
+        '07:30',
+        '08:00',
+        '08:30',
+        '09:00',
+        '09:30',
+        '10:00',
+        '10:30',
+        '11:00',
+        '11:30',
+        '12:00',
+        '12:30',
+        '13:00',
+        '13:30',
+        '14:00',
+        '14:30',
+        '15:00',
+        '15:30',
+        '16:00',
+        '16:30',
+        '17:00',
+        '17:30',
+        '18:00',
+        '18:30',
+        '19:00',
+        '19:30',
+        '20:00',
+        '20:30',
+        '21:00',
+        '21:30',
+        '22:00',
+        '22:30',
+        '23:00',
+        '23:30',
 
-    ]
+    ];
     return (
 
         <>
             {times.map((time, index) => {
                 if (props.start != null && props.start == time) {
-                    return <option value={time} selected>{time}</option>
+                    return (<option
+                        value={time}
+                        selected={true}
+                            >{time}</option>);
                 }
                 if (props.end != null && props.end == time) {
-                    return <option value={time} selected>{time}</option>
+                    return (<option
+                        value={time}
+                        selected={true}
+                            >{time}</option>);
                 }
-                return <option value={time}>{time}</option>
+                return <option value={time}>{time}</option>;
             })}
         </>
     );
-}
+};
 
 const getNextHour = (hour: number) => {
     if (hour == 23) {
-        return 0
+        return 0;
     }
     return hour + 1;
-}
+};
 const initialStartTime = () => {
-    let now = new Date();
+    const now = new Date();
     let minutes = 0;
     let hours = 0;
     if (now.getMinutes() < 30) {
-        minutes = 30
+        minutes = 30;
         hours = now.getHours();
     } else {
         hours = getNextHour(now.getHours());
     }
     return formatTimeWithZero(hours) + ':' + formatTimeWithZero(minutes);
-}
+};
 
 const initialEndTime = () => {
-    let now = new Date();
+    const now = new Date();
     let minutes = 0;
-    let hours = getNextHour(now.getHours());
+    const hours = getNextHour(now.getHours());
     if (now.getMinutes() < 30) {
-        minutes = 0
+        minutes = 0;
     } else {
-        minutes = 30
+        minutes = 30;
     }
     return formatTimeWithZero(hours) + ':' + formatTimeWithZero(minutes);
-}
+};
 const EventModalComponent = () => {
     const selectedEvent = useSelector(selectSelectedEvent);
     const isOpenEventModal = useSelector(selectIsOpenEventModal);
@@ -200,7 +211,7 @@ const EventModalComponent = () => {
     const [repeatRule, setRepeatRule] = useState<string>('');
     const [showCustomRepeat, setShowCustomRepeat] = useState(false);
     const [repeatOption, setRepeatOption] = useState("Don't repeat");
-    const [repeatOptionsSelected, setRepeatOptionsSelected] = useState(['empty'])
+    const [repeatOptionsSelected, setRepeatOptionsSelected] = useState(['empty']);
 
     // methods
     const viewEventModalHandleClose = () => {
@@ -267,7 +278,6 @@ const EventModalComponent = () => {
             if (option.id === data.optionValue) {
                 setSelectedChannel(option);
                 setSelectedChannelText(option.display_name);
-                return;
             }
         });
     };
@@ -302,9 +312,8 @@ const EventModalComponent = () => {
             CalendarRef.current.getApi().getEventSources()[0].refetch();
             cleanState();
             viewEventModalHandleClose();
-            return
         } else {
-            let response = await ApiClient.updateEvent(
+            const response = await ApiClient.updateEvent(
                 selectedEvent.event.id,
                 titleEvent,
                 format(startEventData, 'yyyy-MM-dd') + 'T' + startEventTime + ':00Z',
@@ -317,7 +326,6 @@ const EventModalComponent = () => {
             CalendarRef.current.getApi().getEventSources()[0].refetch();
             cleanState();
             viewEventModalHandleClose();
-            return;
         }
     };
 
@@ -330,7 +338,7 @@ const EventModalComponent = () => {
 
     const colorsMap: { [name: string]: string } = {
         '': 'event-color-default',
-        'default': 'event-color-default',
+        default: 'event-color-default',
         '#F2B3B3': 'event-color-red',
         '#FCECBE': 'event-color-yellow',
         '#B6D9C7': 'event-color-green',
@@ -379,7 +387,6 @@ const EventModalComponent = () => {
             setEndEventTime(format(selectedEvent?.event.end, 'HH:mm'));
         }
         mounted = false;
-
     }, [selectedEvent]);
 
     const getDisplayUserName = (user: UserProfile) => {
@@ -418,29 +425,34 @@ const EventModalComponent = () => {
             stat = 'available';
         }
 
-        return <span className='added-user-badge-container'>
-            <Persona name={getDisplayUserName(props.user)} avatar={{color: "colorful"}} presence={{status: stat}}/>
-            <Dismiss12Regular className='added-user-badge-icon-container' onClick={() => {
-                setUsersAdded(usersAdded.filter(item => item.id != props.user.id))
-            }}/>
+        return (<span className='added-user-badge-container'>
+            <Persona
+                name={getDisplayUserName(props.user)}
+                avatar={{color: 'colorful'}}
+                presence={{status: stat}}
+            />
+            <Dismiss12Regular
+                className='added-user-badge-icon-container'
+                onClick={() => {
+                    setUsersAdded(usersAdded.filter((item) => item.id != props.user.id));
+                }}
+            />
 
-        </span>
+        </span>);
     };
-
 
     const UsersAddedComponent = () => {
         if (usersAdded.length > 0) {
-            return <div className='added-users-list'>
+            return (<div className='added-users-list'>
                 {
                     usersAdded.map((user) => {
-                        return <AddedUserComponent user={user}/>
+                        return <AddedUserComponent user={user}/>;
                     })
                 }
-            </div>
+            </div>);
         }
-        return <></>
-    }
-
+        return <></>;
+    };
 
     const RemoveEventButton = () => {
         if (selectedEvent?.event?.id != null) {
@@ -453,18 +465,16 @@ const EventModalComponent = () => {
                     Remove
                 </Button>
             </DialogActions>);
-
         }
-        return <></>
-    }
-
+        return <></>;
+    };
 
     const RepeatComponent = () => {
         if (showCustomRepeat) {
-            return <RepeatEventCustom
+            return (<RepeatEventCustom
                 selected={repeatRule}
                 onSelect={setRepeatRule}
-            />;
+                    />);
         }
         return <></>;
     };
@@ -605,7 +615,6 @@ const EventModalComponent = () => {
                                             usersAutocomplete.map((user) => {
                                                 if (user.id === data.optionValue && !usersAdded.some((u) => u.id === data.optionValue)) {
                                                     setUsersAdded(usersAdded.concat([user]));
-                                                    return;
                                                 }
                                             });
                                             setSearchUsersInput('');
@@ -618,18 +627,21 @@ const EventModalComponent = () => {
                                             if (UserStatusSelector[user.id] === 'online') {
                                                 stat = 'available';
                                             }
-                                            return <Option text={user.id}>
+                                            return (<Option text={user.id}>
                                                 <Persona
                                                     name={getDisplayUserName(user)}
                                                     className='user-list-item'
                                                     as='div'
                                                     presence={{status: stat}}
                                                 />
-                                            </Option>
+                                            </Option>);
                                         })}
 
                                         {usersAutocomplete.length === 0 ? (
-                                            <Option key='no-results' text=''>
+                                            <Option
+                                                key='no-results'
+                                                text=''
+                                            >
                                                 No results found
                                             </Option>
                                         ) : null}
@@ -641,7 +653,6 @@ const EventModalComponent = () => {
                         <div className='users-added-container'>
                             <UsersAddedComponent/>
                         </div>
-
 
                         <div className='event-channel-container'>
                             <ChatMultiple24Regular/>
@@ -663,7 +674,10 @@ const EventModalComponent = () => {
                                         ))}
 
                                         {channelsAutocomplete.length === 0 ? (
-                                            <Option key='no-results' text=''>
+                                            <Option
+                                                key='no-results'
+                                                text=''
+                                            >
                                                 No results found
                                             </Option>
                                         ) : null}
@@ -675,7 +689,7 @@ const EventModalComponent = () => {
                     </DialogContent>
                     <RemoveEventButton/>
                     <DialogActions position='end'>
-                        <DialogTrigger disableButtonEnhancement>
+                        <DialogTrigger disableButtonEnhancement={true}>
                             <Button
                                 appearance='secondary'
                                 onClick={viewEventModalHandleClose}

@@ -18,3 +18,12 @@ type Event struct {
 	Recurrence string     `json:"recurrence" db:"recurrence"`
 	Color      *string    `json:"color" db:"color"`
 }
+
+type UserSettings struct {
+	BusinessStartTime     string `json:"businessStartTime"`
+	BusinessEndTime       string `json:"businessEndTime"`
+	IsOpenCalendarLeftBar bool   `json:"isOpenCalendarLeftBar" db:"is_open_calendar_left_bar"`
+	FirstDayOfWeek        int    `json:"firstDayOfWeek" db:"first_day_of_week"`
+	BusinessDays          []int  `json:"businessDays"`
+	HideNonWorkingDays    bool   `json:"hideNonWorkingDays" db:"hide_non_working_days"`
+}
