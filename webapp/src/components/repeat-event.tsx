@@ -17,6 +17,7 @@ import {OnOpenChangeData, OpenPopoverEvents} from '@fluentui/react-popover';
 
 type RepeatRuleOnChange = (rule: string) => void;
 
+
 interface RepeatEventComponentProps {
     selected: string
     onSelect?: RepeatRuleOnChange | undefined

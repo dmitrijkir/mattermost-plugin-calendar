@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const wsEventOccur = "event_occur"
+
 type Background struct {
 	Ticker *time.Ticker
 	Done   chan bool
@@ -76,7 +78,6 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 			b.plugin.API.LogError(postCreateError.Error())
 			return
 		}
-
 		return
 	}
 
@@ -233,6 +234,7 @@ func (b *Background) process(t *time.Time) {
 	}
 
 	for _, value := range events {
+		b.sendWsNotification(value)
 		if value.Channel != nil {
 			postModel := &model.Post{
 				ChannelId: *value.Channel,
@@ -266,6 +268,25 @@ func (b *Background) process(t *time.Time) {
 
 }
 
+func (b *Background) sendWsNotification(event *Event) {
+	var attendees []string
+
+	attendees = append(attendees, event.Attendees...)
+	if !contains(attendees, event.Owner) {
+		attendees = append(attendees, event.Owner)
+	}
+
+	for _, user := range attendees {
+		b.plugin.API.LogError("Sending ws notification to " + user + " for event " + event.Id)
+		b.plugin.API.PublishWebSocketEvent(wsEventOccur, map[string]interface{}{
+			"id":    event.Id,
+			"title": event.Title,
+		}, &model.WebsocketBroadcast{
+			UserId: user,
+		})
+	}
+
+}
 func (b *Background) getMessageProps(event *Event) model.StringInterface {
 	color := DefaultColor
 	if event.Color == nil {

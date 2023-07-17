@@ -460,7 +460,7 @@ const EventModalComponent = () => {
                 <Button
                     appearance='outline'
                     icon={<Delete16Regular/>}
-                    onClick={viewEventModalHandleClose}
+                    onClick={onRemoveEvent}
                 >
                     Remove
                 </Button>

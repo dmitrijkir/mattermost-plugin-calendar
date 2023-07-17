@@ -63,7 +63,8 @@
     "webpack-cli": "3.3.12"
   },
   "dependencies": {
-    "@fluentui/react-components": "9.18.6",
+    "@fluentui/react": "8.110.6",
+    "@fluentui/react-components": "9.26.0",
     "@fullcalendar/core": "5.11.3",
     "@fullcalendar/daygrid": "5.11.3",
     "@fullcalendar/interaction": "5.11.3",

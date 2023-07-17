@@ -6,3 +6,4 @@ import {CalendarSettings} from './types/settings';
 export const selectSelectedEvent = (state: GlobalState) => state[`plugins-${PluginId}`].selectEventModal;
 export const selectIsOpenEventModal = (state: GlobalState) => state[`plugins-${PluginId}`].toggleEventModal.isOpen;
 export const getCalendarSettings = (state: GlobalState) : CalendarSettings => state[`plugins-${PluginId}`].calendarSettings;
+export const getEventNotification = (state: GlobalState) => state[`plugins-${PluginId}`].eventNotification;
