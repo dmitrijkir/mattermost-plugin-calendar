@@ -11,12 +11,12 @@ import {PluginRegistry} from './types/mattermost-webapp';
 import reducer from 'reducers';
 import {Provider} from 'react-redux';
 
-import {showEventNotification, updateCalendarSettings} from './actions';
+import {eventNotification, updateCalendarSettings} from './actions';
 import {ApiClient} from './client';
 import {render} from 'react-dom';
 import NotificationWidget from './components/notification-widget';
 import React from "react";
-import {FluentProvider, teamsLightTheme} from "@fluentui/react-components";
+import {FluentProvider, webLightTheme} from "@fluentui/react-components";
 
 const EmptyComponent = () => <></>;
 
@@ -52,7 +52,7 @@ export default class Plugin {
         render(
             <Provider store={store}>
                 <FluentProvider
-                    theme={teamsLightTheme}
+                    theme={webLightTheme}
                 >
                     <NotificationWidget/>
                 </FluentProvider>
@@ -61,8 +61,7 @@ export default class Plugin {
         );
 
         registry.registerWebSocketEventHandler(`custom_${PluginId}_event_occur`, (ev) => {
-            console.log(ev);
-            store.dispatch(showEventNotification({id: ev.data.id, title: ev.data.title}));
+            store.dispatch(eventNotification({id: ev.data.id, title: ev.data.title, channel:ev.data.channel}));
         });
     }
 }

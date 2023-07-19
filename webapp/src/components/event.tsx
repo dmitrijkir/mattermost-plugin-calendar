@@ -5,7 +5,7 @@ import {Channel} from 'mattermost-redux/types/channels';
 
 import {useDispatch, useSelector} from 'react-redux';
 
-import {getCurrentTeam, getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
+import {getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
 import {getUserStatuses} from 'mattermost-redux/selectors/entities/users';
 import {getTeammateNameDisplaySetting} from 'mattermost-redux/selectors/entities/preferences';
 
@@ -32,10 +32,13 @@ import {
     Input,
     Option,
     Persona,
-    Select,
+    Skeleton,
+    SkeletonItem, Spinner,
 } from '@fluentui/react-components';
 import {format, parse} from 'date-fns';
 import {InputOnChangeData} from '@fluentui/react-input';
+
+import roundToNearestMinutes from 'date-fns/roundToNearestMinutes';
 
 import {closeEventModal, eventSelected} from 'actions';
 import {selectIsOpenEventModal, selectSelectedEvent} from 'selectors';
@@ -44,6 +47,7 @@ import {ApiClient} from 'client';
 import RepeatEventCustom from './repeat-event';
 
 import CalendarRef from './calendar';
+import TimeSelector from './time-selector';
 
 interface AddedUserComponentProps {
     user: UserProfile
@@ -64,118 +68,22 @@ declare type OptionOnSelectData = {
     selectedOptions: string[];
 };
 
-function formatTimeWithZero(i: number) {
-    if (i < 10) {
-        return '0' + i.toString();
-    }
-    return i.toString();
-}
-
-const TimeSelectItems = (props: TimeSelectItemsProps) => {
-    const now = new Date();
-    const times = [
-        '00:00',
-        '00:30',
-        '01:00',
-        '01:30',
-        '02:00',
-        '02:30',
-        '03:00',
-        '03:30',
-        '04:00',
-        '04:30',
-        '05:00',
-        '05:30',
-        '06:00',
-        '06:30',
-        '07:00',
-        '07:30',
-        '08:00',
-        '08:30',
-        '09:00',
-        '09:30',
-        '10:00',
-        '10:30',
-        '11:00',
-        '11:30',
-        '12:00',
-        '12:30',
-        '13:00',
-        '13:30',
-        '14:00',
-        '14:30',
-        '15:00',
-        '15:30',
-        '16:00',
-        '16:30',
-        '17:00',
-        '17:30',
-        '18:00',
-        '18:30',
-        '19:00',
-        '19:30',
-        '20:00',
-        '20:30',
-        '21:00',
-        '21:30',
-        '22:00',
-        '22:30',
-        '23:00',
-        '23:30',
-
-    ];
-    return (
-
-        <>
-            {times.map((time, index) => {
-                if (props.start != null && props.start == time) {
-                    return (<option
-                        value={time}
-                        selected={true}
-                            >{time}</option>);
-                }
-                if (props.end != null && props.end == time) {
-                    return (<option
-                        value={time}
-                        selected={true}
-                            >{time}</option>);
-                }
-                return <option value={time}>{time}</option>;
-            })}
-        </>
-    );
+const initialStartTime = (): string => {
+    return format(roundToNearestMinutes(new Date(), {
+        nearestTo: 30,
+        roundingMethod: 'ceil',
+    }), 'HH:mm');
 };
 
-const getNextHour = (hour: number) => {
-    if (hour == 23) {
-        return 0;
-    }
-    return hour + 1;
-};
-const initialStartTime = () => {
-    const now = new Date();
-    let minutes = 0;
-    let hours = 0;
-    if (now.getMinutes() < 30) {
-        minutes = 30;
-        hours = now.getHours();
-    } else {
-        hours = getNextHour(now.getHours());
-    }
-    return formatTimeWithZero(hours) + ':' + formatTimeWithZero(minutes);
+const initialEndTime = (): string => {
+    const dt = new Date();
+    dt.setMinutes(dt.getMinutes() + 30);
+    return format(roundToNearestMinutes(dt, {
+        nearestTo: 30,
+        roundingMethod: 'ceil',
+    }), 'HH:mm');
 };
 
-const initialEndTime = () => {
-    const now = new Date();
-    let minutes = 0;
-    const hours = getNextHour(now.getHours());
-    if (now.getMinutes() < 30) {
-        minutes = 0;
-    } else {
-        minutes = 30;
-    }
-    return formatTimeWithZero(hours) + ':' + formatTimeWithZero(minutes);
-};
 const EventModalComponent = () => {
     const selectedEvent = useSelector(selectSelectedEvent);
     const isOpenEventModal = useSelector(selectIsOpenEventModal);
@@ -188,6 +96,9 @@ const EventModalComponent = () => {
     const dispatch = useDispatch();
 
     const initialDate = new Date();
+
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     const [usersAutocomplete, setUsersAutocomplete] = useState<UserProfile[]>([]);
     const [usersAdded, setUsersAdded] = useState<UserProfile[]>([]);
@@ -225,6 +136,9 @@ const EventModalComponent = () => {
         setStartEventTime(initialStartTime);
         setEndEventTime(initialEndTime);
 
+        setIsSaving(false);
+        setIsLoading(false);
+
         setStartEventDate(initialDate);
         setEndEventDate(initialDate);
 
@@ -255,14 +169,6 @@ const EventModalComponent = () => {
 
     const onEndDateChange = (event: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
         setEndEventDate(parse(data.value, 'yyyy-MM-dd', new Date()));
-    };
-
-    const onStartTimeChange = (event: React.ChangeEvent<HTMLSelectElement>, data: any) => {
-        setStartEventTime(data.value);
-    };
-
-    const onEndTimeChange = (event: React.ChangeEvent<HTMLSelectElement>, data: any) => {
-        setEndEventTime(data.value);
     };
 
     const onInputUserAction = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -299,6 +205,7 @@ const EventModalComponent = () => {
         if (repeatOption === 'Custom') {
             repeat = repeatRule;
         }
+        setIsSaving(true);
         if (selectedEvent?.event?.id == null) {
             const response = await ApiClient.createEvent(
                 titleEvent,
@@ -327,6 +234,7 @@ const EventModalComponent = () => {
             cleanState();
             viewEventModalHandleClose();
         }
+        setIsSaving(false);
     };
 
     const onRemoveEvent = async () => {
@@ -352,6 +260,7 @@ const EventModalComponent = () => {
     useEffect(() => {
         let mounted = true;
         if (mounted && selectedEvent?.event?.id != null) {
+            setIsLoading(true);
             ApiClient.getEventById(selectedEvent.event.id).then((data) => {
                 setTitleEvent(data.data.title);
 
@@ -363,6 +272,7 @@ const EventModalComponent = () => {
 
                 setStartEventTime(format(startEventResp, 'HH:mm'));
                 setEndEventTime(format(endEventResp, 'HH:mm'));
+
                 setSelectedColor(data.data.color!);
                 setSelectedColorStyle(colorsMap[data.data.color!]);
 
@@ -378,6 +288,7 @@ const EventModalComponent = () => {
                         setSelectedChannelText(channel.display_name);
                     });
                 }
+                setIsLoading(false);
             });
         } else if (mounted && selectedEvent?.event?.id == null && selectedEvent?.event?.start != null) {
             setStartEventDate(selectedEvent?.event.start);
@@ -537,7 +448,9 @@ const EventModalComponent = () => {
                         <div className='event-title-container'>
                             <Pen24Regular/>
                             <div className='event-input-container'>
-                                <Input
+                                {isLoading ? (<Skeleton className='event-input-title'>
+                                    <SkeletonItem/>
+                                </Skeleton>) : (<Input
                                     type='text'
                                     className='event-input-title'
                                     size='large'
@@ -545,62 +458,78 @@ const EventModalComponent = () => {
                                     placeholder='Add a title'
                                     value={titleEvent}
                                     onChange={onTitleChange}
-                                />
+                                />)}
+
                             </div>
                         </div>
                         <div className='datetime-container'>
                             <Clock24Regular/>
                             <div className='event-input-container-datetime event-input-container'>
                                 <div className='datetime-group'>
-                                    <Input
+                                    {isLoading ? (<Skeleton className='start-date-input'>
+                                        <SkeletonItem/>
+                                    </Skeleton>) : (<Input
                                         type='date'
                                         className='start-date-input'
                                         value={format(startEventData, 'yyyy-MM-dd')}
                                         onChange={onStartDateChange}
-                                    />
-                                    <Select
-                                        className='time-selector'
-                                        onChange={onStartTimeChange}
-                                    >
-                                        <TimeSelectItems start={startEventTime}/>
-                                    </Select>
+                                    />)}
+
+                                    {isLoading ? (<Skeleton className='start-date-input'>
+                                        <SkeletonItem/>
+                                    </Skeleton>) : (<TimeSelector
+                                        selected={startEventTime}
+                                        onSelect={setStartEventTime}
+                                    />)}
+
                                 </div>
                                 <div className='datetime-group datetime-group-end'>
-                                    <Input
-                                        type='date'
-                                        className='end-date-input'
-                                        value={format(endEventData, 'yyyy-MM-dd')}
-                                        onChange={onEndDateChange}
-                                    />
-                                    <Select
-                                        className='time-selector'
-                                        onChange={onEndTimeChange}
-                                    >
-                                        <TimeSelectItems end={endEventTime}/>
-                                    </Select>
+                                    {isLoading ? (
+                                        <Skeleton className='end-date-input'>
+                                            <SkeletonItem/>
+                                        </Skeleton>
+                                    ) :
+                                        (<Input
+                                            type='date'
+                                            className='end-date-input'
+                                            value={format(endEventData, 'yyyy-MM-dd')}
+                                            onChange={onEndDateChange}
+                                        />)}
+                                    {isLoading ? (<Skeleton className='end-date-input'>
+                                        <SkeletonItem/>
+                                    </Skeleton>) : (<TimeSelector
+                                        selected={endEventTime}
+                                        onSelect={setEndEventTime}
+                                    />)}
+
                                 </div>
 
                             </div>
                         </div>
                         <div className='repeat-container'>
-                            <Combobox
-                                onOptionSelect={repeatOnSelect}
-                                selectedOptions={repeatOptionsSelected}
-                                value={repeatOption}
-                            >
-                                <Option
-                                    key='empty'
-                                    text='empty'
-                                >
-                                    Don't repeat
-                                </Option>
-                                <Option
-                                    key='custom'
-                                    text='custom'
-                                >
-                                    Custom
-                                </Option>
-                            </Combobox>
+                            {isLoading ? (<Skeleton className='skeleton-dropdown'>
+                                <SkeletonItem/>
+                            </Skeleton>) :
+                                (
+                                    <Combobox
+                                        onOptionSelect={repeatOnSelect}
+                                        selectedOptions={repeatOptionsSelected}
+                                        value={repeatOption}
+                                    >
+                                        <Option
+                                            key='empty'
+                                            text='empty'
+                                        >
+                                            Don't repeat
+                                        </Option>
+                                        <Option
+                                            key='custom'
+                                            text='custom'
+                                        >
+                                            Custom
+                                        </Option>
+                                    </Combobox>
+                                )}
                             <RepeatComponent/>
                         </div>
 
@@ -608,7 +537,9 @@ const EventModalComponent = () => {
                             <PersonAdd24Regular/>
                             <div className='event-input-container'>
                                 <div className='event-input-users-wrapper'>
-                                    <Combobox
+                                    {isLoading ? (<Skeleton className='skeleton-dropdown'>
+                                        <SkeletonItem/>
+                                    </Skeleton>) : (<Combobox
                                         placeholder='Select a user'
                                         onChange={onInputUserAction}
                                         onOptionSelect={(event, data) => {
@@ -645,7 +576,7 @@ const EventModalComponent = () => {
                                                 No results found
                                             </Option>
                                         ) : null}
-                                    </Combobox>
+                                    </Combobox>)}
 
                                 </div>
                             </div>
@@ -658,30 +589,36 @@ const EventModalComponent = () => {
                             <ChatMultiple24Regular/>
                             <div className='event-channel-input-container'>
                                 <div className='event-input-channel-wrapper'>
-                                    <Combobox
-                                        placeholder='Select a channel'
-                                        onChange={onInputChannelAction}
-                                        onOptionSelect={onSelectChannelOption}
-                                        value={selectedChannelText}
-                                    >
-                                        {channelsAutocomplete.map((option) => (
-                                            <Option
-                                                key={option.id}
-                                                text={option.id}
-                                            >
-                                                {option.display_name}
-                                            </Option>
-                                        ))}
+                                    {isLoading ? (
+                                        <Skeleton className='skeleton-dropdown'>
+                                            <SkeletonItem/>
+                                        </Skeleton>
+                                    ) : (
+                                        <Combobox
+                                            placeholder='Select a channel'
+                                            onChange={onInputChannelAction}
+                                            onOptionSelect={onSelectChannelOption}
+                                            value={selectedChannelText}
+                                        >
+                                            {channelsAutocomplete.map((option) => (
+                                                <Option
+                                                    key={option.id}
+                                                    text={option.id}
+                                                >
+                                                    {option.display_name}
+                                                </Option>
+                                            ))}
 
-                                        {channelsAutocomplete.length === 0 ? (
-                                            <Option
-                                                key='no-results'
-                                                text=''
-                                            >
-                                                No results found
-                                            </Option>
-                                        ) : null}
-                                    </Combobox>
+                                            {channelsAutocomplete.length === 0 ? (
+                                                <Option
+                                                    key='no-results'
+                                                    text=''
+                                                >
+                                                    No results found
+                                                </Option>
+                                            ) : null}
+                                        </Combobox>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -697,13 +634,16 @@ const EventModalComponent = () => {
                                 Close
                             </Button>
                         </DialogTrigger>
+
                         <Button
                             appearance='primary'
                             onClick={onSaveEvent}
-                            icon={<Save16Regular/>}
+                            icon={isSaving ? (<Spinner size='tiny'/>) : (<Save16Regular/>)}
+                            disabled={isSaving}
                         >
                             Save
                         </Button>
+
                     </DialogActions>
                 </DialogBody>
             </DialogSurface>

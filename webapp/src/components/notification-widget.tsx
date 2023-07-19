@@ -22,11 +22,11 @@ const NotificationWidget = () => {
                     }
                 >{notification.title}</ToastTitle>
             </Toast>,
-            {position: 'top-end', intent: 'success'},
+            {position: 'top-end', intent: 'info', timeout: 7000},
         );
 
     useEffect(() => {
-        if (notification.id === undefined) {
+        if (typeof notification.id === 'undefined') {
             return;
         }
         notify();

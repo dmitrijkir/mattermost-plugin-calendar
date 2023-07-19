@@ -560,6 +560,12 @@ table {
     padding-left: 53px;
     margin-top: 10px;
 }
+.skeleton-dropdown {
+    min-width: 230px;
+}
+.save-button-spinner {
+    padding: 3px;
+}
 
 .repeat-select {
     width: 140px;
@@ -598,6 +604,12 @@ table {
     width: 100%;
 }
 
+.start-date-input {
+    min-width: 100px;
+}
+.end-date-input {
+    min-width: 100px;
+}
 .datetime-group {
     display: flex;
 }
@@ -637,7 +649,8 @@ table {
 }
 
 .calendar-full-content {
-    background-color: rgb(50 67 98 / 27%);
+    /*background-color: rgb(50 67 98 / 27%);*/
+    background-color: #FAFAFA;
     display: block;
     height: 100%;
     width: 100%;
@@ -645,7 +658,8 @@ table {
 
 .calendar-full-content-provider {
     height: 100%;
-    background-color: rgb(50 67 98 / 27%);
+    background-color: #FAFAFA;
+    /*background-color: rgb(50 67 98 / 27%);*/
 }
 
 .calendar-content {

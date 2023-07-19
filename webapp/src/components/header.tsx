@@ -4,7 +4,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {Button, Dropdown, Option, useId} from '@fluentui/react-components';
 
 import {Toggle} from '@fluentui/react/lib/Toggle';
-import { Drawer, DrawerHeader, DrawerHeaderTitle, DrawerOverlay, DrawerBody } from '@fluentui/react-components/unstable';
+import {DrawerHeader, DrawerHeaderTitle, DrawerOverlay, DrawerBody} from '@fluentui/react-components/unstable';
 
 import {
     Calendar3Day20Regular,
@@ -54,22 +54,22 @@ const HeaderComponent = () => {
         <div className='calendar-header-container'>
             <DrawerOverlay
                 open={settingsPanelOpen}
-                position="right"
-                modalType="non-modal"
-                onOpenChange={(_, { open }) => setSettingsPanelOpen(open)}
+                position='right'
+                modalType='non-modal'
+                onOpenChange={(_, {open}) => setSettingsPanelOpen(open)}
             >
                 <DrawerHeader>
                     <DrawerHeaderTitle
                         action={
                             <Button
-                                appearance="subtle"
-                                aria-label="Close"
-                                icon={<Dismiss24Regular />}
+                                appearance='subtle'
+                                aria-label='Close'
+                                icon={<Dismiss24Regular/>}
                                 onClick={() => setSettingsPanelOpen(false)}
                             />
                         }
                     >
-                        Default Drawer
+                        Settings
                     </DrawerHeaderTitle>
                 </DrawerHeader>
 

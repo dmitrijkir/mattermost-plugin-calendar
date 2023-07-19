@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/teambition/rrule-go"
 	"time"
@@ -14,11 +13,6 @@ type Background struct {
 	Ticker *time.Ticker
 	Done   chan bool
 	plugin *Plugin
-	DB     *sqlx.DB
-}
-
-func (b *Background) SetDb(db *sqlx.DB) {
-	b.DB = db
 }
 
 func (b *Background) Start() {
@@ -120,7 +114,7 @@ func (b *Background) process(t *time.Time) {
 		0,
 		utcLoc,
 	)
-	rows, errSelect := b.DB.Queryx(`
+	rows, errSelect := b.plugin.DB.Queryx(`
 			SELECT ce.id,
 				   ce.title,
                    ce."start",
@@ -234,7 +228,7 @@ func (b *Background) process(t *time.Time) {
 	}
 
 	for _, value := range events {
-		b.sendWsNotification(value)
+		go b.sendWsNotification(value)
 		if value.Channel != nil {
 			postModel := &model.Post{
 				ChannelId: *value.Channel,
@@ -252,7 +246,7 @@ func (b *Background) process(t *time.Time) {
 			b.sendGroupOrPersonalEventNotification(value)
 		}
 
-		_, errUpdate := b.DB.NamedExec(`UPDATE PUBLIC.calendar_events
+		_, errUpdate := b.plugin.DB.NamedExec(`UPDATE PUBLIC.calendar_events
                                            SET processed = :processed
                                            WHERE id = :eventId`, map[string]interface{}{
 			"processed": tickWithZone,
@@ -279,8 +273,9 @@ func (b *Background) sendWsNotification(event *Event) {
 	for _, user := range attendees {
 		b.plugin.API.LogError("Sending ws notification to " + user + " for event " + event.Id)
 		b.plugin.API.PublishWebSocketEvent(wsEventOccur, map[string]interface{}{
-			"id":    event.Id,
-			"title": event.Title,
+			"id":      event.Id,
+			"title":   event.Title,
+			"channel": nil,
 		}, &model.WebsocketBroadcast{
 			UserId: user,
 		})
@@ -303,16 +298,18 @@ func (b *Background) getMessageProps(event *Event) model.StringInterface {
 	}
 }
 
-func NewBackgroundJob(plugin *Plugin, db *sqlx.DB) *Background {
-	return &Background{
-		Ticker: time.NewTicker(15 * time.Second),
-		Done:   make(chan bool),
-		plugin: plugin,
-		DB:     db,
-	}
-}
-
 var bgJob *Background
+
+func NewBackgroundJob(plugin *Plugin) *Background {
+	if bgJob == nil {
+		bgJob = &Background{
+			Ticker: time.NewTicker(15 * time.Second),
+			Done:   make(chan bool),
+			plugin: plugin,
+		}
+	}
+	return bgJob
+}
 
 func GetBackgroundJob() *Background {
 	return bgJob

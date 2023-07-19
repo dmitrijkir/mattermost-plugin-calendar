@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {FluentProvider, teamsLightTheme} from '@fluentui/react-components';
+import {FluentProvider, webLightTheme} from '@fluentui/react-components';
 
 import EventModalComponent from 'components/event';
 import HeaderComponent from 'components/header';
@@ -10,7 +10,7 @@ const MainApp = () => {
     return (
         <div className='calendar-full-content-provider'>
             <FluentProvider
-                theme={teamsLightTheme}
+                theme={webLightTheme}
             >
                 <span className='calendar-full-content'>
                     <EventModalComponent/>

@@ -2,27 +2,27 @@ import {combineReducers} from 'redux';
 
 const selectEventModal = (state = {}, action) => {
     switch (action.type) {
-        case 'eventSelected':
-            return action.payload;
-        default:
-            return state;
+    case 'eventSelected':
+        return action.payload;
+    default:
+        return state;
     }
 };
 
 const toggleEventModal = (state = {isOpen: false}, action) => {
     switch (action.type) {
-        case 'openEventModal':
-            return {
-                ...state,
-                isOpen: true,
-            };
-        case 'closeEventModal':
-            return {
-                ...state,
-                isOpen: false,
-            };
-        default:
-            return state;
+    case 'openEventModal':
+        return {
+            ...state,
+            isOpen: true,
+        };
+    case 'closeEventModal':
+        return {
+            ...state,
+            isOpen: false,
+        };
+    default:
+        return state;
     }
 };
 
@@ -35,26 +35,21 @@ const calendarSettings = (state = {
     hideNonWorkingDays: false,
 }, action) => {
     switch (action.type) {
-        case 'updateCalendarSettings':
-            return action.payload;
-        default:
-            return state;
+    case 'updateCalendarSettings':
+        return action.payload;
+    default:
+        return state;
     }
 };
 
-const eventNotification = (state = {
-    id: "243252fwefwef",
-    title: 'test event',
-    start: new Date(),
-    end: new Date(),
-}, action) => {
+const eventNotification = (state = {}, action) => {
     switch (action.type) {
-        case 'showEventNotification':
-            return action.payload;
-        default:
-            return state;
+    case 'eventNotification':
+        return action.payload;
+    default:
+        return state;
     }
-}
+};
 
 const reducer = combineReducers({
     selectEventModal,

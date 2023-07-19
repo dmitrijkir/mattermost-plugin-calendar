@@ -104,7 +104,7 @@ func (p *Plugin) OnActivate() error {
 
 	p.SetBotId(botId)
 
-	go NewBackgroundJob(p, db).Start()
+	go NewBackgroundJob(p).Start()
 	return nil
 }
 

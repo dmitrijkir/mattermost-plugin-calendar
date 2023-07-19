@@ -17,7 +17,6 @@ import {OnOpenChangeData, OpenPopoverEvents} from '@fluentui/react-popover';
 
 type RepeatRuleOnChange = (rule: string) => void;
 
-
 interface RepeatEventComponentProps {
     selected: string
     onSelect?: RepeatRuleOnChange | undefined
@@ -174,7 +173,6 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
     };
 
     useEffect(() => {
-        console.log("MOUNTING!!!");
         if (!didMount.current) {
             didMount.current = true;
             if (props.selected.length <= 0) {
@@ -191,20 +189,20 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
                 params.forEach((elem) => {
                     const kv = elem.split('=');
                     switch (kv[0]) {
-                        case 'FREQ':
-                            setRepeatType(kv[1]);
-                            break;
-                        case 'INTERVAL':
-                            setRepeatEvery(kv[1]);
-                            break;
-                        case 'BYDAY':
-                            setSelectedDays(kv[1].split(','));
-                            break;
-                        case 'UNTIL':
-                            setSelectedUntil(parse(kv[1], "yyyyMMdd'T'HHmmss'Z'", new Date()));
-                            break;
-                        default:
-                            break;
+                    case 'FREQ':
+                        setRepeatType(kv[1]);
+                        break;
+                    case 'INTERVAL':
+                        setRepeatEvery(kv[1]);
+                        break;
+                    case 'BYDAY':
+                        setSelectedDays(kv[1].split(','));
+                        break;
+                    case 'UNTIL':
+                        setSelectedUntil(parse(kv[1], "yyyyMMdd'T'HHmmss'Z'", new Date()));
+                        break;
+                    default:
+                        break;
                     }
                 });
             };
@@ -246,9 +244,9 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
                 open={isShowCalendar}
                 closeOnScroll={true}
                 unstable_disableAutoFocus={true}
-                onOpenChange={(e: OpenPopoverEvents, data: OnOpenChangeData) => data.open ? showCalendar() : hideCalendar()}
+                onOpenChange={(e: OpenPopoverEvents, data: OnOpenChangeData) => (data.open ? showCalendar() : hideCalendar())}
             >
-                <PopoverTrigger disableButtonEnhancement>
+                <PopoverTrigger disableButtonEnhancement={true}>
                     <Text
                         className='event-until-open-calendar'
                         onClick={toggleShowCalendar}

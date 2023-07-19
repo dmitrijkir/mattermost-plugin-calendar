@@ -55,7 +55,9 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
-	background := NewBackgroundJob(pluginT, dbx)
+	pluginT.SetDB(dbx)
+
+	background := NewBackgroundJob(pluginT)
 
 	postForSend.SetProps(background.getMessageProps(testEvent))
 
@@ -103,10 +105,11 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 	attendees = append(attendees, testEvent.Owner)
 	attendees = append(attendees, botId)
 
-	api.On("GetGroupChannel", attendees).Return(foundChannel, nil)
 	api.On("GetUser", "first-id").Return(&model.User{
-		Username: "userName",
+		Username: "userNчame",
 	}, nil)
+	api.On("GetGroupChannel", attendees).Return(foundChannel, nil)
+
 	api.On("GetUser", "second-id").Return(&model.User{
 		Username: "userName",
 	}, nil)
@@ -119,9 +122,10 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 		},
 	}
 
-	background := NewBackgroundJob(pluginT, nil)
+	background := NewBackgroundJob(pluginT)
 
 	postForSend.SetProps(background.getMessageProps(testEvent))
+
 	api.On("CreatePost", postForSend).Return(nil, nil)
 
 	background.sendGroupOrPersonalEventNotification(testEvent)
@@ -153,6 +157,8 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
+	pluginT.SetDB(dbx)
+
 	processingTime := time.Now()
 
 	utcLoc, _ := time.LoadLocation("UTC")
@@ -178,7 +184,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	background := NewBackgroundJob(pluginT)
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -261,6 +267,8 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
+	pluginT.SetDB(dbx)
+
 	processingTime := time.Now()
 
 	utcLoc, _ := time.LoadLocation("UTC")
@@ -309,7 +317,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	background := NewBackgroundJob(pluginT)
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -396,6 +404,8 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
+	pluginT.SetDB(dbx)
+
 	processingTime := time.Now()
 
 	utcLoc, _ := time.LoadLocation("UTC")
@@ -444,7 +454,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	background := NewBackgroundJob(pluginT)
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -532,6 +542,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	defer db.Close()
 
 	dbx := sqlx.NewDb(db, "sqlmock")
+	pluginT.SetDB(dbx)
 
 	processingTime := time.Now()
 
@@ -562,7 +573,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	background := NewBackgroundJob(pluginT)
 
 	testEvent := &Event{
 		Id:        "",
@@ -648,6 +659,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 	defer db.Close()
 
 	dbx := sqlx.NewDb(db, "sqlmock")
+	pluginT.SetDB(dbx)
 
 	utcLoc, _ := time.LoadLocation("UTC")
 
@@ -706,7 +718,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	background := NewBackgroundJob(pluginT)
 
 	testEvent := &Event{
 		Id:        "qwcw",
