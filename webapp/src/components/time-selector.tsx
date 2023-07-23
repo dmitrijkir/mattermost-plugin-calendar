@@ -1,5 +1,6 @@
 import {Combobox, ComboboxProps, Option} from '@fluentui/react-components';
 import {format} from 'date-fns';
+import * as React from 'react';
 
 type SelectTimeOnChange = (time: string) => void;
 

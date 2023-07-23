@@ -57,7 +57,11 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 
 	pluginT.SetDB(dbx)
 
-	background := NewBackgroundJob(pluginT)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	postForSend.SetProps(background.getMessageProps(testEvent))
 
@@ -100,29 +104,31 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 		ChannelId: channelId,
 	}
 
-	api := plugintest.API{}
+	api := &plugintest.API{}
 
 	attendees = append(attendees, testEvent.Owner)
 	attendees = append(attendees, botId)
-
 	api.On("GetUser", "first-id").Return(&model.User{
-		Username: "userNчame",
+		Username: "userName",
 	}, nil)
-	api.On("GetGroupChannel", attendees).Return(foundChannel, nil)
-
 	api.On("GetUser", "second-id").Return(&model.User{
 		Username: "userName",
 	}, nil)
+	api.On("GetGroupChannel", attendees).Return(foundChannel, nil)
 
 	pluginT := &Plugin{
 		BotId: botId,
 		MattermostPlugin: plugin.MattermostPlugin{
-			API:    &api,
+			API:    api,
 			Driver: nil,
 		},
 	}
 
-	background := NewBackgroundJob(pluginT)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	postForSend.SetProps(background.getMessageProps(testEvent))
 
@@ -184,7 +190,11 @@ func TestProcessEventWithChannel(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -311,13 +321,27 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		UserId:    botId,
 		ChannelId: channelId,
 	}
+	api.On(
+		"PublishWebSocketEvent",
+		"event_occur",
+		map[string]interface{}{
+			"id":      "rec-ev",
+			"title":   "test event recevent",
+			"channel": nil,
+		},
+		&model.WebsocketBroadcast{UserId: "owner_id"},
+	)
 
 	api.On("CreatePost", postForSendChannel).Return(nil, nil)
 	api.On("GetUser", "user-Id").Return(&model.User{
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -376,7 +400,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
+	if callsLen := len(api.ExpectedCalls); callsLen != 3 {
 		t.Errorf("there were unfulfilled expectations: %v", callsLen)
 	}
 
@@ -454,7 +478,11 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -573,7 +601,11 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "",
@@ -718,7 +750,11 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -772,8 +808,60 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
+	api.AssertCalled(t, "GetUser", "user-Id")
+
 	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
 		t.Errorf("there were unfulfilled expectations: %v", callsLen)
 	}
 
+}
+
+func TestWSSendNotification(t *testing.T) {
+	channelId := "channel-id"
+	testEvent := &Event{
+		Id:        "efe-fe",
+		Title:     "test event for channel",
+		Start:     time.Now(),
+		End:       time.Now(),
+		Attendees: []string{},
+		Created:   time.Now(),
+		Owner:     "owner-id",
+		Channel:   &channelId,
+		Processed: nil,
+		Recurrent: false,
+	}
+
+	api := plugintest.API{}
+
+	pluginT := &Plugin{
+		BotId: "bot-id",
+		MattermostPlugin: plugin.MattermostPlugin{
+			API:    &api,
+			Driver: nil,
+		},
+	}
+
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      testEvent.Id,
+		"title":   testEvent.Title,
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: testEvent.Owner,
+	}).Return(nil, nil)
+
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
+
+	background.sendWsNotification(testEvent)
+
+	api.AssertCalled(t, "PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      testEvent.Id,
+		"title":   testEvent.Title,
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: testEvent.Owner,
+	})
 }

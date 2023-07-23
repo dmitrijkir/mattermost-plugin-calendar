@@ -3,7 +3,7 @@ import {useSelector} from 'react-redux';
 import {Link, Toast, Toaster, ToastTitle, ToastTrigger, useId, useToastController} from '@fluentui/react-components';
 
 import {useEffect} from 'react';
-
+import * as React from 'react';
 import {getEventNotification} from '../selectors';
 import {CalendarEventNotification} from '../types/event';
 

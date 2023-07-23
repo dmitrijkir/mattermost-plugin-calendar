@@ -610,6 +610,7 @@ table {
 .end-date-input {
     min-width: 100px;
 }
+
 .datetime-group {
     display: flex;
 }

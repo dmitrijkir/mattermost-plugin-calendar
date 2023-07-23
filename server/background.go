@@ -271,7 +271,6 @@ func (b *Background) sendWsNotification(event *Event) {
 	}
 
 	for _, user := range attendees {
-		b.plugin.API.LogError("Sending ws notification to " + user + " for event " + event.Id)
 		b.plugin.API.PublishWebSocketEvent(wsEventOccur, map[string]interface{}{
 			"id":      event.Id,
 			"title":   event.Title,
