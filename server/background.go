@@ -228,7 +228,7 @@ func (b *Background) process(t *time.Time) {
 	}
 
 	for _, value := range events {
-		go b.sendWsNotification(value)
+		b.sendWsNotification(value)
 		if value.Channel != nil {
 			postModel := &model.Post{
 				ChannelId: *value.Channel,

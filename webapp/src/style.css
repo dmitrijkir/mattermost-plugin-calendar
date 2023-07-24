@@ -596,7 +596,9 @@ table {
 }
 
 /* end repeat */
-
+.time-selector {
+    min-width: 100px !important;
+}
 /* fl ui */
 .event-input-container-datetime {
     display: flex;

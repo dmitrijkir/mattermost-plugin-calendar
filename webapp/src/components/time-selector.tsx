@@ -37,6 +37,7 @@ const TimeSelector = (props: TimeSelectorComponentProps) => {
             freeform={true}
             onOptionSelect={onOptionSelect}
             onChange={onChange}
+            className='time-selector'
         >
             {timeList.map((option) => (
                 <Option key={format(option, 'HH:mm')}>

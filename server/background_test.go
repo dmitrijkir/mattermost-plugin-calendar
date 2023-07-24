@@ -69,10 +69,7 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 	api.On("CreatePost", postForSend).Return(nil, nil)
 
 	background.sendGroupOrPersonalEventNotification(testEvent)
-
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 
 }
 
@@ -136,9 +133,7 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 
 	background.sendGroupOrPersonalEventNotification(testEvent)
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 4 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 }
 
 // process event with channel notification
@@ -189,6 +184,22 @@ func TestProcessEventWithChannel(t *testing.T) {
 	api.On("GetUser", "user-Id").Return(&model.User{
 		Username: "userName",
 	}, nil)
+
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "qwcw",
+		"title":   "test event",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "user-Id",
+	}).Return(nil, nil)
+
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "qwcw",
+		"title":   "test event",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "owner_id",
+	}).Return(nil, nil)
 
 	background := &Background{
 		Ticker: time.NewTicker(15 * time.Second),
@@ -249,9 +260,8 @@ func TestProcessEventWithChannel(t *testing.T) {
 	if err := dbMock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+
+	api.AssertExpectations(t)
 
 }
 
@@ -321,6 +331,16 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		UserId:    botId,
 		ChannelId: channelId,
 	}
+	api.On(
+		"PublishWebSocketEvent",
+		"event_occur",
+		map[string]interface{}{
+			"id":      "rec-ev",
+			"title":   "test event recevent",
+			"channel": nil,
+		},
+		&model.WebsocketBroadcast{UserId: "user-Id"},
+	)
 	api.On(
 		"PublishWebSocketEvent",
 		"event_occur",
@@ -400,9 +420,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 3 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 
 }
 
@@ -478,6 +496,22 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "rec-ev",
+		"title":   "test event recurrent",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "user-Id",
+	}).Return(nil, nil)
+
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "rec-ev",
+		"title":   "test event recurrent",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "owner_id",
+	}).Return(nil, nil)
+
 	background := &Background{
 		Ticker: time.NewTicker(15 * time.Second),
 		Done:   make(chan bool),
@@ -542,9 +576,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 
 }
 
@@ -600,6 +632,21 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	api.On("GetUser", "user-id").Return(&model.User{
 		Username: "userName",
 	}, nil)
+
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "qwert-2",
+		"title":   "tests event without channel",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "user-id",
+	}).Return(nil, nil)
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "qwert-2",
+		"title":   "tests event without channel",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "owner-id",
+	}).Return(nil, nil)
 
 	background := &Background{
 		Ticker: time.NewTicker(15 * time.Second),
@@ -664,9 +711,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 3 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 
 }
 
@@ -745,7 +790,6 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		ChannelId: channelId,
 	}
 
-	api.On("CreatePost", postForSendChannel).Return(nil, nil)
 	api.On("GetUser", "user-Id").Return(&model.User{
 		Username: "userName",
 	}, nil)
@@ -808,11 +852,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	api.AssertCalled(t, "GetUser", "user-Id")
-
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 
 }
 
@@ -857,11 +897,5 @@ func TestWSSendNotification(t *testing.T) {
 
 	background.sendWsNotification(testEvent)
 
-	api.AssertCalled(t, "PublishWebSocketEvent", "event_occur", map[string]interface{}{
-		"id":      testEvent.Id,
-		"title":   testEvent.Title,
-		"channel": nil,
-	}, &model.WebsocketBroadcast{
-		UserId: testEvent.Owner,
-	})
+	api.AssertExpectations(t)
 }
