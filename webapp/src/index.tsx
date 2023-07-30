@@ -2,16 +2,21 @@ import {Action, Store} from 'redux';
 import {GlobalState} from 'mattermost-redux/types/store';
 
 import manifest from './manifest';
+import {id as PluginId} from './manifest';
 
 import './style.css';
 import MainApp from 'app';
 
 import {PluginRegistry} from './types/mattermost-webapp';
-
 import reducer from 'reducers';
+import {Provider} from 'react-redux';
 
-import {updateCalendarSettings} from './actions';
+import {eventNotification, updateCalendarSettings} from './actions';
 import {ApiClient} from './client';
+import {render} from 'react-dom';
+import NotificationWidget from './components/notification-widget';
+import React from "react";
+import {FluentProvider, webLightTheme} from "@fluentui/react-components";
 
 const EmptyComponent = () => <></>;
 
@@ -35,6 +40,29 @@ export default class Plugin {
             store.dispatch(updateCalendarSettings(await ApiClient.getCalendarSettings()));
         };
         getCalendarSettings();
+
+
+        // Register root DOM element for notification. This is where the widget will render.
+        if (!document.getElementById('calendar-notifications')) {
+            const notificationsRoot = document.createElement('div');
+            notificationsRoot.setAttribute('id', 'calendar-notifications');
+            document.body.appendChild(notificationsRoot);
+        }
+
+        render(
+            <Provider store={store}>
+                <FluentProvider
+                    theme={webLightTheme}
+                >
+                    <NotificationWidget/>
+                </FluentProvider>
+            </Provider>,
+            document.getElementById('calendar-notifications'),
+        );
+
+        registry.registerWebSocketEventHandler(`custom_${PluginId}_event_occur`, (ev) => {
+            store.dispatch(eventNotification({id: ev.data.id, title: ev.data.title, channel:ev.data.channel}));
+        });
     }
 }
 

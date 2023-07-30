@@ -4,6 +4,7 @@ import {EventClickArg} from '@fullcalendar/common';
 
 import {CalendarSettings} from './types/settings';
 import {ApiClient} from './client';
+import {CalendarEventNotification} from './types/event';
 
 export const eventSelected = (event: EventClickArg) => {
     return {
@@ -39,3 +40,10 @@ export function updateCalendarSettingsOnServer(settings: CalendarSettings) {
         await ApiClient.updateCalendarSettings(settings);
     };
 }
+
+export const eventNotification = (event: CalendarEventNotification) => {
+    return {
+        type: 'eventNotification',
+        payload: event,
+    };
+};

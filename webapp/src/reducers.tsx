@@ -42,10 +42,20 @@ const calendarSettings = (state = {
     }
 };
 
+const eventNotification = (state = {}, action) => {
+    switch (action.type) {
+    case 'eventNotification':
+        return action.payload;
+    default:
+        return state;
+    }
+};
+
 const reducer = combineReducers({
     selectEventModal,
     toggleEventModal,
     calendarSettings,
+    eventNotification,
 });
 
 export default reducer;

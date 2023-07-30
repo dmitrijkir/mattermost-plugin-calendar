@@ -150,4 +150,5 @@ func TestGetEvents(t *testing.T) {
 						 "created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
 						 "recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#D0D0D0"}]}`
 	assert.JSONEq(string(bodyBytes), expectedResponse)
+	api.AssertExpectations(t)
 }

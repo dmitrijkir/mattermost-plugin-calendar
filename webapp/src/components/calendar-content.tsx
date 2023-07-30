@@ -56,8 +56,6 @@ const LeftBarCalendar = () => {
                 onSelectDate={onSelectDate}
                 value={selectedDate}
                 firstDayOfWeek={settings.firstDayOfWeek}
-
-                // strings={defaultCalendarStrings}
             />
         );
     }

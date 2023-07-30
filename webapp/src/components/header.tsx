@@ -3,8 +3,9 @@ import {useDispatch, useSelector} from 'react-redux';
 
 import {Button, Dropdown, Option, useId} from '@fluentui/react-components';
 
-import {Panel} from '@fluentui/react/lib/Panel';
 import {Toggle} from '@fluentui/react/lib/Toggle';
+import {DrawerHeader, DrawerHeaderTitle, DrawerOverlay, DrawerBody} from '@fluentui/react-components/unstable';
+
 import {
     Calendar3Day20Regular,
     CalendarDay20Regular,
@@ -12,6 +13,7 @@ import {
     CalendarLtr20Regular,
     LineHorizontal3Regular,
     Settings20Regular,
+    Dismiss24Regular,
 } from '@fluentui/react-icons';
 
 import {openEventModal, updateCalendarSettingsOnServer} from 'actions';
@@ -50,53 +52,69 @@ const HeaderComponent = () => {
 
     return (
         <div className='calendar-header-container'>
-            <Panel
-                headerText='Settings'
-                isBlocking={false}
-                isOpen={settingsPanelOpen}
-                onDismiss={() => setSettingsPanelOpen(false)}
-                closeButtonAriaLabel='Close'
+            <DrawerOverlay
+                open={settingsPanelOpen}
+                position='right'
+                modalType='non-modal'
+                onOpenChange={(_, {open}) => setSettingsPanelOpen(open)}
             >
-                <p className='settings-right-bar-content'>
-                    <label id={dayDropdown}>First day of week</label>
-                    <Dropdown
-                        onOptionSelect={(event, item) => {
-                            dispatch(updateCalendarSettingsOnServer({
-                                ...settings,
-                                firstDayOfWeek: Number(item.optionValue),
-                            }));
-                        }}
-                        placeholder='Select day'
-                        options={dropdownDaysOfWeek}
-                        selectedOptions={[settings.firstDayOfWeek.toString()]}
-                        value={dayOfWeekByNumber[settings.firstDayOfWeek]}
+                <DrawerHeader>
+                    <DrawerHeaderTitle
+                        action={
+                            <Button
+                                appearance='subtle'
+                                aria-label='Close'
+                                icon={<Dismiss24Regular/>}
+                                onClick={() => setSettingsPanelOpen(false)}
+                            />
+                        }
                     >
-                        {dropdownDaysOfWeek.map((option) => (
-                            <Option
-                                key={option.key}
-                                value={option.key.toString()}
-                            >
-                                {option.text}
-                            </Option>
-                        ))}
-                    </Dropdown>
-                    <div className='settings-right-bar-hide-non-working-days'>
-                        <Toggle
-                            label='Hide non working days'
-                            checked={settings.hideNonWorkingDays}
-                            onChange={(ev, data) => {
-                                if (data === undefined) {
-                                    return;
-                                }
+                        Settings
+                    </DrawerHeaderTitle>
+                </DrawerHeader>
+
+                <DrawerBody>
+                    <p className='settings-right-bar-content'>
+                        <label id={dayDropdown}>First day of week</label>
+                        <Dropdown
+                            onOptionSelect={(event, item) => {
                                 dispatch(updateCalendarSettingsOnServer({
                                     ...settings,
-                                    hideNonWorkingDays: data,
+                                    firstDayOfWeek: Number(item.optionValue),
                                 }));
                             }}
-                        />
-                    </div>
-                </p>
-            </Panel>
+                            placeholder='Select day'
+                            options={dropdownDaysOfWeek}
+                            selectedOptions={[settings.firstDayOfWeek.toString()]}
+                            value={dayOfWeekByNumber[settings.firstDayOfWeek]}
+                        >
+                            {dropdownDaysOfWeek.map((option) => (
+                                <Option
+                                    key={option.key}
+                                    value={option.key.toString()}
+                                >
+                                    {option.text}
+                                </Option>
+                            ))}
+                        </Dropdown>
+                        <div className='settings-right-bar-hide-non-working-days'>
+                            <Toggle
+                                label='Hide non working days'
+                                checked={settings.hideNonWorkingDays}
+                                onChange={(ev, data) => {
+                                    if (data === undefined) {
+                                        return;
+                                    }
+                                    dispatch(updateCalendarSettingsOnServer({
+                                        ...settings,
+                                        hideNonWorkingDays: data,
+                                    }));
+                                }}
+                            />
+                        </div>
+                    </p>
+                </DrawerBody>
+            </DrawerOverlay>
 
             <div className='calendar-header-toolbar'>
                 <div className='left-allign-header-toolbar-item'>

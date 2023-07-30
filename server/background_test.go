@@ -55,7 +55,13 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
-	background := NewBackgroundJob(pluginT, dbx)
+	pluginT.SetDB(dbx)
+
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	postForSend.SetProps(background.getMessageProps(testEvent))
 
@@ -63,10 +69,7 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 	api.On("CreatePost", postForSend).Return(nil, nil)
 
 	background.sendGroupOrPersonalEventNotification(testEvent)
-
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 
 }
 
@@ -98,37 +101,39 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 		ChannelId: channelId,
 	}
 
-	api := plugintest.API{}
+	api := &plugintest.API{}
 
 	attendees = append(attendees, testEvent.Owner)
 	attendees = append(attendees, botId)
-
-	api.On("GetGroupChannel", attendees).Return(foundChannel, nil)
 	api.On("GetUser", "first-id").Return(&model.User{
 		Username: "userName",
 	}, nil)
 	api.On("GetUser", "second-id").Return(&model.User{
 		Username: "userName",
 	}, nil)
+	api.On("GetGroupChannel", attendees).Return(foundChannel, nil)
 
 	pluginT := &Plugin{
 		BotId: botId,
 		MattermostPlugin: plugin.MattermostPlugin{
-			API:    &api,
+			API:    api,
 			Driver: nil,
 		},
 	}
 
-	background := NewBackgroundJob(pluginT, nil)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	postForSend.SetProps(background.getMessageProps(testEvent))
+
 	api.On("CreatePost", postForSend).Return(nil, nil)
 
 	background.sendGroupOrPersonalEventNotification(testEvent)
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 4 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 }
 
 // process event with channel notification
@@ -152,6 +157,8 @@ func TestProcessEventWithChannel(t *testing.T) {
 	defer db.Close()
 
 	dbx := sqlx.NewDb(db, "sqlmock")
+
+	pluginT.SetDB(dbx)
 
 	processingTime := time.Now()
 
@@ -178,7 +185,27 @@ func TestProcessEventWithChannel(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "qwcw",
+		"title":   "test event",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "user-Id",
+	}).Return(nil, nil)
+
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "qwcw",
+		"title":   "test event",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "owner_id",
+	}).Return(nil, nil)
+
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -233,9 +260,8 @@ func TestProcessEventWithChannel(t *testing.T) {
 	if err := dbMock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+
+	api.AssertExpectations(t)
 
 }
 
@@ -260,6 +286,8 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 	defer db.Close()
 
 	dbx := sqlx.NewDb(db, "sqlmock")
+
+	pluginT.SetDB(dbx)
 
 	processingTime := time.Now()
 
@@ -303,13 +331,37 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		UserId:    botId,
 		ChannelId: channelId,
 	}
+	api.On(
+		"PublishWebSocketEvent",
+		"event_occur",
+		map[string]interface{}{
+			"id":      "rec-ev",
+			"title":   "test event recevent",
+			"channel": nil,
+		},
+		&model.WebsocketBroadcast{UserId: "user-Id"},
+	)
+	api.On(
+		"PublishWebSocketEvent",
+		"event_occur",
+		map[string]interface{}{
+			"id":      "rec-ev",
+			"title":   "test event recevent",
+			"channel": nil,
+		},
+		&model.WebsocketBroadcast{UserId: "owner_id"},
+	)
 
 	api.On("CreatePost", postForSendChannel).Return(nil, nil)
 	api.On("GetUser", "user-Id").Return(&model.User{
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -368,9 +420,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 
 }
 
@@ -395,6 +445,8 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 	defer db.Close()
 
 	dbx := sqlx.NewDb(db, "sqlmock")
+
+	pluginT.SetDB(dbx)
 
 	processingTime := time.Now()
 
@@ -444,7 +496,27 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "rec-ev",
+		"title":   "test event recurrent",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "user-Id",
+	}).Return(nil, nil)
+
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "rec-ev",
+		"title":   "test event recurrent",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "owner_id",
+	}).Return(nil, nil)
+
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -504,9 +576,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 
 }
 
@@ -532,6 +602,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	defer db.Close()
 
 	dbx := sqlx.NewDb(db, "sqlmock")
+	pluginT.SetDB(dbx)
 
 	processingTime := time.Now()
 
@@ -562,7 +633,26 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "qwert-2",
+		"title":   "tests event without channel",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "user-id",
+	}).Return(nil, nil)
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "qwert-2",
+		"title":   "tests event without channel",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "owner-id",
+	}).Return(nil, nil)
+
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "",
@@ -621,9 +711,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 3 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
-	}
+	api.AssertExpectations(t)
 
 }
 
@@ -648,6 +736,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 	defer db.Close()
 
 	dbx := sqlx.NewDb(db, "sqlmock")
+	pluginT.SetDB(dbx)
 
 	utcLoc, _ := time.LoadLocation("UTC")
 
@@ -701,12 +790,15 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		ChannelId: channelId,
 	}
 
-	api.On("CreatePost", postForSendChannel).Return(nil, nil)
 	api.On("GetUser", "user-Id").Return(&model.User{
 		Username: "userName",
 	}, nil)
 
-	background := NewBackgroundJob(pluginT, dbx)
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
 
 	testEvent := &Event{
 		Id:        "qwcw",
@@ -760,8 +852,50 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 
-	if callsLen := len(api.ExpectedCalls); callsLen != 2 {
-		t.Errorf("there were unfulfilled expectations: %v", callsLen)
+	api.AssertExpectations(t)
+
+}
+
+func TestWSSendNotification(t *testing.T) {
+	channelId := "channel-id"
+	testEvent := &Event{
+		Id:        "efe-fe",
+		Title:     "test event for channel",
+		Start:     time.Now(),
+		End:       time.Now(),
+		Attendees: []string{},
+		Created:   time.Now(),
+		Owner:     "owner-id",
+		Channel:   &channelId,
+		Processed: nil,
+		Recurrent: false,
 	}
 
+	api := plugintest.API{}
+
+	pluginT := &Plugin{
+		BotId: "bot-id",
+		MattermostPlugin: plugin.MattermostPlugin{
+			API:    &api,
+			Driver: nil,
+		},
+	}
+
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      testEvent.Id,
+		"title":   testEvent.Title,
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: testEvent.Owner,
+	}).Return(nil, nil)
+
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
+
+	background.sendWsNotification(testEvent)
+
+	api.AssertExpectations(t)
 }

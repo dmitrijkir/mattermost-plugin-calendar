@@ -1,6 +1,6 @@
 # Mattermost Calendar
 
-![calendar_screen](https://user-images.githubusercontent.com/22306239/232602167-4c09960a-7411-416f-8d76-7fadc3b7d59c.png)
+![calendar_screen](https://github.com/dmitrijkir/mattermost-plugin-calendar/assets/22306239/6c59b90f-9798-4ab4-9de7-e0b9d90ec6bc)
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Release](https://img.shields.io/github/v/release/dmitrijkir/mattermost-plugin-calendar?include_prereleases)](https://github.com/dmitrijkir/mattermost-plugin-calendar/releases/v0.1.0-alpha)

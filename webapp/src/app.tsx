@@ -8,16 +8,18 @@ import CalendarContent from 'components/calendar-content';
 
 const MainApp = () => {
     return (
-        <FluentProvider
-            theme={webLightTheme}
-            className='calendar-full-content-provider'
-        >
-            <span className='calendar-full-content'>
-                <EventModalComponent/>
-                <HeaderComponent/>
-                <CalendarContent/>
-            </span>
-        </FluentProvider>
+        <div className='calendar-full-content-provider'>
+            <FluentProvider
+                theme={webLightTheme}
+            >
+                <span className='calendar-full-content'>
+                    <EventModalComponent/>
+                    <HeaderComponent/>
+                    <CalendarContent/>
+                </span>
+            </FluentProvider>
+        </div>
+
     );
 };
 
