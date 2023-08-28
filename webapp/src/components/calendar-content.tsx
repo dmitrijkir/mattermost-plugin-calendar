@@ -14,7 +14,7 @@ import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 import {DateSelectArg, EventClickArg} from '@fullcalendar/common';
 import {Calendar, DateRangeType, DayOfWeek, initializeIcons} from '@fluentui/react';
 
-import {addMonths} from 'date-fns';
+import {addMonths, format} from 'date-fns';
 
 import {eventSelected, openEventModal} from 'actions';
 import {id as PluginId} from '../manifest';
@@ -76,6 +76,12 @@ const CalendarContent = () => {
     };
 
     useEffect(() => {
+        const now: Date = new Date();
+        const scrollTo: Date = new Date();
+        scrollTo.setMinutes(scrollTo.getMinutes() - 30);
+        if (now.getDate() === scrollTo.getDate()) {
+            CalendarRef.current.getApi().scrollToTime(format(scrollTo, 'HH:mm'));
+        }
     }, [user]);
 
     const onEventClicked = (eventInfo: EventClickArg) => {
@@ -87,7 +93,7 @@ const CalendarContent = () => {
         if (!settings.hideNonWorkingDays) {
             return [];
         }
-        let noneWorkingDays: number[] = [];
+        const noneWorkingDays: number[] = [];
         const allDays = [0, 1, 2, 3, 4, 5, 6];
         allDays.forEach((item) => {
             if (!settings.businessDays.includes(item)) {
