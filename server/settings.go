@@ -3,15 +3,15 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/mattermost/mattermost-server/v6/plugin"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func (p *Plugin) GetSettings(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	session, err := p.API.GetSession(c.SessionId)
+func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
+	pluginContext := p.FromContext(r.Context())
+	session, err := p.API.GetSession(pluginContext.SessionId)
 	if err != nil {
 		p.API.LogError("can't get session")
 		errorResponse(w, NotAuthorizedError)
@@ -99,8 +99,9 @@ func (p *Plugin) GetSettings(c *plugin.Context, w http.ResponseWriter, r *http.R
 	return
 }
 
-func (p *Plugin) UpdateSettings(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	session, err := p.API.GetSession(c.SessionId)
+func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+	pluginContext := p.FromContext(r.Context())
+	session, err := p.API.GetSession(pluginContext.SessionId)
 	if err != nil {
 		p.API.LogError("can't get session")
 		errorResponse(w, NotAuthorizedError)

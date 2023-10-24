@@ -1,4 +1,5 @@
-# Mattermost Calendar
+# Mattermost Calendar Plugin
+
 
 ![calendar_screen](https://github.com/dmitrijkir/mattermost-plugin-calendar/assets/22306239/6c59b90f-9798-4ab4-9de7-e0b9d90ec6bc)
 
@@ -6,17 +7,24 @@
 [![Release](https://img.shields.io/github/v/release/dmitrijkir/mattermost-plugin-calendar?include_prereleases)](https://github.com/dmitrijkir/mattermost-plugin-calendar/releases/v0.1.0-alpha)
 ---
 
+The Mattermost Calendar Plugin is a powerful tool to help you schedule and manage team meetings and events directly within Mattermost.
 
-## How it works
 
-- Create appointments and events
-- Organize meetings
+## Features
+
+- **Event Scheduling:** Easily create, schedule, and manage team meetings and events from within Mattermost.
+- **Event Notifications:** Receive reminders and notifications for upcoming events to keep your team organized.
+- **User-Friendly Interface:** Intuitive user interface for creating and managing events, making it easy for team members to use.
+- **Customization:** Configure event settings, such as time slots, attendees, and descriptions, to suit your team's needs.
+
 
 ## Installation
 
-1. Download the latest version from the [release page](https://github.com/dmitrijkir/mattermost-plugin-calendar/releases).
-2. Upload the file through **System Console > Plugins > Plugin Management**, or manually upload it to the Mattermost server under plugin directory.
-3. Enable the plugin.
+To install the Mattermost Calendar Plugin, follow these steps:
+
+1. Download the latest release from the [Releases](https://github.com/dmitrijkir/mattermost-plugin-calendar/releases) page.
+2. Upload the plugin to your Mattermost server.
+3. Enable the plugin in your Mattermost settings.
 
 
 ## Development
@@ -35,6 +43,17 @@ Use `make deploy` to deploy the plugin to your local server.
 For more details on how to develop a plugin refer to the official [documentation](https://developers.mattermost.com/extend/plugins/).
 
 Check API documentation [here](/docs/README.md)
+
+
+## Contribution
+
+We welcome contributions to the Mattermost Calendar Plugin!
+
+
+## Support
+
+If you encounter any issues or have questions, please create a [GitHub Issue](https://github.com/dmitrijkir/mattermost-plugin-calendar/issues).
+
 
 ## License
 

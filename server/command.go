@@ -53,6 +53,7 @@ func (p *Plugin) executeTodayCommand(
 	}
 
 	userLoc := p.GetUserLocation(user)
+	utcLoc, _ := time.LoadLocation("UTC")
 
 	now := time.Now().UTC().In(userLoc)
 
@@ -69,15 +70,20 @@ func (p *Plugin) executeTodayCommand(
 
 	end := start.Add(time.Hour * 24)
 
-	events, eventsError := p.GetUserEvents(user, start.Format(EventDateTimeLayout), end.Format(EventDateTimeLayout))
+	events, eventsError := p.GetUserEventsUTC(user.Id, start.In(utcLoc), end.In(utcLoc))
 
 	if eventsError != nil {
 		p.API.LogError(eventsError.Error())
 		return nil, eventsError
 	}
 
+	for ind, event := range events {
+		events[ind].Start = event.Start.In(userLoc)
+		events[ind].End = event.End.In(userLoc)
+	}
+
 	message := "| time | title | channel |\n| -----| ------| ------- |\n"
-	for _, event := range *events {
+	for _, event := range events {
 		line := fmt.Sprintf("|%s|%s|", event.Start.Format(EventDateTimeLayout), event.Title)
 		if event.Channel != nil {
 			eventChannel, eventChError := p.API.GetChannel(*event.Channel)
@@ -118,6 +124,7 @@ func (p *Plugin) executeWeekCommand(
 	}
 
 	userLoc := p.GetUserLocation(user)
+	utcLoc, _ := time.LoadLocation("UTC")
 
 	now := time.Now().UTC().In(userLoc)
 
@@ -136,18 +143,23 @@ func (p *Plugin) executeWeekCommand(
 
 	end := start.Add(time.Hour * 24 * 7)
 
-	events, eventsError := p.GetUserEvents(user, start.Format(EventDateTimeLayout), end.Format(EventDateTimeLayout))
+	events, eventsError := p.GetUserEventsUTC(user.Id, start.In(utcLoc), end.In(utcLoc))
 
 	if eventsError != nil {
 		p.API.LogError(eventsError.Error())
 		return nil, eventsError
 	}
 
+	for ind, event := range events {
+		events[ind].Start = event.Start.In(userLoc)
+		events[ind].End = event.End.In(userLoc)
+	}
+
 	message := "| time | title | channel |\n| -----| ------| ------- |\n"
-	sort.Slice(*events, func(i, j int) bool {
-		return (*events)[j].Start.After((*events)[i].Start)
+	sort.Slice(events, func(i, j int) bool {
+		return (events)[j].Start.After((events)[i].Start)
 	})
-	for _, event := range *events {
+	for _, event := range events {
 		line := fmt.Sprintf("|%s|%s|", event.Start.Format(EventDateTimeLayout), event.Title)
 		if event.Channel != nil {
 			eventChannel, eventChError := p.API.GetChannel(*event.Channel)

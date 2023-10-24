@@ -6,9 +6,11 @@ import {Channel} from 'mattermost-redux/types/channels';
 import {useDispatch, useSelector} from 'react-redux';
 
 import {getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
-import {getUserStatuses} from 'mattermost-redux/selectors/entities/users';
+import {getUserStatuses, makeGetProfilesInChannel} from 'mattermost-redux/selectors/entities/users';
 import {getTeammateNameDisplaySetting} from 'mattermost-redux/selectors/entities/preferences';
+import {getProfilesInChannel} from 'mattermost-redux/actions/users';
 
+// importing the editor and the plugin from their full paths
 import {
     ChatMultiple24Regular,
     Circle20Filled,
@@ -18,6 +20,7 @@ import {
     Pen24Regular,
     PersonAdd24Regular,
     Save16Regular,
+    TextDescription24Regular
 } from '@fluentui/react-icons';
 import {
     Button,
@@ -31,23 +34,31 @@ import {
     DialogTrigger,
     Input,
     Option,
+    OptionGroup,
     Persona,
     Skeleton,
-    SkeletonItem, Spinner,
+    SkeletonItem,
+    Spinner,
+    Textarea,
+    Toolbar,
+    ToolbarButton
 } from '@fluentui/react-components';
 import {format, parse} from 'date-fns';
 import {InputOnChangeData} from '@fluentui/react-input';
 
 import roundToNearestMinutes from 'date-fns/roundToNearestMinutes';
 
-import {closeEventModal, eventSelected} from 'actions';
-import {selectIsOpenEventModal, selectSelectedEvent} from 'selectors';
+import {GlobalState} from 'mattermost-redux/types/store';
+
+import {closeEventModal, eventSelected, updateMembersAddedInEvent, updateSelectedEventTime} from 'actions';
+import {getMembersAddedInEvent, getSelectedEventTime, selectIsOpenEventModal, selectSelectedEvent} from 'selectors';
 import {ApiClient} from 'client';
 
 import RepeatEventCustom from './repeat-event';
 
 import CalendarRef from './calendar';
 import TimeSelector from './time-selector';
+import FindTimeFree from "./planning-assistant";
 
 interface AddedUserComponentProps {
     user: UserProfile
@@ -92,6 +103,7 @@ const EventModalComponent = () => {
 
     const CurrentTeamId = useSelector(getCurrentTeamId);
     const UserStatusSelector = useSelector(getUserStatuses);
+    const selectedEventTime = useSelector(getSelectedEventTime);
 
     const dispatch = useDispatch();
 
@@ -100,8 +112,13 @@ const EventModalComponent = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
+    const usersMentionTags: {
+        [name: string]: string
+    } = {
+        '@channel': 'add all members from channel',
+    };
     const [usersAutocomplete, setUsersAutocomplete] = useState<UserProfile[]>([]);
-    const [usersAdded, setUsersAdded] = useState<UserProfile[]>([]);
+    const [tagsAdded, setTagsAdded] = useState<string[]>([]);
 
     const [searchUsersInput, setSearchUsersInput] = useState('');
 
@@ -111,6 +128,15 @@ const EventModalComponent = () => {
     const [channelsAutocomplete, setChannelsAutocomplete] = useState<Channel[]>([]);
     const [selectedChannel, setSelectedChannel] = useState({});
     const [selectedChannelText, setSelectedChannelText] = useState('');
+
+    const [isPlanningAssistantOpen, setIsPlanningAssistantOpen] = useState(false);
+    const inputEventTitleRef = React.useRef<HTMLInputElement>(null);
+
+    const getProfilesInChannelSelector = makeGetProfilesInChannel();
+    const profilesInCurrentChannelSelector = (state: GlobalState) => getProfilesInChannelSelector(state, selectedChannel?.id);
+    const profilesInChannel = useSelector(profilesInCurrentChannelSelector);
+
+    const usersAddedInEvent = useSelector(getMembersAddedInEvent);
 
     const [titleEvent, setTitleEvent] = useState('');
     const [startEventData, setStartEventDate] = useState(initialDate);
@@ -139,8 +165,12 @@ const EventModalComponent = () => {
         setIsSaving(false);
         setIsLoading(false);
 
-        setStartEventDate(initialDate);
-        setEndEventDate(initialDate);
+        dispatch(updateSelectedEventTime({
+            start: initialDate,
+            end: initialDate,
+        }));
+        // setStartEventDate(initialDate);
+        // setEndEventDate(initialDate);
 
         setUsersAutocomplete([]);
         setChannelsAutocomplete([]);
@@ -155,7 +185,7 @@ const EventModalComponent = () => {
         setRepeatRule('');
 
         setSelectedChannel({});
-        setUsersAdded([]);
+        dispatch(updateMembersAddedInEvent([]));
         setSelectedColor('#D0D0D0');
     };
 
@@ -184,6 +214,7 @@ const EventModalComponent = () => {
             if (option.id === data.optionValue) {
                 setSelectedChannel(option);
                 setSelectedChannelText(option.display_name);
+                dispatch(getProfilesInChannel(option.id, 0, 100));
             }
         });
     };
@@ -200,7 +231,7 @@ const EventModalComponent = () => {
     };
 
     const onSaveEvent = async () => {
-        const members: string[] = usersAdded.map((user) => user.id);
+        const members: string[] = usersAddedInEvent.map((user) => user.id);
         let repeat = '';
         if (repeatOption === 'Custom') {
             repeat = repeatRule;
@@ -244,7 +275,9 @@ const EventModalComponent = () => {
         viewEventModalHandleClose();
     };
 
-    const colorsMap: { [name: string]: string } = {
+    const colorsMap: {
+        [name: string]: string
+    } = {
         '': 'event-color-default',
         default: 'event-color-default',
         '#F2B3B3': 'event-color-red',
@@ -268,7 +301,7 @@ const EventModalComponent = () => {
                 const endEventResp: Date = parse(data.data.end, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
                 setStartEventDate(startEventResp);
                 setEndEventDate(endEventResp);
-                setUsersAdded(data.data.attendees);
+                dispatch(updateMembersAddedInEvent(data.data.attendees));
 
                 setStartEventTime(format(startEventResp, 'HH:mm'));
                 setEndEventTime(format(endEventResp, 'HH:mm'));
@@ -345,7 +378,7 @@ const EventModalComponent = () => {
             <Dismiss12Regular
                 className='added-user-badge-icon-container'
                 onClick={() => {
-                    setUsersAdded(usersAdded.filter((item) => item.id != props.user.id));
+                    dispatch(updateMembersAddedInEvent(usersAddedInEvent.filter((item) => item.id != props.user.id)));
                 }}
             />
 
@@ -353,11 +386,30 @@ const EventModalComponent = () => {
     };
 
     const UsersAddedComponent = () => {
-        if (usersAdded.length > 0) {
+        if (usersAddedInEvent.length > 0) {
             return (<div className='added-users-list'>
                 {
-                    usersAdded.map((user) => {
+                    usersAddedInEvent.map((user) => {
                         return <AddedUserComponent user={user}/>;
+                    })
+                }
+            </div>);
+        }
+        return <></>;
+    };
+    const TagsAddedComponent = () => {
+        if (tagsAdded.length > 0) {
+            return (<div className='added-users-list'>
+                {
+                    tagsAdded.map((tag) => {
+                        return (<span className='added-user-badge-container'>
+                            <span className='added-tag'>{tag}</span>
+                            <Dismiss12Regular
+                                className='added-user-badge-icon-container'
+                                onClick={() => {
+                                    setTagsAdded(tagsAdded.filter((item) => item !== tag));
+                                }}
+                            /></span>);
                     })
                 }
             </div>);
@@ -385,269 +437,324 @@ const EventModalComponent = () => {
             return (<RepeatEventCustom
                 selected={repeatRule}
                 onSelect={setRepeatRule}
-                    />);
+            />);
         }
         return <></>;
     };
 
     return (
-        <Dialog open={isOpenEventModal}>
-            <DialogSurface>
-                <DialogBody className='event-modal'>
-                    <DialogTitle className='event-modal-title'/>
-                    <DialogContent className='modal-container'>
-                        <div className='event-color-button'>
-                            <Combobox
-                                onOptionSelect={onSelectColor}
-                                className={`dropdown-color-button ${selectedColorStyle}`}
-                                style={{color: selectedColor, borderColor: 'unset'}}
-                                defaultSelectedOptions={['default']}
-                                expandIcon={<Circle20Filled className={selectedColorStyle}/>}
-                                width='50px'
-                                listbox={{
-                                    className: 'dropdown-color-button-listbox',
-                                }}
-                            >
-                                <Option
-                                    key='default'
-                                    text='default'
-                                    className='event-color-items event-color-default'
+        <div>
+            {
+                usersAddedInEvent.length > 0 ? <FindTimeFree
+                    open={isPlanningAssistantOpen}
+                    members={usersAddedInEvent}
+                    onOpenChange={(ev, data) => {
+                        setIsPlanningAssistantOpen(data.open);
+                        inputEventTitleRef.current.focus();
+                    }}
+                /> : null
+            }
+            <Dialog open={isOpenEventModal}>
+                <DialogSurface>
+                    <DialogBody className='event-modal'>
+                        <DialogTitle className='event-modal-title'/>
+                        <DialogContent className='modal-container'>
+                            <div className='event-color-button'>
+                                <Combobox
+                                    onOptionSelect={onSelectColor}
+                                    className={`dropdown-color-button ${selectedColorStyle}`}
+                                    style={{color: selectedColor, borderColor: 'unset'}}
+                                    defaultSelectedOptions={['default']}
+                                    expandIcon={<Circle20Filled className={selectedColorStyle}/>}
+                                    width='50px'
+                                    listbox={{
+                                        className: 'dropdown-color-button-listbox',
+                                    }}
                                 >
-                                    <i className='icon fa fa-circle'/>
-                                </Option>
-                                <Option
-                                    key='default'
-                                    text='#F2B3B3'
-                                    className='event-color-items event-color-red'
-                                >
-                                    <i className='icon fa fa-circle'/>
-                                </Option>
-                                <Option
-                                    key='default'
-                                    text='#FCECBE'
-                                    className='event-color-items event-color-yellow'
-                                >
-                                    <i className='icon fa fa-circle'/>
-                                </Option>
-                                <Option
-                                    key='default'
-                                    text='#B6D9C7'
-                                    className='event-color-items event-color-green'
-                                >
-                                    <i className='icon fa fa-circle'/>
-                                </Option>
-                                <Option
-                                    key='default'
-                                    text='#B3E1F7'
-                                    className='event-color-items event-color-blue'
-                                >
-                                    <i className='icon fa fa-circle'/>
-                                </Option>
-                            </Combobox>
-                        </div>
-                        <div className='event-title-container'>
-                            <Pen24Regular/>
-                            <div className='event-input-container'>
-                                {isLoading ? (<Skeleton className='event-input-title'>
-                                    <SkeletonItem/>
-                                </Skeleton>) : (<Input
-                                    type='text'
-                                    className='event-input-title'
-                                    size='large'
-                                    appearance='underline'
-                                    placeholder='Add a title'
-                                    value={titleEvent}
-                                    onChange={onTitleChange}
-                                />)}
-
+                                    <Option
+                                        key='default'
+                                        text='default'
+                                        className='event-color-items event-color-default'
+                                    >
+                                        <i className='icon fa fa-circle'/>
+                                    </Option>
+                                    <Option
+                                        key='default'
+                                        text='#F2B3B3'
+                                        className='event-color-items event-color-red'
+                                    >
+                                        <i className='icon fa fa-circle'/>
+                                    </Option>
+                                    <Option
+                                        key='default'
+                                        text='#FCECBE'
+                                        className='event-color-items event-color-yellow'
+                                    >
+                                        <i className='icon fa fa-circle'/>
+                                    </Option>
+                                    <Option
+                                        key='default'
+                                        text='#B6D9C7'
+                                        className='event-color-items event-color-green'
+                                    >
+                                        <i className='icon fa fa-circle'/>
+                                    </Option>
+                                    <Option
+                                        key='default'
+                                        text='#B3E1F7'
+                                        className='event-color-items event-color-blue'
+                                    >
+                                        <i className='icon fa fa-circle'/>
+                                    </Option>
+                                </Combobox>
                             </div>
-                        </div>
-                        <div className='datetime-container'>
-                            <Clock24Regular/>
-                            <div className='event-input-container-datetime event-input-container'>
-                                <div className='datetime-group'>
-                                    {isLoading ? (<Skeleton className='start-date-input'>
+                            <div className='title-toolbar'>
+                                <Toolbar aria-label='Default'>
+                                    <ToolbarButton
+                                        aria-label='planning assistant'
+                                        onClick={() => setIsPlanningAssistantOpen(true)}
+                                    >
+                                        planning assistant
+                                    </ToolbarButton>
+                                </Toolbar>
+                            </div>
+                            <div className='event-title-container'>
+                                <Pen24Regular/>
+                                <div className='event-input-container'>
+                                    {isLoading ? (<Skeleton className='event-input-title'>
                                         <SkeletonItem/>
                                     </Skeleton>) : (<Input
-                                        type='date'
-                                        className='start-date-input'
-                                        value={format(startEventData, 'yyyy-MM-dd')}
-                                        onChange={onStartDateChange}
-                                    />)}
-
-                                    {isLoading ? (<Skeleton className='start-date-input'>
-                                        <SkeletonItem/>
-                                    </Skeleton>) : (<TimeSelector
-                                        selected={startEventTime}
-                                        onSelect={setStartEventTime}
+                                        ref={inputEventTitleRef}
+                                        type='text'
+                                        className='event-input-title'
+                                        size='large'
+                                        appearance='underline'
+                                        placeholder='Add a title'
+                                        value={titleEvent}
+                                        onChange={onTitleChange}
                                     />)}
 
                                 </div>
-                                <div className='datetime-group datetime-group-end'>
-                                    {isLoading ? (
-                                        <Skeleton className='end-date-input'>
+                            </div>
+                            <div className='datetime-container'>
+                                <Clock24Regular/>
+                                <div className='event-input-container-datetime event-input-container'>
+                                    <div className='datetime-group'>
+                                        {isLoading ? (<Skeleton className='start-date-input'>
                                             <SkeletonItem/>
-                                        </Skeleton>
-                                    ) :
-                                        (<Input
+                                        </Skeleton>) : (<Input
                                             type='date'
-                                            className='end-date-input'
-                                            value={format(endEventData, 'yyyy-MM-dd')}
-                                            onChange={onEndDateChange}
+                                            className='start-date-input'
+                                            value={format(startEventData, 'yyyy-MM-dd')}
+                                            onChange={onStartDateChange}
                                         />)}
-                                    {isLoading ? (<Skeleton className='end-date-input'>
-                                        <SkeletonItem/>
-                                    </Skeleton>) : (<TimeSelector
-                                        selected={endEventTime}
-                                        onSelect={setEndEventTime}
-                                    />)}
 
-                                </div>
-
-                            </div>
-                        </div>
-                        <div className='repeat-container'>
-                            {isLoading ? (<Skeleton className='skeleton-dropdown'>
-                                <SkeletonItem/>
-                            </Skeleton>) :
-                                (
-                                    <Combobox
-                                        onOptionSelect={repeatOnSelect}
-                                        selectedOptions={repeatOptionsSelected}
-                                        value={repeatOption}
-                                    >
-                                        <Option
-                                            key='empty'
-                                            text='empty'
-                                        >
-                                            Don't repeat
-                                        </Option>
-                                        <Option
-                                            key='custom'
-                                            text='custom'
-                                        >
-                                            Custom
-                                        </Option>
-                                    </Combobox>
-                                )}
-                            <RepeatComponent/>
-                        </div>
-
-                        <div className='event-add-users-container'>
-                            <PersonAdd24Regular/>
-                            <div className='event-input-container'>
-                                <div className='event-input-users-wrapper'>
-                                    {isLoading ? (<Skeleton className='skeleton-dropdown'>
-                                        <SkeletonItem/>
-                                    </Skeleton>) : (<Combobox
-                                        placeholder='Select a user'
-                                        onChange={onInputUserAction}
-                                        onOptionSelect={(event, data) => {
-                                            usersAutocomplete.map((user) => {
-                                                if (user.id === data.optionValue && !usersAdded.some((u) => u.id === data.optionValue)) {
-                                                    setUsersAdded(usersAdded.concat([user]));
-                                                }
-                                            });
-                                            setSearchUsersInput('');
-                                            setUsersAutocomplete([]);
-                                        }}
-                                        value={searchUsersInput}
-                                    >
-                                        {usersAutocomplete.map((user) => {
-                                            let stat = 'unknown';
-                                            if (UserStatusSelector[user.id] === 'online') {
-                                                stat = 'available';
-                                            }
-                                            return (<Option text={user.id}>
-                                                <Persona
-                                                    name={getDisplayUserName(user)}
-                                                    className='user-list-item'
-                                                    as='div'
-                                                    presence={{status: stat}}
-                                                />
-                                            </Option>);
-                                        })}
-
-                                        {usersAutocomplete.length === 0 ? (
-                                            <Option
-                                                key='no-results'
-                                                text=''
-                                            >
-                                                No results found
-                                            </Option>
-                                        ) : null}
-                                    </Combobox>)}
-
-                                </div>
-                            </div>
-                        </div>
-                        <div className='users-added-container'>
-                            <UsersAddedComponent/>
-                        </div>
-
-                        <div className='event-channel-container'>
-                            <ChatMultiple24Regular/>
-                            <div className='event-channel-input-container'>
-                                <div className='event-input-channel-wrapper'>
-                                    {isLoading ? (
-                                        <Skeleton className='skeleton-dropdown'>
+                                        {isLoading ? (<Skeleton className='start-date-input'>
                                             <SkeletonItem/>
-                                        </Skeleton>
-                                    ) : (
-                                        <Combobox
-                                            placeholder='Select a channel'
-                                            onChange={onInputChannelAction}
-                                            onOptionSelect={onSelectChannelOption}
-                                            value={selectedChannelText}
-                                        >
-                                            {channelsAutocomplete.map((option) => (
-                                                <Option
-                                                    key={option.id}
-                                                    text={option.id}
-                                                >
-                                                    {option.display_name}
-                                                </Option>
-                                            ))}
+                                        </Skeleton>) : (<TimeSelector
+                                            selected={startEventTime}
+                                            onSelect={setStartEventTime}
+                                        />)}
 
-                                            {channelsAutocomplete.length === 0 ? (
-                                                <Option
-                                                    key='no-results'
-                                                    text=''
-                                                >
-                                                    No results found
-                                                </Option>
-                                            ) : null}
+                                    </div>
+                                    <div className='datetime-group datetime-group-end'>
+                                        {isLoading ? (
+                                                <Skeleton className='end-date-input'>
+                                                    <SkeletonItem/>
+                                                </Skeleton>
+                                            ) :
+                                            (<Input
+                                                type='date'
+                                                className='end-date-input'
+                                                value={format(endEventData, 'yyyy-MM-dd')}
+                                                onChange={onEndDateChange}
+                                            />)}
+                                        {isLoading ? (<Skeleton className='end-date-input'>
+                                            <SkeletonItem/>
+                                        </Skeleton>) : (<TimeSelector
+                                            selected={endEventTime}
+                                            onSelect={setEndEventTime}
+                                        />)}
+
+                                    </div>
+
+                                </div>
+                            </div>
+                            <div className='repeat-container'>
+                                {isLoading ? (<Skeleton className='skeleton-dropdown'>
+                                        <SkeletonItem/>
+                                    </Skeleton>) :
+                                    (
+                                        <Combobox
+                                            onOptionSelect={repeatOnSelect}
+                                            selectedOptions={repeatOptionsSelected}
+                                            value={repeatOption}
+                                        >
+                                            <Option
+                                                key='empty'
+                                                text='empty'
+                                            >
+                                                Don't repeat
+                                            </Option>
+                                            <Option
+                                                key='custom'
+                                                text='custom'
+                                            >
+                                                Custom
+                                            </Option>
                                         </Combobox>
                                     )}
+                                <RepeatComponent/>
+                            </div>
+
+                            <div className='event-channel-container'>
+                                <ChatMultiple24Regular/>
+                                <div className='event-channel-input-container'>
+                                    <div className='event-input-channel-wrapper'>
+                                        {isLoading ? (
+                                            <Skeleton className='skeleton-dropdown'>
+                                                <SkeletonItem/>
+                                            </Skeleton>
+                                        ) : (
+                                            <Combobox
+                                                placeholder='Select a channel'
+                                                onChange={onInputChannelAction}
+                                                onOptionSelect={onSelectChannelOption}
+                                                value={selectedChannelText}
+                                            >
+                                                {channelsAutocomplete.map((option) => (
+                                                    <Option
+                                                        key={option.id}
+                                                        text={option.id}
+                                                    >
+                                                        {option.display_name}
+                                                    </Option>
+                                                ))}
+
+                                                {channelsAutocomplete.length === 0 ? (
+                                                    <Option
+                                                        key='no-results'
+                                                        text=''
+                                                    >
+                                                        No results found
+                                                    </Option>
+                                                ) : null}
+                                            </Combobox>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                    </DialogContent>
-                    <RemoveEventButton/>
-                    <DialogActions position='end'>
-                        <DialogTrigger disableButtonEnhancement={true}>
+                            <div className='event-add-users-container'>
+                                <PersonAdd24Regular/>
+                                <div className='event-input-container'>
+                                    <div className='event-input-users-wrapper'>
+                                        {isLoading ? (<Skeleton className='skeleton-dropdown'>
+                                            <SkeletonItem/>
+                                        </Skeleton>) : (<Combobox
+                                            placeholder='Select a user'
+                                            checked={false}
+                                            selectedOptions={[]}
+                                            onChange={onInputUserAction}
+                                            onOptionSelect={(event, data) => {
+                                                if (data.optionValue in usersMentionTags) {
+                                                    dispatch(updateMembersAddedInEvent(profilesInChannel));
+                                                }
+                                                usersAutocomplete.map((user) => {
+                                                    if (user.id === data.optionValue && !usersAddedInEvent.some((u) => u.id === data.optionValue)) {
+                                                        dispatch(updateMembersAddedInEvent(profilesInChannel));
+                                                    }
+                                                });
+                                                setSearchUsersInput('');
+                                                setUsersAutocomplete([]);
+                                            }}
+                                            value={searchUsersInput}
+                                        >
+                                            <OptionGroup label='USERS'>
+
+                                                {usersAutocomplete.map((user) => {
+                                                    let stat = 'unknown';
+                                                    if (UserStatusSelector[user.id] === 'online') {
+                                                        stat = 'available';
+                                                    }
+                                                    return (<Option text={user.id}>
+                                                        <Persona
+                                                            name={getDisplayUserName(user)}
+                                                            className='user-list-item'
+                                                            as='div'
+                                                            presence={{status: stat}}
+                                                        />
+                                                    </Option>);
+                                                })}
+
+                                                {usersAutocomplete.length === 0 ? (
+                                                    <Option
+                                                        key='no-results'
+                                                        text=''
+                                                    >
+                                                        No results found
+                                                    </Option>
+                                                ) : null}
+                                            </OptionGroup>
+                                            <OptionGroup label='SPECIAL MENTIONS'>
+                                                {
+                                                    Object.entries(usersMentionTags).map(([key, value]) => {
+                                                        return (<Option
+                                                            key={key}
+                                                            text={key}
+                                                        >
+                                                            {value}
+                                                        </Option>);
+                                                    })
+                                                }
+                                            </OptionGroup>
+                                        </Combobox>)}
+
+                                    </div>
+                                </div>
+                            </div>
+                            <div className='users-added-container'>
+                                <UsersAddedComponent/>
+                                {/*<TagsAddedComponent/>*/}
+                            </div>
+
+                            <div className='event-description-container'>
+                                <TextDescription24Regular/>
+                                <div className='event-description-input-container'>
+                                    <Textarea
+                                        placeholder='Add description'
+                                        className='event-description-input-textarea'
+                                    />
+                                </div>
+
+                            </div>
+                        </DialogContent>
+                        <RemoveEventButton/>
+                        <DialogActions position='end'>
+                            <DialogTrigger disableButtonEnhancement={true}>
+                                <Button
+                                    appearance='secondary'
+                                    onClick={viewEventModalHandleClose}
+                                >
+                                    Close
+                                </Button>
+                            </DialogTrigger>
+
                             <Button
-                                appearance='secondary'
-                                onClick={viewEventModalHandleClose}
+                                appearance='primary'
+                                onClick={onSaveEvent}
+                                icon={isSaving ? (<Spinner size='tiny'/>) : (<Save16Regular/>)}
+                                disabled={isSaving}
                             >
-                                Close
+                                Save
                             </Button>
-                        </DialogTrigger>
 
-                        <Button
-                            appearance='primary'
-                            onClick={onSaveEvent}
-                            icon={isSaving ? (<Spinner size='tiny'/>) : (<Save16Regular/>)}
-                            disabled={isSaving}
-                        >
-                            Save
-                        </Button>
+                        </DialogActions>
+                    </DialogBody>
+                </DialogSurface>
+            </Dialog>
+        </div>
 
-                    </DialogActions>
-                </DialogBody>
-            </DialogSurface>
-        </Dialog>
     );
 };
 

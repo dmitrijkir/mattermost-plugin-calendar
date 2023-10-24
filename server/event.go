@@ -3,123 +3,11 @@ package main
 import (
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin"
-	"github.com/teambition/rrule-go"
 	"net/http"
 	time "time"
 )
-
-func (p *Plugin) GetUserEvents(user *model.User, start, end string) (*[]Event, *model.AppError) {
-	userLoc := p.GetUserLocation(user)
-	utcLoc, _ := time.LoadLocation("UTC")
-
-	startEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, start, userLoc)
-	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, end, userLoc)
-
-	var events []Event
-
-	rows, errSelect := p.DB.Queryx(`
-									   SELECT ce.id,
-											  ce.title,
-											  ce."start",
-											  ce."end",
-											  ce.created,
-											  ce."owner",
-											  ce."channel",
-											  ce.recurrent,
-											  ce.recurrence,
-											  ce.color
-									   FROM calendar_events ce
-										    FULL JOIN calendar_members cm 
-										           ON ce.id = cm."event"
-									   WHERE (cm."user" = $1 OR ce."owner" = $2)
-											AND (
-											     (ce."start" >= $3 AND ce."start" <= $4) 
-											         or ce.recurrent = true
-											    )
-                                       `, user.Id, user.Id, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
-
-	if errSelect != nil {
-		p.API.LogError(errSelect.Error())
-		return nil, SomethingWentWrong
-	}
-
-	addedEvent := map[string]bool{}
-
-	for rows.Next() {
-
-		var eventDb Event
-
-		errScan := rows.StructScan(&eventDb)
-
-		if errScan != nil {
-			p.API.LogError("Can't scan row to struct")
-			continue
-		}
-		if addedEvent[eventDb.Id] {
-			continue
-		}
-
-		eventDb.Start = eventDb.Start.In(userLoc)
-		eventDb.End = eventDb.End.In(userLoc)
-
-		if eventDb.Color == nil {
-			color := DefaultColor
-			eventDb.Color = &color
-		}
-
-		if eventDb.Recurrent {
-			eventRule, errRrule := rrule.StrToRRule(eventDb.Recurrence)
-			if errRrule != nil {
-				p.API.LogError(errRrule.Error())
-				continue
-			}
-			eventRule.DTStart(eventDb.Start)
-			eventStartUtc := startEventLocal.In(utcLoc)
-			eventDates := eventRule.Between(
-				time.Date(
-					eventStartUtc.Year(),
-					eventStartUtc.Month(),
-					eventStartUtc.Day(),
-					0,
-					0,
-					0,
-					0,
-					eventStartUtc.Location(),
-				),
-				EndEventLocal.In(utcLoc), false)
-
-			if errRrule != nil {
-				p.API.LogError(errRrule.Error())
-				continue
-			}
-
-			for _, eventDate := range eventDates {
-				eventTime := eventDb.End.Sub(eventDb.Start)
-				eventDb.Start = time.Date(
-					eventDate.Year(),
-					eventDate.Month(),
-					eventDate.Day(),
-					eventDb.Start.Hour(),
-					eventDb.Start.Minute(),
-					eventDb.Start.Second(),
-					eventDb.Start.Nanosecond(),
-					eventDb.Start.Location(),
-				)
-				eventDb.End = eventDb.Start.Add(eventTime)
-
-				events = append(events, eventDb)
-			}
-		} else {
-			events = append(events, eventDb)
-		}
-		addedEvent[eventDb.Id] = true
-
-	}
-
-	return &events, nil
-}
 
 func (p *Plugin) GetUserLocation(user *model.User) *time.Location {
 	userTimeZone := ""
@@ -139,9 +27,9 @@ func (p *Plugin) GetUserLocation(user *model.User) *time.Location {
 	return userLoc
 }
 
-func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-
-	session, err := p.API.GetSession(c.SessionId)
+func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
+	pluginContext := p.FromContext(r.Context())
+	session, err := p.API.GetSession(pluginContext.SessionId)
 	if err != nil {
 		p.API.LogError("can't get session")
 		errorResponse(w, NotAuthorizedError)
@@ -156,9 +44,9 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	query := r.URL.Query()
+	query := mux.Vars(r)
 
-	eventId := query.Get("eventId")
+	eventId := query["eventId"]
 
 	if eventId == "" {
 		errorResponse(w, InvalidRequestParams)
@@ -236,8 +124,9 @@ func (p *Plugin) GetEvent(c *plugin.Context, w http.ResponseWriter, r *http.Requ
 
 }
 
-func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	session, err := p.API.GetSession(c.SessionId)
+func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
+	pluginContext := p.FromContext(r.Context())
+	session, err := p.API.GetSession(pluginContext.SessionId)
 
 	if err != nil {
 		p.API.LogError("can't get session")
@@ -263,16 +152,29 @@ func (p *Plugin) GetEvents(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	events, eventsError := p.GetUserEvents(user, start, end)
+	userLoc := p.GetUserLocation(user)
+	utcLoc, _ := time.LoadLocation("UTC")
+
+	startEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, start, userLoc)
+	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, end, userLoc)
+
+	events, eventsError := p.GetUserEventsUTC(user.Id, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
 	if eventsError != nil {
 		errorResponse(w, eventsError)
+	}
+	for ind, event := range events {
+		events[ind].Start = event.Start.In(userLoc)
+		events[ind].End = event.End.In(userLoc)
+
 	}
 	apiResponse(w, &events)
 	return
 }
 
-func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	session, err := p.API.GetSession(c.SessionId)
+func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
+	pluginContext := p.FromContext(r.Context())
+
+	session, err := p.API.GetSession(pluginContext.SessionId)
 
 	if err != nil {
 		p.API.LogError(err.Error())
@@ -391,9 +293,9 @@ func (p *Plugin) CreateEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 	return
 }
 
-func (p *Plugin) RemoveEvent(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-
-	_, err := p.API.GetSession(c.SessionId)
+func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
+	pluginContext := p.FromContext(r.Context())
+	_, err := p.API.GetSession(pluginContext.SessionId)
 
 	if err != nil {
 		p.API.LogError("can't get session")
@@ -401,9 +303,9 @@ func (p *Plugin) RemoveEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 		return
 	}
 
-	query := r.URL.Query()
+	query := mux.Vars(r)
 
-	eventId := query.Get("eventId")
+	eventId := query["eventId"]
 
 	if eventId == "" {
 		errorResponse(w, InvalidRequestParams)
@@ -425,8 +327,9 @@ func (p *Plugin) RemoveEvent(c *plugin.Context, w http.ResponseWriter, r *http.R
 
 }
 
-func (p *Plugin) UpdateEvent(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	session, err := p.API.GetSession(c.SessionId)
+func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
+	pluginContext := p.FromContext(r.Context())
+	session, err := p.API.GetSession(pluginContext.SessionId)
 
 	if err != nil {
 		p.API.LogError(err.Error())

@@ -18,6 +18,7 @@ import (
 func TestServeHTTP(t *testing.T) {
 	assert := assert.New(t)
 	plugin := Plugin{}
+	plugin.router = plugin.InitAPI()
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
 
@@ -30,7 +31,7 @@ func TestServeHTTP(t *testing.T) {
 	assert.Nil(err)
 	bodyString := string(bodyBytes)
 
-	assert.Equal("", bodyString)
+	assert.Equal("404 page not found\n", bodyString)
 }
 
 func TestGetEvents(t *testing.T) {
@@ -119,6 +120,7 @@ func TestGetEvents(t *testing.T) {
 		},
 		DB: dbx,
 	}
+	calPlugin.router = calPlugin.InitAPI()
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/events?start=2023-02-27T00:00:00&end=2023-03-06T00:00:00", nil)

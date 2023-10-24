@@ -54,7 +54,7 @@ const HeaderComponent = () => {
         <div className='calendar-header-container'>
             <DrawerOverlay
                 open={settingsPanelOpen}
-                position='right'
+                position='end'
                 modalType='non-modal'
                 onOpenChange={(_, {open}) => setSettingsPanelOpen(open)}
             >

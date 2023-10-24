@@ -51,11 +51,31 @@ const eventNotification = (state = {}, action) => {
     }
 };
 
+const membersAddedInEvent = (state = [], action) => {
+    switch (action.type) {
+    case 'updateMembersAddedInEvent':
+        return action.payload;
+    default:
+        return state;
+    }
+};
+
+const selectedEventTime = (state = null, action) => {
+    switch (action.type) {
+    case 'updateSelectedEventTime':
+        return action.payload;
+    default:
+        return state;
+    }
+};
+
 const reducer = combineReducers({
     selectEventModal,
     toggleEventModal,
     calendarSettings,
     eventNotification,
+    membersAddedInEvent,
+    selectedEventTime,
 });
 
 export default reducer;

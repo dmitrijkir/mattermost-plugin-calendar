@@ -34,6 +34,17 @@ export declare type RemoveEventResponse = {
     success: boolean
 }
 
+export declare type UsersScheduleEvent = {
+    start: string;
+    end: string;
+    duration: number;
+}
+
+export declare type UsersScheduleResponse = {
+    users: Map<string, UsersScheduleEvent>
+    available_times: string[]
+}
+
 export declare type ApiResponse<Type> = {
     data: Type
 }
@@ -49,9 +60,7 @@ export declare class ApiClientInterface {
 export class ApiClient implements ApiClientInterface {
     static async getEventById(event: string): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
-            getSiteURL() + `/plugins/${PluginId}/event?` + new URLSearchParams({
-                eventId: event,
-            }),
+            getSiteURL() + `/plugins/${PluginId}/events/${event}`,
             Client4.getOptions({
                 method: 'GET',
                 headers: {
@@ -79,9 +88,7 @@ export class ApiClient implements ApiClientInterface {
 
     static async removeEvent(event: string): Promise<ApiResponse<RemoveEventResponse>> {
         const response = await fetch(
-            getSiteURL() + `/plugins/${PluginId}/event?` + new URLSearchParams({
-                eventId: event,
-            }),
+            getSiteURL() + `/plugins/${PluginId}/events/${event}`,
             Client4.getOptions({
                 method: 'DELETE',
                 headers: {
@@ -135,7 +142,7 @@ export class ApiClient implements ApiClientInterface {
 
     static async updateEvent(id: string, title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string, color?: string): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
-            getSiteURL() + `/plugins/${PluginId}/event`,
+            getSiteURL() + `/plugins/${PluginId}/events`,
             Client4.getOptions({
                 method: 'PUT',
                 headers: {
@@ -160,6 +167,24 @@ export class ApiClient implements ApiClientInterface {
     static async getCalendarSettings(): Promise<CalendarSettings> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/settings`,
+            Client4.getOptions({
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }),
+        );
+        const data = await response.json();
+        return data.data;
+    }
+
+    static async getUsersSchedule(users: string[], start: string, end: string): Promise<ApiResponse<UsersScheduleResponse>> {
+        const response = await fetch(
+            getSiteURL() + `/plugins/${PluginId}/schedule?` + new URLSearchParams({
+                users: users.join(','),
+                start: start,
+                end: end,
+            }),
             Client4.getOptions({
                 method: 'GET',
                 headers: {

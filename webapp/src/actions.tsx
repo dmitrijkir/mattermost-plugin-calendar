@@ -4,7 +4,8 @@ import {EventClickArg} from '@fullcalendar/common';
 
 import {CalendarSettings} from './types/settings';
 import {ApiClient} from './client';
-import {CalendarEventNotification} from './types/event';
+import {CalendarEventNotification, SelectedEventTime} from './types/event';
+import {UserProfile} from "mattermost-redux/types/users";
 
 export const eventSelected = (event: EventClickArg) => {
     return {
@@ -44,6 +45,20 @@ export function updateCalendarSettingsOnServer(settings: CalendarSettings) {
 export const eventNotification = (event: CalendarEventNotification) => {
     return {
         type: 'eventNotification',
+        payload: event,
+    };
+};
+
+export const updateMembersAddedInEvent = (members: UserProfile[]) => {
+    return {
+        type: 'updateMembersAddedInEvent',
+        payload: members,
+    };
+};
+
+export const updateSelectedEventTime = (event: SelectedEventTime) => {
+    return {
+        type: 'updateSelectedEventTime',
         payload: event,
     };
 };

@@ -1,7 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"net/http"
@@ -25,6 +26,8 @@ type Plugin struct {
 	// setConfiguration for usage.
 	configuration *configuration
 
+	router *mux.Router
+
 	DB    *sqlx.DB
 	BotId string
 }
@@ -35,6 +38,10 @@ func (p *Plugin) SetDB(db *sqlx.DB) {
 
 func (p *Plugin) SetBotId(botId string) {
 	p.BotId = botId
+}
+
+func (p *Plugin) FromContext(ctx context.Context) *plugin.Context {
+	return ctx.Value("pluginRequest").(*plugin.Context)
 }
 
 func (p *Plugin) OnActivate() error {
@@ -103,6 +110,7 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	p.SetBotId(botId)
+	p.router = p.InitAPI()
 
 	go NewBackgroundJob(p).Start()
 	return nil
@@ -116,34 +124,7 @@ func (p *Plugin) OnDeactivate() error {
 
 // handles HTTP requests.
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case "POST":
-		switch r.URL.Path {
-		case "/events":
-			p.CreateEvent(c, w, r)
-		}
-	case "GET":
-		switch r.URL.Path {
-		case "/events":
-			p.GetEvents(c, w, r)
-		case "/event":
-			p.GetEvent(c, w, r)
-		case "/settings":
-			p.GetSettings(c, w, r)
-		}
-	case "DELETE":
-		switch r.URL.Path {
-		case "/event":
-			p.RemoveEvent(c, w, r)
-		}
-	case "PUT":
-		switch r.URL.Path {
-		case "/event":
-			p.UpdateEvent(c, w, r)
-		case "/settings":
-			p.UpdateSettings(c, w, r)
-		}
-	default:
-		fmt.Fprint(w, "ping")
-	}
+	ctx := context.WithValue(r.Context(), "pluginRequest", c)
+	r = r.Clone(ctx)
+	p.router.ServeHTTP(w, r)
 }
