@@ -7,4 +7,6 @@ export declare type CalendarEventNotification = {
 export declare type SelectedEventTime = {
     start: Date;
     end: Date;
+    startTime: string,
+    endTime: string,
 }

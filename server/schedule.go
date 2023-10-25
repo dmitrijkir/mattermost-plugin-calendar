@@ -17,6 +17,7 @@ func (p *Plugin) GetUserEventsUTC(userId string, start, end time.Time) ([]Event,
 	rows, errSelect := p.DB.Queryx(`
 									   SELECT ce.id,
 											  ce.title,
+											  ce.description,
 											  ce."start",
 											  ce."end",
 											  ce.created,

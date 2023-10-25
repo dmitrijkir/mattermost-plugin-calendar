@@ -115,10 +115,9 @@ const EventModalComponent = () => {
     const usersMentionTags: {
         [name: string]: string
     } = {
-        '@channel': 'add all members from channel',
+        '@channel': 'users from channel',
     };
     const [usersAutocomplete, setUsersAutocomplete] = useState<UserProfile[]>([]);
-    const [tagsAdded, setTagsAdded] = useState<string[]>([]);
 
     const [searchUsersInput, setSearchUsersInput] = useState('');
 
@@ -139,11 +138,7 @@ const EventModalComponent = () => {
     const usersAddedInEvent = useSelector(getMembersAddedInEvent);
 
     const [titleEvent, setTitleEvent] = useState('');
-    const [startEventData, setStartEventDate] = useState(initialDate);
-    const [endEventData, setEndEventDate] = useState(initialDate);
-
-    const [startEventTime, setStartEventTime] = useState(initialStartTime);
-    const [endEventTime, setEndEventTime] = useState(initialEndTime);
+    const [descriptionEvent, setDescriptionEvent] = useState('');
 
     const [repeatRule, setRepeatRule] = useState<string>('');
     const [showCustomRepeat, setShowCustomRepeat] = useState(false);
@@ -159,8 +154,6 @@ const EventModalComponent = () => {
 
     const cleanState = () => {
         setTitleEvent('');
-        setStartEventTime(initialStartTime);
-        setEndEventTime(initialEndTime);
 
         setIsSaving(false);
         setIsLoading(false);
@@ -168,9 +161,9 @@ const EventModalComponent = () => {
         dispatch(updateSelectedEventTime({
             start: initialDate,
             end: initialDate,
+            startTime: initialStartTime(),
+            endTime: initialEndTime(),
         }));
-        // setStartEventDate(initialDate);
-        // setEndEventDate(initialDate);
 
         setUsersAutocomplete([]);
         setChannelsAutocomplete([]);
@@ -194,11 +187,11 @@ const EventModalComponent = () => {
     };
 
     const onStartDateChange = (event: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
-        setStartEventDate(parse(data.value, 'yyyy-MM-dd', new Date()));
+        dispatch(updateSelectedEventTime({start: parse(data.value, 'yyyy-MM-dd', new Date())}));
     };
 
     const onEndDateChange = (event: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
-        setEndEventDate(parse(data.value, 'yyyy-MM-dd', new Date()));
+        dispatch(updateSelectedEventTime({end: parse(data.value, 'yyyy-MM-dd', new Date())}));
     };
 
     const onInputUserAction = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,7 +224,7 @@ const EventModalComponent = () => {
     };
 
     const onSaveEvent = async () => {
-        const members: string[] = usersAddedInEvent.map((user) => user.id);
+        const members: string[] = usersAddedInEvent.map((user: UserProfile) => user.id);
         let repeat = '';
         if (repeatOption === 'Custom') {
             repeat = repeatRule;
@@ -240,9 +233,10 @@ const EventModalComponent = () => {
         if (selectedEvent?.event?.id == null) {
             const response = await ApiClient.createEvent(
                 titleEvent,
-                format(startEventData, 'yyyy-MM-dd') + 'T' + startEventTime + ':00Z',
-                format(endEventData, 'yyyy-MM-dd') + 'T' + endEventTime + ':00Z',
+                format(selectedEventTime.start, 'yyyy-MM-dd') + 'T' + selectedEventTime.startTime + ':00Z',
+                format(selectedEventTime.end, 'yyyy-MM-dd') + 'T' + selectedEventTime.endTime + ':00Z',
                 members,
+                descriptionEvent,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                 repeat,
                 selectedColor,
@@ -254,9 +248,10 @@ const EventModalComponent = () => {
             const response = await ApiClient.updateEvent(
                 selectedEvent.event.id,
                 titleEvent,
-                format(startEventData, 'yyyy-MM-dd') + 'T' + startEventTime + ':00Z',
-                format(endEventData, 'yyyy-MM-dd') + 'T' + endEventTime + ':00Z',
+                format(selectedEventTime.start, 'yyyy-MM-dd') + 'T' + selectedEventTime.startTime + ':00Z',
+                format(selectedEventTime.end, 'yyyy-MM-dd') + 'T' + selectedEventTime.endTime + ':00Z',
                 members,
+                descriptionEvent,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                 repeat,
                 selectedColor,
@@ -296,15 +291,17 @@ const EventModalComponent = () => {
             setIsLoading(true);
             ApiClient.getEventById(selectedEvent.event.id).then((data) => {
                 setTitleEvent(data.data.title);
+                setDescriptionEvent(data.data.description);
 
                 const startEventResp: Date = parse(data.data.start, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
                 const endEventResp: Date = parse(data.data.end, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
-                setStartEventDate(startEventResp);
-                setEndEventDate(endEventResp);
+                dispatch(updateSelectedEventTime({
+                    start: startEventResp,
+                    end: endEventResp,
+                    startTime: format(startEventResp, 'HH:mm'),
+                    endTime: format(endEventResp, 'HH:mm'),
+                }));
                 dispatch(updateMembersAddedInEvent(data.data.attendees));
-
-                setStartEventTime(format(startEventResp, 'HH:mm'));
-                setEndEventTime(format(endEventResp, 'HH:mm'));
 
                 setSelectedColor(data.data.color!);
                 setSelectedColorStyle(colorsMap[data.data.color!]);
@@ -316,7 +313,7 @@ const EventModalComponent = () => {
                 }
 
                 if (data.data.channel != null) {
-                    Client4.getChannel(data.data.channel).then((channel) => {
+                    Client4.getChannel(data.data.channel).then((channel: Channel) => {
                         setSelectedChannel(channel);
                         setSelectedChannelText(channel.display_name);
                     });
@@ -324,11 +321,12 @@ const EventModalComponent = () => {
                 setIsLoading(false);
             });
         } else if (mounted && selectedEvent?.event?.id == null && selectedEvent?.event?.start != null) {
-            setStartEventDate(selectedEvent?.event.start);
-            setEndEventDate(selectedEvent?.event.end);
-
-            setStartEventTime(format(selectedEvent?.event.start, 'HH:mm'));
-            setEndEventTime(format(selectedEvent?.event.end, 'HH:mm'));
+            dispatch(updateSelectedEventTime({
+                start: selectedEvent?.event.start,
+                end: selectedEvent?.event.end,
+                startTime: format(selectedEvent?.event.start, 'HH:mm'),
+                endTime: format(selectedEvent?.event.end, 'HH:mm'),
+            }));
         }
         mounted = false;
     }, [selectedEvent]);
@@ -361,8 +359,6 @@ const EventModalComponent = () => {
         }
     };
 
-    // Components
-    // full_name, nickname_full_name, username
     const AddedUserComponent = (props: AddedUserComponentProps) => {
         let stat = 'unknown';
         if (UserStatusSelector[props.user.id] === 'online') {
@@ -378,7 +374,7 @@ const EventModalComponent = () => {
             <Dismiss12Regular
                 className='added-user-badge-icon-container'
                 onClick={() => {
-                    dispatch(updateMembersAddedInEvent(usersAddedInEvent.filter((item) => item.id != props.user.id)));
+                    dispatch(updateMembersAddedInEvent(usersAddedInEvent.filter((item: UserProfile) => item.id !== props.user.id)));
                 }}
             />
 
@@ -389,27 +385,8 @@ const EventModalComponent = () => {
         if (usersAddedInEvent.length > 0) {
             return (<div className='added-users-list'>
                 {
-                    usersAddedInEvent.map((user) => {
+                    usersAddedInEvent.map((user: UserProfile) => {
                         return <AddedUserComponent user={user}/>;
-                    })
-                }
-            </div>);
-        }
-        return <></>;
-    };
-    const TagsAddedComponent = () => {
-        if (tagsAdded.length > 0) {
-            return (<div className='added-users-list'>
-                {
-                    tagsAdded.map((tag) => {
-                        return (<span className='added-user-badge-container'>
-                            <span className='added-tag'>{tag}</span>
-                            <Dismiss12Regular
-                                className='added-user-badge-icon-container'
-                                onClick={() => {
-                                    setTagsAdded(tagsAdded.filter((item) => item !== tag));
-                                }}
-                            /></span>);
                     })
                 }
             </div>);
@@ -447,7 +424,6 @@ const EventModalComponent = () => {
             {
                 usersAddedInEvent.length > 0 ? <FindTimeFree
                     open={isPlanningAssistantOpen}
-                    members={usersAddedInEvent}
                     onOpenChange={(ev, data) => {
                         setIsPlanningAssistantOpen(data.open);
                         inputEventTitleRef.current.focus();
@@ -545,15 +521,15 @@ const EventModalComponent = () => {
                                         </Skeleton>) : (<Input
                                             type='date'
                                             className='start-date-input'
-                                            value={format(startEventData, 'yyyy-MM-dd')}
+                                            value={format(selectedEventTime?.start, 'yyyy-MM-dd')}
                                             onChange={onStartDateChange}
                                         />)}
 
                                         {isLoading ? (<Skeleton className='start-date-input'>
                                             <SkeletonItem/>
                                         </Skeleton>) : (<TimeSelector
-                                            selected={startEventTime}
-                                            onSelect={setStartEventTime}
+                                            selected={selectedEventTime.startTime}
+                                            onSelect={(value) => dispatch(updateSelectedEventTime({startTime: value}))}
                                         />)}
 
                                     </div>
@@ -566,14 +542,14 @@ const EventModalComponent = () => {
                                             (<Input
                                                 type='date'
                                                 className='end-date-input'
-                                                value={format(endEventData, 'yyyy-MM-dd')}
+                                                value={format(selectedEventTime?.end, 'yyyy-MM-dd')}
                                                 onChange={onEndDateChange}
                                             />)}
                                         {isLoading ? (<Skeleton className='end-date-input'>
                                             <SkeletonItem/>
                                         </Skeleton>) : (<TimeSelector
-                                            selected={endEventTime}
-                                            onSelect={setEndEventTime}
+                                            selected={selectedEventTime.endTime}
+                                            onSelect={(value) => dispatch(updateSelectedEventTime({endTime: value}))}
                                         />)}
 
                                     </div>
@@ -662,7 +638,7 @@ const EventModalComponent = () => {
                                                 }
                                                 usersAutocomplete.map((user) => {
                                                     if (user.id === data.optionValue && !usersAddedInEvent.some((u) => u.id === data.optionValue)) {
-                                                        dispatch(updateMembersAddedInEvent(profilesInChannel));
+                                                        dispatch(updateMembersAddedInEvent([...usersAddedInEvent, user]));
                                                     }
                                                 });
                                                 setSearchUsersInput('');
@@ -696,7 +672,7 @@ const EventModalComponent = () => {
                                                     </Option>
                                                 ) : null}
                                             </OptionGroup>
-                                            <OptionGroup label='SPECIAL MENTIONS'>
+                                            <OptionGroup label='SPECIAL'>
                                                 {
                                                     Object.entries(usersMentionTags).map(([key, value]) => {
                                                         return (<Option
@@ -715,7 +691,6 @@ const EventModalComponent = () => {
                             </div>
                             <div className='users-added-container'>
                                 <UsersAddedComponent/>
-                                {/*<TagsAddedComponent/>*/}
                             </div>
 
                             <div className='event-description-container'>
@@ -724,6 +699,8 @@ const EventModalComponent = () => {
                                     <Textarea
                                         placeholder='Add description'
                                         className='event-description-input-textarea'
+                                        value={descriptionEvent}
+                                        onChange={(event, data) => setDescriptionEvent(data.value)}
                                     />
                                 </div>
 

@@ -145,7 +145,6 @@
 }
 
 .find-free-time-table-header {
-    /*position: fixed;*/
     background-color: #fff;
     z-index: 10000;
 }

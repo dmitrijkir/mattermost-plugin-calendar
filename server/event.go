@@ -63,6 +63,7 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
                                               ce."channel",
                                               ce.recurrence,
                                               ce.color,
+                                              ce.description,
                                               cm."user"
                                        FROM   calendar_events ce
                                               LEFT JOIN calendar_members cm
@@ -102,16 +103,17 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	event := Event{
-		Id:         eventDb.Id,
-		Title:      eventDb.Title,
-		Start:      eventDb.Start,
-		End:        eventDb.End,
-		Attendees:  members,
-		Created:    eventDb.Created,
-		Owner:      eventDb.Owner,
-		Channel:    eventDb.Channel,
-		Recurrence: eventDb.Recurrence,
-		Color:      eventDb.Color,
+		Id:          eventDb.Id,
+		Title:       eventDb.Title,
+		Description: eventDb.Description,
+		Start:       eventDb.Start,
+		End:         eventDb.End,
+		Attendees:   members,
+		Created:     eventDb.Created,
+		Owner:       eventDb.Owner,
+		Channel:     eventDb.Channel,
+		Recurrence:  eventDb.Recurrence,
+		Color:       eventDb.Color,
 	}
 
 	userLoc := p.GetUserLocation(user)
@@ -242,6 +244,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	_, errInsert := p.DB.NamedExec(`INSERT INTO PUBLIC.calendar_events
                                                   (id,
                                                    title,
+                                                   description,
                                                    "start",
                                                    "end",
                                                    created,
@@ -252,6 +255,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
                                                    color)
                                       VALUES      (:id,
                                                    :title,
+                                                   :description,
                                                    :start,
                                                    :end,
                                                    :created,
@@ -399,6 +403,7 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	_, errUpdate := tx.NamedExec(`UPDATE PUBLIC.calendar_events 
 										SET 
 										    title = :title,
+										    description = :description,
 										    "start" = :start,
 										    "end" = :end,
 										    channel = :channel,

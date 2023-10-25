@@ -60,10 +60,10 @@ const membersAddedInEvent = (state = [], action) => {
     }
 };
 
-const selectedEventTime = (state = null, action) => {
+const selectedEventTime = (state = {start: new Date(), end: new Date(), startTime: '00:00', endTime: '00:00'}, action) => {
     switch (action.type) {
     case 'updateSelectedEventTime':
-        return action.payload;
+        return {...state, ...action.payload};
     default:
         return state;
     }

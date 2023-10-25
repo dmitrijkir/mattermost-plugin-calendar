@@ -19,6 +19,7 @@ export declare type GetEventResponse = {
     channel?: string;
     recurrence: string;
     color?: string
+    description: string;
 }
 
 export declare type GetEventsResponse = {
@@ -117,7 +118,16 @@ export class ApiClient implements ApiClientInterface {
         return data;
     }
 
-    static async createEvent(title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string, color?: string): Promise<ApiResponse<GetEventResponse>> {
+    static async createEvent(
+        title: string,
+        start: string,
+        end: string,
+        attendees: string[],
+        description: string,
+        channel?: string,
+        recurrence?: string,
+        color?: string,
+    ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
             Client4.getOptions({
@@ -130,6 +140,7 @@ export class ApiClient implements ApiClientInterface {
                     start,
                     end,
                     attendees,
+                    description,
                     channel,
                     recurrence,
                     color,
@@ -140,7 +151,17 @@ export class ApiClient implements ApiClientInterface {
         return data;
     }
 
-    static async updateEvent(id: string, title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string, color?: string): Promise<ApiResponse<GetEventResponse>> {
+    static async updateEvent(
+        id: string,
+        title: string,
+        start: string,
+        end: string,
+        attendees: string[],
+        description: string,
+        channel?: string,
+        recurrence?: string,
+        color?: string,
+    ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
             Client4.getOptions({
@@ -154,6 +175,7 @@ export class ApiClient implements ApiClientInterface {
                     start,
                     end,
                     attendees,
+                    description,
                     channel,
                     recurrence,
                     color,
@@ -182,8 +204,8 @@ export class ApiClient implements ApiClientInterface {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/schedule?` + new URLSearchParams({
                 users: users.join(','),
-                start: start,
-                end: end,
+                start,
+                end,
             }),
             Client4.getOptions({
                 method: 'GET',
