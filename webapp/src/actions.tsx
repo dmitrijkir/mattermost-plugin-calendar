@@ -6,6 +6,7 @@ import {CalendarSettings} from './types/settings';
 import {ApiClient} from './client';
 import {CalendarEventNotification, SelectedEventTime} from './types/event';
 import {UserProfile} from "mattermost-redux/types/users";
+import {set} from "date-fns";
 
 export const eventSelected = (event: EventClickArg) => {
     return {
@@ -57,6 +58,10 @@ export const updateMembersAddedInEvent = (members: UserProfile[]) => {
 };
 
 export const updateSelectedEventTime = (event: SelectedEventTime) => {
+    const startT = event.startTime.split(':');
+    const endT = event.endTime.split(':');
+    event.start = set(event.start, {hours: parseInt(startT[0]), minutes: parseInt(startT[1])});
+    event.end = set(event.end, {hours: parseInt(endT[0]), minutes: parseInt(endT[1])});
     return {
         type: 'updateSelectedEventTime',
         payload: event,

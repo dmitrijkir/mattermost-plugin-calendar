@@ -165,7 +165,7 @@
 .slot-duration-select-input{
     color: var(--colorNeutralForeground2);
     font-size: var(--fontSizeBase300);
-    width: 55px;
+    width: 60px;
 }
 .slot-duration-select-input::before {
     border-bottom: none;

@@ -25,7 +25,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {getTeammateNameDisplaySetting} from 'mattermost-redux/selectors/entities/preferences';
 
 import {ApiClient} from '../../client';
-import {getMembersAddedInEvent} from '../../selectors';
+import {getMembersAddedInEvent, getSelectedEventTime} from '../../selectors';
 import {updateSelectedEventTime} from '../../actions';
 
 const StarHour = 8;
@@ -83,11 +83,12 @@ function BuildHeader(props: BuildTimeLineProps) {
 function FindTimeFree(props: FindFreeTimeProps) {
     const displayNameSettings = useSelector(getTeammateNameDisplaySetting);
     const membersAddedInEvent = useSelector(getMembersAddedInEvent);
+    const selectedEventTime = useSelector(getSelectedEventTime);
 
     const today = new Date();
     const [currentDate, setCurrentDate] = useState(today);
     const [usersAvailability, setUsersAvailability] = useState(null);
-    const [duration, setDuration] = useState(15);
+    const [duration, setDuration] = useState(differenceInMinutes(selectedEventTime.end, selectedEventTime.start));
 
     const overrides = useOverrides();
     const slotTimeId = useId('slotTimeId');

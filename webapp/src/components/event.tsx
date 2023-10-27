@@ -154,6 +154,7 @@ const EventModalComponent = () => {
 
     const cleanState = () => {
         setTitleEvent('');
+        setDescriptionEvent('');
 
         setIsSaving(false);
         setIsLoading(false);
@@ -489,6 +490,7 @@ const EventModalComponent = () => {
                                     <ToolbarButton
                                         aria-label='planning assistant'
                                         onClick={() => setIsPlanningAssistantOpen(true)}
+                                        disabled={usersAddedInEvent.length === 0}
                                     >
                                         planning assistant
                                     </ToolbarButton>
@@ -699,6 +701,7 @@ const EventModalComponent = () => {
                                     <Textarea
                                         placeholder='Add description'
                                         className='event-description-input-textarea'
+                                        resize='vertical'
                                         value={descriptionEvent}
                                         onChange={(event, data) => setDescriptionEvent(data.value)}
                                     />
