@@ -25,11 +25,11 @@ import {useDispatch, useSelector} from 'react-redux';
 import {getTeammateNameDisplaySetting} from 'mattermost-redux/selectors/entities/preferences';
 
 import {ApiClient} from '../../client';
-import {getMembersAddedInEvent, getSelectedEventTime} from '../../selectors';
+import {getCalendarSettings, getMembersAddedInEvent, getSelectedEventTime} from '../../selectors';
 import {updateSelectedEventTime} from '../../actions';
 
-const StarHour = 8;
-const EndHour = 20;
+// const StarHour = 8;
+// const EndHour = 20;
 const TimeInterval = 15;
 
 const useOverrides = makeStyles({
@@ -51,42 +51,17 @@ interface UsersListProps {
     members: UserProfile[]
 }
 
-function BuildHeader(props: BuildTimeLineProps) {
-    const current = new Date();
-
-    let start = set(current, {hours: StarHour, minutes: 0, seconds: 0, milliseconds: 0});
-    const end = set(current, {hours: EndHour, minutes: 0, seconds: 0, milliseconds: 0});
-    const minutes = differenceInMinutes(end, start) / TimeInterval;
-    const columns = [];
-
-    for (let i = 0; i < minutes; i++) {
-        columns.push(start);
-        start = addMinutes(start, TimeInterval);
-    }
-    return (
-        <div className='time-header'>
-            <div className='header-timeline'>
-                {columns.map((value, index) => {
-                    if (props.freeTimes.includes(format(value, 'HH:mm'))) {
-                        return (<div className='time-column time-column-free-time'>
-                            <Text weight='semibold'>
-                                {format(value, 'HH:mm')}
-                            </Text>
-                        </div>);
-                    }
-                    return (<div className='time-column'><Text weight='semibold'>{format(value, 'HH:mm')}</Text></div>);
-                })}
-            </div>
-        </div>);
-}
-
-function FindTimeFree(props: FindFreeTimeProps) {
+function PlanningAssistant(props: FindFreeTimeProps) {
     const displayNameSettings = useSelector(getTeammateNameDisplaySetting);
     const membersAddedInEvent = useSelector(getMembersAddedInEvent);
     const selectedEventTime = useSelector(getSelectedEventTime);
+    const settings = useSelector(getCalendarSettings);
+
+    const StarHour = settings.businessStartTime ? parseInt(settings.businessStartTime.split(':')[0], 10) : 0;
+    const EndHour = settings.businessEndTime ? parseInt(settings.businessEndTime.split(':')[0], 10) : 0;
 
     const today = new Date();
-    const [currentDate, setCurrentDate] = useState(today);
+    const [currentDate, setCurrentDate] = useState(selectedEventTime.start);
     const [usersAvailability, setUsersAvailability] = useState(null);
     const [duration, setDuration] = useState(differenceInMinutes(selectedEventTime.end, selectedEventTime.start));
 
@@ -128,6 +103,43 @@ function FindTimeFree(props: FindFreeTimeProps) {
             return user.first_name + ' ' + user.last_name;
         }
     };
+
+    function BuildHeader(props: BuildTimeLineProps) {
+        const current = new Date();
+
+        let start = set(current, {hours: StarHour, minutes: 0, seconds: 0, milliseconds: 0});
+        const end = set(current, {hours: EndHour, minutes: 0, seconds: 0, milliseconds: 0});
+        const minutes = differenceInMinutes(end, start) / TimeInterval;
+        const columns = [];
+
+        for (let i = 0; i < minutes; i++) {
+            columns.push(start);
+            start = addMinutes(start, TimeInterval);
+        }
+        return (
+            <div className='time-header'>
+                <div className='header-timeline'>
+                    {columns.map((value) => {
+                        if (props.freeTimes.includes(format(value, 'HH:mm'))) {
+                            return (
+                                <div className='time-column time-column-free-time'>
+                                    <Text weight='semibold'>
+                                        {format(value, 'HH:mm')}
+                                    </Text>
+                                </div>
+                            );
+                        }
+                        return (
+                            <div className='time-column'>
+                                <Text weight='semibold'>
+                                    {format(value, 'HH:mm')}
+                                </Text>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>);
+    }
 
     const BuildTimeLine = (props: BuildTimeLineProps) => {
         // const current = new Date();
@@ -189,6 +201,9 @@ function FindTimeFree(props: FindFreeTimeProps) {
     };
 
     const UsersTimeLine = () => {
+        const start = set(currentDate, {hours: StarHour, minutes: 0, seconds: 0, milliseconds: 0});
+        const end = set(currentDate, {hours: EndHour, minutes: 0, seconds: 0, milliseconds: 0});
+        const pixels = differenceInMinutes(end, start) / TimeInterval * 50;
         if (usersAvailability == null) {
             return <div/>;
         }
@@ -197,16 +212,20 @@ function FindTimeFree(props: FindFreeTimeProps) {
                 return (
                     <div className='find-free-time-table-users-time-column'>
                         <BuildTimeLine
-                            freeTimes={usersAvailability.available_times}
+                            freeTimes={usersAvailability == null ? [] : usersAvailability?.available_times}
                             onOpenChange={props.onOpenChange}
                             duration={duration}
                         />
                         {
-                            usersAvailability.users[userId].map((event, index) => {
+                            usersAvailability.users[userId].map((event) => {
                                 const current = set(currentDate, {hours: StarHour, seconds: 0, minutes: 0});
                                 const startTime = parse(event.start, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
 
                                 const leftPad = differenceInMinutes(startTime, current) / TimeInterval * 50;
+
+                                if ((leftPad + event.duration / TimeInterval * 50) > pixels) {
+                                    return <div/>;
+                                }
 
                                 return (
                                     <div
@@ -218,8 +237,7 @@ function FindTimeFree(props: FindFreeTimeProps) {
                                         onClick={() => {
                                             console.log(current);
                                         }}
-                                    >
-                                    </div>
+                                    />
                                 );
                             })
                         }
@@ -272,7 +290,7 @@ function FindTimeFree(props: FindFreeTimeProps) {
                                 />
                                 <ToolbarButton
                                     aria-label='next day'
-                                >{format(currentDate, 'dd MMMM yyyy')}</ToolbarButton>
+                                >{format(currentDate, 'EEE, dd MMMM yyyy')}</ToolbarButton>
                                 <div className='slot-duration-select-container'>
                                     <Label htmlFor={slotTimeId}>{'duration'}</Label>
                                     <SpinButton
@@ -313,4 +331,4 @@ function FindTimeFree(props: FindFreeTimeProps) {
     );
 }
 
-export default FindTimeFree;
+export default PlanningAssistant;

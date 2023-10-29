@@ -58,10 +58,14 @@ export const updateMembersAddedInEvent = (members: UserProfile[]) => {
 };
 
 export const updateSelectedEventTime = (event: SelectedEventTime) => {
-    const startT = event.startTime.split(':');
-    const endT = event.endTime.split(':');
-    event.start = set(event.start, {hours: parseInt(startT[0]), minutes: parseInt(startT[1])});
-    event.end = set(event.end, {hours: parseInt(endT[0]), minutes: parseInt(endT[1])});
+    if (event.startTime && event.start) {
+        const startT = event.startTime.split(':');
+        event.start = set(event.start, {hours: parseInt(startT[0], 10), minutes: parseInt(startT[1], 10)});
+    }
+    if (event.endTime && event.end) {
+        const endT = event.endTime.split(':');
+        event.end = set(event.end, {hours: parseInt(endT[0], 10), minutes: parseInt(endT[1], 10)});
+    }
     return {
         type: 'updateSelectedEventTime',
         payload: event,

@@ -48,6 +48,10 @@ func (b *Background) getMessageFromEvent(event *Event) string {
 		message += fmt.Sprintf("**members:** %s\n", members)
 	}
 
+	if event.Description != "" {
+		message += fmt.Sprintf("**description:**\n%s", event.Description)
+	}
+
 	return message
 }
 
@@ -125,7 +129,8 @@ func (b *Background) process(t *time.Time) {
                    cm."user",
                    ce.recurrent,
                    ce.recurrence,
-                   ce.color
+                   ce.color,
+                   ce.description
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"
@@ -211,17 +216,18 @@ func (b *Background) process(t *time.Time) {
 				att = append(att, *eventDb.User)
 			}
 			events[eventDb.Id] = &Event{
-				Id:         eventDb.Id,
-				Title:      eventDb.Title,
-				Start:      eventDb.Start,
-				End:        eventDb.End,
-				Attendees:  att,
-				Created:    eventDb.Created,
-				Owner:      eventDb.Owner,
-				Channel:    eventDb.Channel,
-				Recurrence: eventDb.Recurrence,
-				Recurrent:  false,
-				Color:      eventDb.Color,
+				Id:          eventDb.Id,
+				Title:       eventDb.Title,
+				Start:       eventDb.Start,
+				End:         eventDb.End,
+				Attendees:   att,
+				Created:     eventDb.Created,
+				Owner:       eventDb.Owner,
+				Channel:     eventDb.Channel,
+				Recurrence:  eventDb.Recurrence,
+				Recurrent:   false,
+				Color:       eventDb.Color,
+				Description: eventDb.Description,
 			}
 
 		}

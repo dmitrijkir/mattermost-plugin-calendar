@@ -71,6 +71,7 @@ export class ApiClient implements ApiClientInterface {
             }),
         );
         const data = await response.json();
+        // eslint-disable-next-line no-negated-condition
         if (data.data.attendees != null) {
             if (data.data.attendees.length > 0) {
                 const users = await this.getUsersByIds(data.data.attendees);
@@ -200,7 +201,7 @@ export class ApiClient implements ApiClientInterface {
         return data.data;
     }
 
-    static async getUsersSchedule(users: string[], start: string, end: string): Promise<ApiResponse<UsersScheduleResponse>> {
+    static async getUsersSchedule(users: string[], start: string, end: string): Promise<UsersScheduleResponse> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/schedule?` + new URLSearchParams({
                 users: users.join(','),

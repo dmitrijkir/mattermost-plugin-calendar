@@ -226,7 +226,8 @@ func TestProcessEventWithChannel(t *testing.T) {
                    cm."user",
                    ce.recurrent,
                    ce.recurrence,
-                   ce.color
+                   ce.color,
+                   ce.description
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"
@@ -382,7 +383,8 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
                    cm."user",
                    ce.recurrent,
                    ce.recurrence,
-                   ce.color
+                   ce.color,
+                   ce.description
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"
@@ -537,7 +539,8 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
                    cm."user",
                    ce.recurrent,
                    ce.recurrence,
-                   ce.color
+                   ce.color,
+                   ce.description
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"
@@ -675,7 +678,8 @@ func TestProcessEventWithoutChannel(t *testing.T) {
                    cm."user",
                    ce.recurrent,
                    ce.recurrence,
-                   ce.color
+                   ce.color,
+                   ce.description
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"
@@ -819,7 +823,8 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
                    cm."user",
                    ce.recurrent,
                    ce.recurrence,
-                   ce.color
+                   ce.color,
+                   ce.description
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"

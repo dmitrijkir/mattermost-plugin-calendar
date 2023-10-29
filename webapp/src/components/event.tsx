@@ -58,7 +58,7 @@ import RepeatEventCustom from './repeat-event';
 
 import CalendarRef from './calendar';
 import TimeSelector from './time-selector';
-import FindTimeFree from "./planning-assistant";
+import PlanningAssistant from './planning-assistant';
 
 interface AddedUserComponentProps {
     user: UserProfile
@@ -403,7 +403,7 @@ const EventModalComponent = () => {
                     icon={<Delete16Regular/>}
                     onClick={onRemoveEvent}
                 >
-                    Remove
+                    {'Remove'}
                 </Button>
             </DialogActions>);
         }
@@ -412,10 +412,12 @@ const EventModalComponent = () => {
 
     const RepeatComponent = () => {
         if (showCustomRepeat) {
-            return (<RepeatEventCustom
-                selected={repeatRule}
-                onSelect={setRepeatRule}
-            />);
+            return (
+                <RepeatEventCustom
+                    selected={repeatRule}
+                    onSelect={setRepeatRule}
+                />
+            );
         }
         return <></>;
     };
@@ -423,7 +425,7 @@ const EventModalComponent = () => {
     return (
         <div>
             {
-                usersAddedInEvent.length > 0 ? <FindTimeFree
+                usersAddedInEvent.length > 0 ? <PlanningAssistant
                     open={isPlanningAssistantOpen}
                     onOpenChange={(ev, data) => {
                         setIsPlanningAssistantOpen(data.open);
