@@ -1,116 +1,13 @@
 package main
 
 import (
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/teambition/rrule-go"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
-
-// GetUserEventsUTC returns user events in UTC timezone
-// start and end are in format EventDateTimeLayout in UTC timezone
-func (p *Plugin) GetUserEventsUTC(userId string, start, end time.Time) ([]Event, *model.AppError) {
-	var events []Event
-
-	rows, errSelect := p.DB.Queryx(`
-									   SELECT ce.id,
-											  ce.title,
-											  ce.description,
-											  ce."start",
-											  ce."end",
-											  ce.created,
-											  ce."owner",
-											  ce."channel",
-											  ce.recurrent,
-											  ce.recurrence,
-											  ce.color
-									   FROM calendar_events ce
-										    FULL JOIN calendar_members cm 
-										           ON ce.id = cm."event"
-									   WHERE (cm."user" = $1 OR ce."owner" = $2)
-											AND (
-											     (ce."start" >= $3 AND ce."start" <= $4) 
-											         or ce.recurrent = true
-											    )
-                                       `, userId, userId, start, end)
-
-	if errSelect != nil {
-		p.API.LogError(errSelect.Error())
-		return nil, SomethingWentWrong
-	}
-
-	addedEvent := map[string]bool{}
-	for rows.Next() {
-
-		var eventDb Event
-
-		errScan := rows.StructScan(&eventDb)
-
-		if errScan != nil {
-			p.API.LogError("Can't scan row to struct")
-			continue
-		}
-		if addedEvent[eventDb.Id] {
-			continue
-		}
-
-		if eventDb.Color == nil {
-			color := DefaultColor
-			eventDb.Color = &color
-		}
-
-		if eventDb.Recurrent {
-			eventRule, errRrule := rrule.StrToRRule(eventDb.Recurrence)
-			if errRrule != nil {
-				p.API.LogError(errRrule.Error())
-				continue
-			}
-			eventRule.DTStart(eventDb.Start)
-			eventDates := eventRule.Between(
-				time.Date(
-					start.Year(),
-					start.Month(),
-					start.Day(),
-					0,
-					0,
-					0,
-					0,
-					start.Location(),
-				),
-				end, false)
-
-			if errRrule != nil {
-				p.API.LogError(errRrule.Error())
-				continue
-			}
-
-			for _, eventDate := range eventDates {
-				eventTime := eventDb.End.Sub(eventDb.Start)
-				eventDb.Start = time.Date(
-					eventDate.Year(),
-					eventDate.Month(),
-					eventDate.Day(),
-					eventDb.Start.Hour(),
-					eventDb.Start.Minute(),
-					eventDb.Start.Second(),
-					eventDb.Start.Nanosecond(),
-					eventDb.Start.Location(),
-				)
-				eventDb.End = eventDb.Start.Add(eventTime)
-
-				events = append(events, eventDb)
-			}
-		} else {
-			events = append(events, eventDb)
-		}
-		addedEvent[eventDb.Id] = true
-
-	}
-
-	return events, nil
-}
 
 type UserScheduleEvent struct {
 	Start    time.Time `json:"start" db:"start"`
@@ -152,6 +49,21 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// time slot part it event duration in minutes / DefaultSlotTime
+	slotParts := 1
+	if query.Get("slot_time") != "" {
+		slotTime, errConvert := strconv.Atoi(query.Get("slot_time"))
+		slotParts = int(math.Ceil(float64(slotTime / DefaultSlotTime)))
+		if slotParts <= 0 {
+			slotParts = 1
+		}
+		if errConvert != nil {
+			http.Error(w, "bad slot time request", http.StatusBadRequest)
+			return
+		}
+
+	}
+
 	users := strings.Split(query.Get("users"), ",")
 
 	userLoc := p.GetUserLocation(user)
@@ -162,6 +74,8 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, query.Get("end"), userLoc)
 
 	usersEvents := make(map[string][]UserScheduleEvent)
+	usersBusyTimes := make([][]bool, 0)
+	usersBusyTimesSync := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
 	wg.Add(len(users))
 
@@ -175,14 +89,38 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			userBusyTime := make([]bool, 96)
 			userSchEvents := []UserScheduleEvent{}
 			// convert event utc time to user location
 			for _, event := range userEvents {
-				userSchEvents = append(userSchEvents, UserScheduleEvent{
+				userEvent := UserScheduleEvent{
 					Start:    event.Start.In(userLoc),
 					End:      event.End.In(userLoc),
 					Duration: int32(event.End.Sub(event.Start).Minutes()),
-				})
+				}
+
+				// convert event start time to slot position,for recurent event start time is event start time in user location
+				eventStart := time.Date(
+					startEventLocal.Year(),
+					startEventLocal.Month(),
+					startEventLocal.Day(),
+					userEvent.Start.Hour(),
+					userEvent.Start.Minute(),
+					userEvent.Start.Second(),
+					userEvent.Start.Nanosecond(),
+					userEvent.Start.Location(),
+				)
+				startPosition := int32(math.Floor(eventStart.Sub(startEventLocal).Minutes() / DefaultSlotTime))
+				slotCount := int32(math.Ceil(event.End.Sub(event.Start).Minutes() / DefaultSlotTime))
+
+				for i := startPosition; i <= startPosition+slotCount-1; i++ {
+					userBusyTime[i] = true
+				}
+
+				usersBusyTimesSync.Lock()
+				usersBusyTimes = append(usersBusyTimes, userBusyTime)
+				usersBusyTimesSync.Unlock()
+				userSchEvents = append(userSchEvents, userEvent)
 			}
 			usersEvents[userId] = userSchEvents
 		}(userId)
@@ -190,9 +128,32 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 
 	wg.Wait()
 
+	availableTimes := make([]string, 0)
+
+	// find free time
+	for j := 0; j <= 95; j++ {
+		isTimelineValid := true
+		for i := 0; i <= len(usersBusyTimes)-1; i++ {
+			for k := 0; k <= slotParts-1; k++ {
+				if j+k > 95 {
+					break
+				}
+				if usersBusyTimes[i][j+k] == false {
+					continue
+				}
+				isTimelineValid = false
+				break
+			}
+		}
+		if isTimelineValid {
+			freeTime := startEventLocal.Add(time.Minute * time.Duration(j) * DefaultSlotTime)
+			availableTimes = append(availableTimes, freeTime.Format("15:04"))
+		}
+	}
+
 	response := &GetScheduleResponse{
 		Users:          usersEvents,
-		AvailableTimes: []string{},
+		AvailableTimes: availableTimes,
 	}
 	apiResponse(w, response)
 	return

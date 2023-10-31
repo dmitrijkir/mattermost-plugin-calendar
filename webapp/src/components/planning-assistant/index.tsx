@@ -12,9 +12,11 @@ import {
     makeStyles,
     Persona,
     SpinButton,
+    Spinner,
     Text,
     Toolbar,
     ToolbarButton,
+    Tooltip,
     useId,
 } from '@fluentui/react-components';
 import {ChevronLeft24Regular, ChevronRight24Regular} from '@fluentui/react-icons';
@@ -28,8 +30,6 @@ import {ApiClient} from '../../client';
 import {getCalendarSettings, getMembersAddedInEvent, getSelectedEventTime} from '../../selectors';
 import {updateSelectedEventTime} from '../../actions';
 
-// const StarHour = 8;
-// const EndHour = 20;
 const TimeInterval = 15;
 
 const useOverrides = makeStyles({
@@ -57,11 +57,13 @@ function PlanningAssistant(props: FindFreeTimeProps) {
     const selectedEventTime = useSelector(getSelectedEventTime);
     const settings = useSelector(getCalendarSettings);
 
+    const [isLoading, setIsLoading] = useState(true);
+
     const StarHour = settings.businessStartTime ? parseInt(settings.businessStartTime.split(':')[0], 10) : 0;
     const EndHour = settings.businessEndTime ? parseInt(settings.businessEndTime.split(':')[0], 10) : 0;
 
     const today = new Date();
-    const [currentDate, setCurrentDate] = useState(selectedEventTime.start);
+    const [currentDate, setCurrentDate] = useState(selectedEventTime.start > today ? selectedEventTime.start : today)
     const [usersAvailability, setUsersAvailability] = useState(null);
     const [duration, setDuration] = useState(differenceInMinutes(selectedEventTime.end, selectedEventTime.start));
 
@@ -76,13 +78,17 @@ function PlanningAssistant(props: FindFreeTimeProps) {
         const startTimeLine = set(currentDate, {hours: 0, seconds: 0, minutes: 0});
         const endEvent = addHours(startTimeLine, 24);
         const members = membersAddedInEvent.map((member: UserProfile) => member.id);
+
+        setIsLoading(true);
         ApiClient.getUsersSchedule(
             members,
             format(startTimeLine, 'yyyy-MM-dd\'T\'HH:mm:ss'),
-            format(endEvent, 'yyyy-MM-dd\'T\'HH:mm:ss')).then((response) => {
+            format(endEvent, 'yyyy-MM-dd\'T\'HH:mm:ss'),
+            duration).then((response) => {
             setUsersAvailability(response);
+            setIsLoading(false);
         });
-    }, [props.open, currentDate]);
+    }, [props.open, currentDate, duration]);
 
     const getDisplayUserName = (user: UserProfile | undefined) => {
         if (user === undefined) {
@@ -122,7 +128,20 @@ function PlanningAssistant(props: FindFreeTimeProps) {
                     {columns.map((value) => {
                         if (props.freeTimes.includes(format(value, 'HH:mm'))) {
                             return (
-                                <div className='time-column time-column-free-time'>
+                                <div
+                                    className='time-column time-column-free-time'
+                                    onClick={(event) => {
+                                        dispatch(updateSelectedEventTime({
+                                            start: value,
+                                            startTime: format(value, 'HH:mm'),
+                                            end: addMinutes(value, duration),
+                                            endTime: format(addMinutes(value, props.duration), 'HH:mm'),
+                                        }));
+                                        if (props.onOpenChange) {
+                                            props.onOpenChange(event, {open: false});
+                                        }
+                                    }}
+                                >
                                     <Text weight='semibold'>
                                         {format(value, 'HH:mm')}
                                     </Text>
@@ -130,7 +149,20 @@ function PlanningAssistant(props: FindFreeTimeProps) {
                             );
                         }
                         return (
-                            <div className='time-column'>
+                            <div
+                                className='time-column'
+                                onClick={(event) => {
+                                    dispatch(updateSelectedEventTime({
+                                        start: value,
+                                        startTime: format(value, 'HH:mm'),
+                                        end: addMinutes(value, props.duration),
+                                        endTime: format(addMinutes(value, props.duration), 'HH:mm'),
+                                    }));
+                                    if (props.onOpenChange) {
+                                        props.onOpenChange(event, {open: false});
+                                    }
+                                }}
+                            >
                                 <Text weight='semibold'>
                                     {format(value, 'HH:mm')}
                                 </Text>
@@ -158,7 +190,17 @@ function PlanningAssistant(props: FindFreeTimeProps) {
                     return (
                         <div
                             className='time-column time-column-free-time'
-                            onClick={(event) => console.log(value)}
+                            onClick={(event) => {
+                                dispatch(updateSelectedEventTime({
+                                    start: value,
+                                    startTime: format(value, 'HH:mm'),
+                                    end: addMinutes(value, props.duration),
+                                    endTime: format(addMinutes(value, props.duration), 'HH:mm'),
+                                }));
+                                if (props.onOpenChange) {
+                                    props.onOpenChange(event, {open: false});
+                                }
+                            }}
                         />);
                 }
                 return (
@@ -223,8 +265,20 @@ function PlanningAssistant(props: FindFreeTimeProps) {
 
                                 const leftPad = differenceInMinutes(startTime, current) / TimeInterval * 50;
 
-                                if ((leftPad + event.duration / TimeInterval * 50) > pixels) {
+                                if (leftPad >= pixels) {
                                     return <div/>;
+                                }
+                                if ((leftPad + event.duration / TimeInterval * 50) > pixels) {
+                                    const diff = (leftPad + event.duration / TimeInterval * 50) - pixels;
+                                    return (
+                                        <div
+                                            className='event-container'
+                                            style={{
+                                                left: leftPad,
+                                                width: (event.duration / TimeInterval * 50) - diff,
+                                            }}
+                                        />
+                                    );
                                 }
 
                                 return (
@@ -233,9 +287,6 @@ function PlanningAssistant(props: FindFreeTimeProps) {
                                         style={{
                                             left: leftPad,
                                             width: event.duration / TimeInterval * 50,
-                                        }}
-                                        onClick={() => {
-                                            console.log(current);
                                         }}
                                     />
                                 );
@@ -292,7 +343,18 @@ function PlanningAssistant(props: FindFreeTimeProps) {
                                     aria-label='next day'
                                 >{format(currentDate, 'EEE, dd MMMM yyyy')}</ToolbarButton>
                                 <div className='slot-duration-select-container'>
-                                    <Label htmlFor={slotTimeId}>{'duration'}</Label>
+                                    <Tooltip
+                                        withArrow={true}
+                                        content={'event duration in minutes'}
+                                    >
+                                        <Label
+                                            htmlFor={slotTimeId}
+                                            className='event-duration-label'
+                                        >
+                                            {'duration'}
+                                        </Label>
+                                    </Tooltip>
+
                                     <SpinButton
                                         className='slot-duration-select-input'
                                         id={slotTimeId}
@@ -302,28 +364,32 @@ function PlanningAssistant(props: FindFreeTimeProps) {
                                         onChange={onSpinButtonChange}
                                     />
                                 </div>
+                                {isLoading ? <Spinner size='tiny'/> : <div/>}
                             </Toolbar>
                         </div>
                     </DialogTitle>
                     <DialogContent>
-                        <div className='find-free-time-table-container'>
-                            <div className='find-free-time-table-left-nav'>
-                                <div className='find-free-time-table-users-column'>
-                                    <UsersList/>
+                        {usersAvailability == null ? <Spinner size='huge'/> :
+                            <div className='find-free-time-table-container'>
+                                <div className='find-free-time-table-left-nav'>
+                                    <div className='find-free-time-table-users-column'>
+                                        <UsersList/>
 
-                                </div>
-                            </div>
-                            <div className='find-free-time-table-body-container'>
-                                <div className='find-free-time-table-body'>
-                                    <div className='find-free-time-table-header'>
-                                        <BuildHeader
-                                            freeTimes={usersAvailability == null ? [] : usersAvailability.available_times}
-                                        />
                                     </div>
-                                    <UsersTimeLine/>
+                                </div>
+                                <div className='find-free-time-table-body-container'>
+                                    <div className='find-free-time-table-body'>
+                                        <div className='find-free-time-table-header'>
+                                            <BuildHeader
+                                                freeTimes={usersAvailability == null ? [] : usersAvailability.available_times}
+                                                {...props}
+                                            />
+                                        </div>
+                                        <UsersTimeLine/>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        }
                     </DialogContent>
                 </DialogBody>
             </DialogSurface>

@@ -81,6 +81,9 @@
 }
 
 .find-free-time-table-users-row {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     height: 36px;
     display: flex;
     align-items: center;
@@ -170,4 +173,8 @@
 .slot-duration-select-input::before {
     border-bottom: none;
 
+}
+.event-duration-label {
+    font-weight: 600;
+    color: var(--colorNeutralForeground2);
 }

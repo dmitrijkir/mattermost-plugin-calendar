@@ -1,4 +1,3 @@
-import React from 'react';
 import {Client4} from 'mattermost-redux/client';
 
 import {UserProfile} from 'mattermost-redux/types/users';
@@ -201,10 +200,11 @@ export class ApiClient implements ApiClientInterface {
         return data.data;
     }
 
-    static async getUsersSchedule(users: string[], start: string, end: string): Promise<UsersScheduleResponse> {
+    static async getUsersSchedule(users: string[], start: string, end: string, slotTime: number): Promise<UsersScheduleResponse> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/schedule?` + new URLSearchParams({
                 users: users.join(','),
+                slot_time: slotTime.toString(),
                 start,
                 end,
             }),

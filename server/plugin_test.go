@@ -74,6 +74,7 @@ func TestGetEvents(t *testing.T) {
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
 			SELECT ce.id,
 			  	   ce.title,
+			  	   ce.description,
 				   ce."start",
 				   ce."end",
 				   ce.created,
@@ -95,6 +96,7 @@ func TestGetEvents(t *testing.T) {
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
 		"title",
+		"description",
 		"start",
 		"end",
 		"created",
@@ -104,11 +106,11 @@ func TestGetEvents(t *testing.T) {
 		"recurrence",
 		"color",
 	},
-	).AddRow("event-1", "test event 1", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		"owner_id", "channel-id", false, "", nil).AddRow("event-2", "test event 2", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		"owner_id", "channel-id", false, "", "#D0D0D0").AddRow("event-3", "test event 3", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		"owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0").AddRow("event-3", "test event 3 another user", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		"owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0").AddRow("event-3", "test event 3 another user", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+	).AddRow("event-1", "test event 1", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		"owner_id", "channel-id", false, "", nil).AddRow("event-2", "test event 2", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		"owner_id", "channel-id", false, "", "#D0D0D0").AddRow("event-3", "test event 3", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		"owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0").AddRow("event-3", "test event 3 another user", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		"owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0").AddRow("event-3", "test event 3 another user", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
 		"owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0")
 
 	expectedQuery.WillReturnRows(eventsRow)
@@ -136,21 +138,21 @@ func TestGetEvents(t *testing.T) {
 
 	expectedResponse := `{"data":[{"id":"event-1","title":"test event 1","start":"2023-02-27T00:00:00+03:00",
 						 "end":"2023-03-06T00:00:00+03:00","attendees":null,"created":"2023-03-05T21:00:00Z",
-						 "owner":"owner_id","channel":"channel-id","recurrence":"","color":"#D0D0D0"},{"id":"event-2",
+						 "owner":"owner_id","channel":"channel-id","recurrence":"","color":"#D0D0D0", "description": ""},{"id":"event-2",
 						 "title":"test event 2","start":"2023-02-27T00:00:00+03:00","end":"2023-03-06T00:00:00+03:00",
 						 "attendees":null,"created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
-						 "recurrence":"","color":"#D0D0D0"},{"id":"event-3","title":"test event 3",
+						 "recurrence":"","color":"#D0D0D0", "description": ""},{"id":"event-3","title":"test event 3",
 					     "start":"2023-02-27T00:00:00+03:00","end":"2023-03-06T00:00:00+03:00","attendees":null,
 						 "created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
-						 "recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#D0D0D0"},
+						 "recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#D0D0D0", "description": ""},
 						 {"id":"event-3","title":"test event 3",
 						 "start":"2023-02-28T00:00:00+03:00","end":"2023-03-07T00:00:00+03:00","attendees":null,
 						 "created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
-						 "recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#D0D0D0"},
+						 "recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#D0D0D0", "description": ""},
 						 {"id":"event-3","title":"test event 3",
 						 "start":"2023-03-01T00:00:00+03:00","end":"2023-03-08T00:00:00+03:00","attendees":null,
 						 "created":"2023-03-05T21:00:00Z","owner":"owner_id","channel":"channel-id",
-						 "recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#D0D0D0"}]}`
+						 "recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#D0D0D0", "description": ""}]}`
 	assert.JSONEq(string(bodyBytes), expectedResponse)
 	api.AssertExpectations(t)
 }

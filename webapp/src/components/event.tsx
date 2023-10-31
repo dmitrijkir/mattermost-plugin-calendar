@@ -700,13 +700,13 @@ const EventModalComponent = () => {
                             <div className='event-description-container'>
                                 <TextDescription24Regular/>
                                 <div className='event-description-input-container'>
-                                    <Textarea
+                                    {isLoading ? (<Skeleton className='event-description-input-textarea'><SkeletonItem/></Skeleton>) :  <Textarea
                                         placeholder='Add description'
                                         className='event-description-input-textarea'
                                         resize='vertical'
                                         value={descriptionEvent}
                                         onChange={(event, data) => setDescriptionEvent(data.value)}
-                                    />
+                                    />}
                                 </div>
 
                             </div>
