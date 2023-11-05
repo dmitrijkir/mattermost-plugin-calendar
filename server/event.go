@@ -12,7 +12,8 @@ import (
 
 // GetUserEventsUTC returns user events in UTC timezone
 // start and end are in format EventDateTimeLayout in UTC timezone
-func (p *Plugin) GetUserEventsUTC(userId string, start, end time.Time) ([]Event, *model.AppError) {
+// if we don't have userLocation we can't correct gen dates for recurrent events, it means that we can't return recurrent events correctly
+func (p *Plugin) GetUserEventsUTC(userId string, userLocation *time.Location, start, end time.Time) ([]Event, *model.AppError) {
 	var events []Event
 
 	rows, errSelect := p.DB.Queryx(`
@@ -60,6 +61,11 @@ func (p *Plugin) GetUserEventsUTC(userId string, start, end time.Time) ([]Event,
 		if eventDb.Color == nil {
 			color := DefaultColor
 			eventDb.Color = &color
+		}
+
+		if userLocation != nil {
+			eventDb.Start = eventDb.Start.In(userLocation)
+			eventDb.End = eventDb.End.In(userLocation)
 		}
 
 		if eventDb.Recurrent {
@@ -264,14 +270,9 @@ func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
 	startEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, start, userLoc)
 	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, end, userLoc)
 
-	events, eventsError := p.GetUserEventsUTC(user.Id, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
+	events, eventsError := p.GetUserEventsUTC(user.Id, userLoc, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
 	if eventsError != nil {
 		errorResponse(w, eventsError)
-	}
-	for ind, event := range events {
-		events[ind].Start = event.Start.In(userLoc)
-		events[ind].End = event.End.In(userLoc)
-
 	}
 	apiResponse(w, &events)
 	return

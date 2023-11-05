@@ -83,7 +83,7 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 		go func(userId string) {
 			defer wg.Done()
 
-			userEvents, err := p.GetUserEventsUTC(userId, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
+			userEvents, err := p.GetUserEventsUTC(userId, userLoc, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
 			if err != nil {
 				p.API.LogError("can't get schedule for user")
 				return

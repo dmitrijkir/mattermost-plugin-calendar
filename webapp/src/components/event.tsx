@@ -700,13 +700,14 @@ const EventModalComponent = () => {
                             <div className='event-description-container'>
                                 <TextDescription24Regular/>
                                 <div className='event-description-input-container'>
-                                    {isLoading ? (<Skeleton className='event-description-input-textarea'><SkeletonItem/></Skeleton>) :  <Textarea
-                                        placeholder='Add description'
-                                        className='event-description-input-textarea'
-                                        resize='vertical'
-                                        value={descriptionEvent}
-                                        onChange={(event, data) => setDescriptionEvent(data.value)}
-                                    />}
+                                    {isLoading ? (<Skeleton className='event-description-input-textarea'><SkeletonItem/></Skeleton>) :
+                                        <Textarea
+                                            placeholder='Add description'
+                                            className='event-description-input-textarea'
+                                            resize='vertical'
+                                            value={descriptionEvent}
+                                            onChange={(event, data) => setDescriptionEvent(data.value)}
+                                        />}
                                 </div>
 
                             </div>
@@ -718,7 +719,7 @@ const EventModalComponent = () => {
                                     appearance='secondary'
                                     onClick={viewEventModalHandleClose}
                                 >
-                                    Close
+                                    {'Close'}
                                 </Button>
                             </DialogTrigger>
 
@@ -728,7 +729,7 @@ const EventModalComponent = () => {
                                 icon={isSaving ? (<Spinner size='tiny'/>) : (<Save16Regular/>)}
                                 disabled={isSaving}
                             >
-                                Save
+                                {'Save'}
                             </Button>
 
                         </DialogActions>

@@ -230,15 +230,17 @@ function PlanningAssistant(props: FindFreeTimeProps) {
             return <div/>;
         }
         return (
-            Object.keys(usersAvailability.users).map((key) => {
-                return (
-                    <div className='find-free-time-table-users-row'>
-                        <Persona
-                            name={getDisplayUserName(membersById.get(key))}
-                        />
-                    </div>
-                );
-            })
+            <>
+                {Object.keys(usersAvailability.users).map((key) => {
+                    return (
+                        <div className='find-free-time-table-users-row'>
+                            <Persona
+                                name={getDisplayUserName(membersById.get(key))}
+                            />
+                        </div>
+                    );
+                })}
+            </>
         );
     };
 
