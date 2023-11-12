@@ -265,12 +265,11 @@ func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userLoc := p.GetUserLocation(user)
-	utcLoc, _ := time.LoadLocation("UTC")
 
 	startEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, start, userLoc)
 	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, end, userLoc)
 
-	events, eventsError := p.GetUserEventsUTC(user.Id, userLoc, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
+	events, eventsError := p.GetUserEventsUTC(user.Id, userLoc, startEventLocal.In(time.UTC), EndEventLocal.In(time.UTC))
 	if eventsError != nil {
 		errorResponse(w, eventsError)
 	}
@@ -313,7 +312,6 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	event.Owner = user.Id
 
 	loc := p.GetUserLocation(user)
-	utcLoc, _ := time.LoadLocation("UTC")
 
 	startDateInLocalTimeZone := time.Date(
 		event.Start.Year(),
@@ -337,8 +335,8 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		loc,
 	)
 
-	event.Start = startDateInLocalTimeZone.In(utcLoc)
-	event.End = endDateInLocalTimeZone.In(utcLoc)
+	event.Start = startDateInLocalTimeZone.In(time.UTC)
+	event.End = endDateInLocalTimeZone.In(time.UTC)
 
 	if event.Recurrence != "" && len(event.Recurrence) > 0 {
 		event.Recurrent = true
@@ -465,7 +463,6 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	loc := p.GetUserLocation(user)
-	utcLoc, _ := time.LoadLocation("UTC")
 
 	startDateInLocalTimeZone := time.Date(
 		event.Start.Year(),
@@ -489,8 +486,8 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		loc,
 	)
 
-	event.Start = startDateInLocalTimeZone.In(utcLoc)
-	event.End = endDateInLocalTimeZone.In(utcLoc)
+	event.Start = startDateInLocalTimeZone.In(time.UTC)
+	event.End = endDateInLocalTimeZone.In(time.UTC)
 
 	if event.Recurrence != "" && len(event.Recurrence) > 0 {
 		event.Recurrent = true

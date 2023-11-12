@@ -160,9 +160,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	pluginT.SetDB(dbx)
 
-	processingTime := time.Now()
-
-	utcLoc, _ := time.LoadLocation("UTC")
+	processingTime := time.Now().In(time.UTC)
 
 	sqlQueryTime := time.Date(
 		processingTime.Year(),
@@ -172,7 +170,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		processingTime.Minute(),
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 
 	postForSendChannel := &model.Post{
@@ -256,7 +254,7 @@ func TestProcessEventWithChannel(t *testing.T) {
                                            WHERE id = ?`)).WithArgs(sqlQueryTime, "qwcw").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	background.process(&processingTime)
+	background.process(processingTime)
 
 	if err := dbMock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -290,9 +288,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 	pluginT.SetDB(dbx)
 
-	processingTime := time.Now()
-
-	utcLoc, _ := time.LoadLocation("UTC")
+	processingTime := time.Now().In(time.UTC)
 
 	sqlQueryTime := time.Date(
 		processingTime.Year(),
@@ -302,7 +298,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		processingTime.Minute(),
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 
 	featureTime := sqlQueryTime.Add(time.Hour * 24 * 4)
@@ -315,7 +311,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		0,
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 	recurrentEventTimeEnd := time.Date(
 		2023,
@@ -325,7 +321,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		0,
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 
 	postForSendChannel := &model.Post{
@@ -417,7 +413,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
                                            WHERE id = ?`)).WithArgs(sqlQueryTime, "rec-ev").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	background.process(&processingTime)
+	background.process(processingTime)
 	if err := dbMock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
@@ -450,9 +446,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 
 	pluginT.SetDB(dbx)
 
-	processingTime := time.Now()
-
-	utcLoc, _ := time.LoadLocation("UTC")
+	processingTime := time.Now().In(time.UTC)
 
 	sqlQueryTime := time.Date(
 		processingTime.Year(),
@@ -462,7 +456,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		processingTime.Minute(),
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 
 	featureTime := sqlQueryTime.Add(time.Hour * 2)
@@ -475,7 +469,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		sqlQueryTime.Minute(),
 		sqlQueryTime.Second(),
 		sqlQueryTime.Nanosecond(),
-		utcLoc,
+		time.UTC,
 	)
 	recurrentEventTimeEnd := time.Date(
 		2023,
@@ -485,7 +479,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		featureTime.Minute(),
 		featureTime.Second(),
 		featureTime.Nanosecond(),
-		utcLoc,
+		time.UTC,
 	)
 
 	postForSendChannel := &model.Post{
@@ -573,7 +567,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
                                            WHERE id = ?`)).WithArgs(sqlQueryTime, "rec-ev").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	background.process(&processingTime)
+	background.process(processingTime)
 
 	if err := dbMock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -607,9 +601,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	dbx := sqlx.NewDb(db, "sqlmock")
 	pluginT.SetDB(dbx)
 
-	processingTime := time.Now()
-
-	utcLoc, _ := time.LoadLocation("UTC")
+	processingTime := time.Now().In(time.UTC)
 
 	sqlQueryTime := time.Date(
 		processingTime.Year(),
@@ -619,7 +611,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		processingTime.Minute(),
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 
 	postForSendGroup := &model.Post{
@@ -709,7 +701,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		WithArgs(sqlQueryTime, "qwert-2").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	background.process(&processingTime)
+	background.process(processingTime)
 
 	if err := dbMock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -742,8 +734,6 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 	dbx := sqlx.NewDb(db, "sqlmock")
 	pluginT.SetDB(dbx)
 
-	utcLoc, _ := time.LoadLocation("UTC")
-
 	processingTime := time.Date(
 		2023,
 		04,
@@ -752,7 +742,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		0,
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 
 	sqlQueryTime := time.Date(
@@ -763,7 +753,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		processingTime.Minute(),
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 
 	featureTime := sqlQueryTime.Add(time.Hour * 2)
@@ -776,7 +766,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		sqlQueryTime.Minute(),
 		sqlQueryTime.Second(),
 		sqlQueryTime.Nanosecond(),
-		utcLoc,
+		time.UTC,
 	)
 	recurrentEventTimeEnd := time.Date(
 		2023,
@@ -786,7 +776,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		featureTime.Minute(),
 		featureTime.Second(),
 		featureTime.Nanosecond(),
-		utcLoc,
+		time.UTC,
 	)
 
 	postForSendChannel := &model.Post{
@@ -851,7 +841,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 
 	expectedQuery.WillReturnRows(eventsRow)
 
-	background.process(&processingTime)
+	background.process(processingTime)
 
 	if err := dbMock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)

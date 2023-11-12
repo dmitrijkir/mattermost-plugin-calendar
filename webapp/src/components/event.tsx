@@ -208,7 +208,7 @@ const EventModalComponent = () => {
             if (option.id === data.optionValue) {
                 setSelectedChannel(option);
                 setSelectedChannelText(option.display_name);
-                dispatch(getProfilesInChannel(option.id, 0, 100));
+                dispatch(getProfilesInChannel(option.id, 0, 1000));
             }
         });
     };

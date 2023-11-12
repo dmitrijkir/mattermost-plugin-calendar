@@ -29,9 +29,8 @@ func TestGetUTCEvents(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
-	utcLoc, _ := time.LoadLocation("UTC")
-	sqlRequestTimeStart := time.Date(2023, time.February, 26, 23, 0, 0, 0, utcLoc)
-	sqlRequestTimeEnd := time.Date(2023, time.March, 05, 23, 0, 0, 0, utcLoc)
+	sqlRequestTimeStart := time.Date(2023, time.February, 26, 23, 0, 0, 0, time.UTC)
+	sqlRequestTimeEnd := time.Date(2023, time.March, 05, 23, 0, 0, 0, time.UTC)
 
 	expectedQuery := dbMock.ExpectQuery(
 		regexp.QuoteMeta(`
@@ -149,8 +148,8 @@ func TestGetUTCEvents(t *testing.T) {
 		"event-5",
 		"test event 5",
 		"",
-		time.Date(2023, time.February, 27, 23, 0, 0, 0, utcLoc),
-		time.Date(2023, time.February, 27, 24, 0, 0, 0, utcLoc),
+		time.Date(2023, time.February, 27, 23, 0, 0, 0, time.UTC),
+		time.Date(2023, time.February, 27, 24, 0, 0, 0, time.UTC),
 		sqlRequestTimeEnd,
 		session.UserId,
 		"channel-1",

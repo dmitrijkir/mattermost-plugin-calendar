@@ -21,7 +21,7 @@ func (b *Background) Start() {
 		case <-b.Done:
 			return
 		case t := <-b.Ticker.C:
-			b.process(&t)
+			b.process(t)
 		}
 	}
 }
@@ -105,8 +105,9 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 	}
 }
 
-func (b *Background) process(t *time.Time) {
-	utcLoc, _ := time.LoadLocation("UTC")
+func (b *Background) process(t time.Time) {
+	// convert time to UTC, if server can be in different timezones
+	t = t.In(time.UTC)
 
 	tickWithZone := time.Date(
 		t.Year(),
@@ -116,7 +117,7 @@ func (b *Background) process(t *time.Time) {
 		t.Minute(),
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 	rows, errSelect := b.plugin.DB.Queryx(`
 			SELECT ce.id,
@@ -178,7 +179,7 @@ func (b *Background) process(t *time.Time) {
 					0,
 					0,
 					0,
-					utcLoc,
+					time.UTC,
 				))
 				eventDates := eventRule.Between(
 					time.Date(
@@ -189,7 +190,7 @@ func (b *Background) process(t *time.Time) {
 						0,
 						0,
 						0,
-						utcLoc,
+						time.UTC,
 					),
 					eventEnd,
 					true)

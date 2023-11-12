@@ -252,50 +252,54 @@ function PlanningAssistant(props: FindFreeTimeProps) {
             return <div/>;
         }
         return (
-            Object.keys(usersAvailability.users).map((userId) => {
-                return (
-                    <div className='find-free-time-table-users-time-column'>
-                        <BuildTimeLine
-                            freeTimes={usersAvailability == null ? [] : usersAvailability?.available_times}
-                            onOpenChange={props.onOpenChange}
-                            duration={duration}
-                        />
-                        {
-                            usersAvailability.users[userId].map((event) => {
-                                const current = set(currentDate, {hours: StarHour, seconds: 0, minutes: 0});
-                                const startTime = parse(event.start, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
+            <>
+                {
+                    Object.keys(usersAvailability.users).map((userId) => {
+                        return (
+                            <div className='find-free-time-table-users-time-column'>
+                                <BuildTimeLine
+                                    freeTimes={usersAvailability == null ? [] : usersAvailability?.available_times}
+                                    onOpenChange={props.onOpenChange}
+                                    duration={duration}
+                                />
+                                {
+                                    usersAvailability.users[userId].map((event) => {
+                                        const current = set(currentDate, {hours: StarHour, seconds: 0, minutes: 0});
+                                        const startTime = parse(event.start, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
 
-                                const leftPad = differenceInMinutes(startTime, current) / TimeInterval * 50;
+                                        const leftPad = differenceInMinutes(startTime, current) / TimeInterval * 50;
 
-                                if (leftPad >= pixels) {
-                                    return <div/>;
+                                        if (leftPad >= pixels) {
+                                            return <div/>;
+                                        }
+                                        if ((leftPad + event.duration / TimeInterval * 50) > pixels) {
+                                            const diff = (leftPad + event.duration / TimeInterval * 50) - pixels;
+                                            return (
+                                                <div
+                                                    className='event-container'
+                                                    style={{
+                                                        left: leftPad,
+                                                        width: (event.duration / TimeInterval * 50) - diff,
+                                                    }}
+                                                />
+                                            );
+                                        }
+
+                                        return (
+                                            <div
+                                                className='event-container'
+                                                style={{
+                                                    left: leftPad,
+                                                    width: event.duration / TimeInterval * 50,
+                                                }}
+                                            />
+                                        );
+                                    })
                                 }
-                                if ((leftPad + event.duration / TimeInterval * 50) > pixels) {
-                                    const diff = (leftPad + event.duration / TimeInterval * 50) - pixels;
-                                    return (
-                                        <div
-                                            className='event-container'
-                                            style={{
-                                                left: leftPad,
-                                                width: (event.duration / TimeInterval * 50) - diff,
-                                            }}
-                                        />
-                                    );
-                                }
-
-                                return (
-                                    <div
-                                        className='event-container'
-                                        style={{
-                                            left: leftPad,
-                                            width: event.duration / TimeInterval * 50,
-                                        }}
-                                    />
-                                );
-                            })
-                        }
-                    </div>);
-            })
+                            </div>);
+                    })
+                }
+            </>
         );
     };
 

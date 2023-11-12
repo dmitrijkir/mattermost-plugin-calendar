@@ -67,7 +67,6 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 	users := strings.Split(query.Get("users"), ",")
 
 	userLoc := p.GetUserLocation(user)
-	utcLoc, _ := time.LoadLocation("UTC")
 
 	// start, end event in user request location
 	startEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, query.Get("start"), userLoc)
@@ -83,7 +82,7 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 		go func(userId string) {
 			defer wg.Done()
 
-			userEvents, err := p.GetUserEventsUTC(userId, userLoc, startEventLocal.In(utcLoc), EndEventLocal.In(utcLoc))
+			userEvents, err := p.GetUserEventsUTC(userId, userLoc, startEventLocal.In(time.UTC), EndEventLocal.In(time.UTC))
 			if err != nil {
 				p.API.LogError("can't get schedule for user")
 				return

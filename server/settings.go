@@ -27,14 +27,13 @@ func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userLoc := p.GetUserLocation(user)
-	utcLoc, _ := time.LoadLocation("UTC")
 
 	now := time.Now()
 	BusinessStartTimeUtc, _ := time.ParseInLocation(
-		BusinessTimeLayout, p.configuration.BusinessStartTime, utcLoc,
+		BusinessTimeLayout, p.configuration.BusinessStartTime, time.UTC,
 	)
 	BusinessEndTimeUtc, _ := time.ParseInLocation(
-		BusinessTimeLayout, p.configuration.BusinessEndTime, utcLoc,
+		BusinessTimeLayout, p.configuration.BusinessEndTime, time.UTC,
 	)
 
 	// Add new year for new time formatting. Old format is LMT. Now use GMT. Problem with location

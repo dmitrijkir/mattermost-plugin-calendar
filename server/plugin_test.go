@@ -67,9 +67,8 @@ func TestGetEvents(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
-	utcLoc, _ := time.LoadLocation("UTC")
-	sqlTimeStart := time.Date(2023, time.February, 26, 21, 0, 0, 0, utcLoc)
-	sqlTimeEnd := time.Date(2023, time.March, 05, 21, 0, 0, 0, utcLoc)
+	sqlTimeStart := time.Date(2023, time.February, 26, 21, 0, 0, 0, time.UTC)
+	sqlTimeEnd := time.Date(2023, time.March, 05, 21, 0, 0, 0, time.UTC)
 
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
 			SELECT ce.id,
