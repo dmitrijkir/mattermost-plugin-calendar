@@ -3,3 +3,10 @@ export declare type CalendarEventNotification = {
     title: string;
     channel?: string;
 }
+
+export declare type SelectedEventTime = {
+    start: Date;
+    end: Date;
+    startTime: string,
+    endTime: string,
+}

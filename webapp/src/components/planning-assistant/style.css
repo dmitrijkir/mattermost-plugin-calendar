@@ -1,0 +1,180 @@
+.App {
+    text-align: center;
+}
+
+.App-logo {
+    height: 40vmin;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .App-logo {
+        animation: App-logo-spin infinite 20s linear;
+    }
+}
+
+.App-header {
+    background-color: #282c34;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(10px + 2vmin);
+    color: white;
+}
+
+.App-link {
+    color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+/**/
+
+
+.time-header {
+    display: flex;
+}
+
+.header-timeline {
+    display: flex;
+}
+
+.find-free-time-table-body {
+    display: flex;
+}
+
+.find-free-time-table-users-time-column {
+    display: block;
+    position: relative;
+}
+
+.time-line {
+    display: flex;
+}
+
+/*.find-free-time-table-users-title-column {*/
+/*  padding-top: 50px;*/
+/*  width: 200px;*/
+/*  !*height: 52px;*!*/
+/*  position: fixed;*/
+/*  background-color: #fff;*/
+/*}*/
+/*NEW !!!!*/
+.find-free-time-table-container {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+    color: #000;
+    border-radius: 8px;
+    /*box-shadow: 0 4px 8px rgba(0,0,0,0.14);*/
+    border: rgb(218, 220, 224) 1px solid;
+}
+
+.find-free-time-table-users-row {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.14);
+
+}
+
+.find-free-time-table-users-column {
+    padding-top: 36px;
+    background-color: #fff;
+    width: 200px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    border-radius: 8px 0 0 8px;
+    border-right: rgb(218, 220, 224) 1px solid;
+
+}
+
+.event-container {
+    position: absolute;
+    height: 30px;
+    background-color: #d81b60;
+    top: 2px;
+    border-radius: 8px;
+}
+
+.find-free-time-table-left-nav {
+    height: 100%;
+    display: block;
+    position: relative;
+}
+
+.find-free-time-table-body-container {
+    padding-left: 201px;
+}
+
+.find-free-time-table-body {
+    overflow-x: scroll;
+    display: flex;
+    flex-direction: column;
+}
+
+.time-column {
+    width: 50px;
+    height: 36px;
+    color: rgb(60, 64, 67);
+    flex-shrink: 0;
+    flex-grow: 0;
+    justify-content: center;
+    justify-items: center;
+    display: flex;
+    align-items: center;
+    border-right: rgb(218, 220, 224) 1px solid;
+    border-bottom: rgb(218, 220, 224) 1px solid;
+}
+
+.time-column-free-time {
+    background-color: rgb(219 241 228);
+}
+
+.find-free-time-table-header {
+    background-color: #fff;
+    z-index: 10000;
+}
+
+.find-free-time-current-date {
+    display: flex;
+    align-content: center;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 20px;
+    flex-direction: row;
+}
+.slot-duration-select-container {
+    color: var(--colorNeutralForeground2);
+    font-size: var(--fontSizeBase300);
+}
+.slot-duration-select-input{
+    color: var(--colorNeutralForeground2);
+    font-size: var(--fontSizeBase300);
+    width: 60px;
+}
+.slot-duration-select-input::before {
+    border-bottom: none;
+
+}
+.event-duration-label {
+    font-weight: 600;
+    color: var(--colorNeutralForeground2);
+}

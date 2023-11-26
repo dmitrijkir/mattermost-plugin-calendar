@@ -21,7 +21,7 @@ func (b *Background) Start() {
 		case <-b.Done:
 			return
 		case t := <-b.Ticker.C:
-			b.process(&t)
+			b.process(t)
 		}
 	}
 }
@@ -46,6 +46,10 @@ func (b *Background) getMessageFromEvent(event *Event) string {
 			members += fmt.Sprintf("@%s, ", user.Username)
 		}
 		message += fmt.Sprintf("**members:** %s\n", members)
+	}
+
+	if event.Description != "" {
+		message += fmt.Sprintf("**description:**\n%s", event.Description)
 	}
 
 	return message
@@ -101,8 +105,9 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 	}
 }
 
-func (b *Background) process(t *time.Time) {
-	utcLoc, _ := time.LoadLocation("UTC")
+func (b *Background) process(t time.Time) {
+	// convert time to UTC, if server can be in different timezones
+	t = t.In(time.UTC)
 
 	tickWithZone := time.Date(
 		t.Year(),
@@ -112,7 +117,7 @@ func (b *Background) process(t *time.Time) {
 		t.Minute(),
 		0,
 		0,
-		utcLoc,
+		time.UTC,
 	)
 	rows, errSelect := b.plugin.DB.Queryx(`
 			SELECT ce.id,
@@ -125,7 +130,8 @@ func (b *Background) process(t *time.Time) {
                    cm."user",
                    ce.recurrent,
                    ce.recurrence,
-                   ce.color
+                   ce.color,
+                   ce.description
 			FROM   calendar_events ce
                 FULL JOIN calendar_members cm
                        ON ce.id = cm."event"
@@ -173,7 +179,7 @@ func (b *Background) process(t *time.Time) {
 					0,
 					0,
 					0,
-					utcLoc,
+					time.UTC,
 				))
 				eventDates := eventRule.Between(
 					time.Date(
@@ -184,7 +190,7 @@ func (b *Background) process(t *time.Time) {
 						0,
 						0,
 						0,
-						utcLoc,
+						time.UTC,
 					),
 					eventEnd,
 					true)
@@ -211,17 +217,18 @@ func (b *Background) process(t *time.Time) {
 				att = append(att, *eventDb.User)
 			}
 			events[eventDb.Id] = &Event{
-				Id:         eventDb.Id,
-				Title:      eventDb.Title,
-				Start:      eventDb.Start,
-				End:        eventDb.End,
-				Attendees:  att,
-				Created:    eventDb.Created,
-				Owner:      eventDb.Owner,
-				Channel:    eventDb.Channel,
-				Recurrence: eventDb.Recurrence,
-				Recurrent:  false,
-				Color:      eventDb.Color,
+				Id:          eventDb.Id,
+				Title:       eventDb.Title,
+				Start:       eventDb.Start,
+				End:         eventDb.End,
+				Attendees:   att,
+				Created:     eventDb.Created,
+				Owner:       eventDb.Owner,
+				Channel:     eventDb.Channel,
+				Recurrence:  eventDb.Recurrence,
+				Recurrent:   false,
+				Color:       eventDb.Color,
+				Description: eventDb.Description,
 			}
 
 		}

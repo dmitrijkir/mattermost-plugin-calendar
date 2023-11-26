@@ -1,4 +1,3 @@
-import React from 'react';
 import {Client4} from 'mattermost-redux/client';
 
 import {UserProfile} from 'mattermost-redux/types/users';
@@ -19,6 +18,7 @@ export declare type GetEventResponse = {
     channel?: string;
     recurrence: string;
     color?: string
+    description: string;
 }
 
 export declare type GetEventsResponse = {
@@ -32,6 +32,17 @@ export declare type GetEventsResponse = {
 }
 export declare type RemoveEventResponse = {
     success: boolean
+}
+
+export declare type UsersScheduleEvent = {
+    start: string;
+    end: string;
+    duration: number;
+}
+
+export declare type UsersScheduleResponse = {
+    users: Map<string, UsersScheduleEvent>
+    available_times: string[]
 }
 
 export declare type ApiResponse<Type> = {
@@ -49,9 +60,7 @@ export declare class ApiClientInterface {
 export class ApiClient implements ApiClientInterface {
     static async getEventById(event: string): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
-            getSiteURL() + `/plugins/${PluginId}/event?` + new URLSearchParams({
-                eventId: event,
-            }),
+            getSiteURL() + `/plugins/${PluginId}/events/${event}`,
             Client4.getOptions({
                 method: 'GET',
                 headers: {
@@ -61,6 +70,7 @@ export class ApiClient implements ApiClientInterface {
             }),
         );
         const data = await response.json();
+        // eslint-disable-next-line no-negated-condition
         if (data.data.attendees != null) {
             if (data.data.attendees.length > 0) {
                 const users = await this.getUsersByIds(data.data.attendees);
@@ -79,9 +89,7 @@ export class ApiClient implements ApiClientInterface {
 
     static async removeEvent(event: string): Promise<ApiResponse<RemoveEventResponse>> {
         const response = await fetch(
-            getSiteURL() + `/plugins/${PluginId}/event?` + new URLSearchParams({
-                eventId: event,
-            }),
+            getSiteURL() + `/plugins/${PluginId}/events/${event}`,
             Client4.getOptions({
                 method: 'DELETE',
                 headers: {
@@ -110,7 +118,16 @@ export class ApiClient implements ApiClientInterface {
         return data;
     }
 
-    static async createEvent(title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string, color?: string): Promise<ApiResponse<GetEventResponse>> {
+    static async createEvent(
+        title: string,
+        start: string,
+        end: string,
+        attendees: string[],
+        description: string,
+        channel?: string,
+        recurrence?: string,
+        color?: string,
+    ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
             Client4.getOptions({
@@ -123,6 +140,7 @@ export class ApiClient implements ApiClientInterface {
                     start,
                     end,
                     attendees,
+                    description,
                     channel,
                     recurrence,
                     color,
@@ -133,9 +151,19 @@ export class ApiClient implements ApiClientInterface {
         return data;
     }
 
-    static async updateEvent(id: string, title: string, start: string, end: string, attendees: string[], channel?: string, recurrence?: string, color?: string): Promise<ApiResponse<GetEventResponse>> {
+    static async updateEvent(
+        id: string,
+        title: string,
+        start: string,
+        end: string,
+        attendees: string[],
+        description: string,
+        channel?: string,
+        recurrence?: string,
+        color?: string,
+    ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
-            getSiteURL() + `/plugins/${PluginId}/event`,
+            getSiteURL() + `/plugins/${PluginId}/events`,
             Client4.getOptions({
                 method: 'PUT',
                 headers: {
@@ -147,6 +175,7 @@ export class ApiClient implements ApiClientInterface {
                     start,
                     end,
                     attendees,
+                    description,
                     channel,
                     recurrence,
                     color,
@@ -160,6 +189,25 @@ export class ApiClient implements ApiClientInterface {
     static async getCalendarSettings(): Promise<CalendarSettings> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/settings`,
+            Client4.getOptions({
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }),
+        );
+        const data = await response.json();
+        return data.data;
+    }
+
+    static async getUsersSchedule(users: string[], start: string, end: string, slotTime: number): Promise<UsersScheduleResponse> {
+        const response = await fetch(
+            getSiteURL() + `/plugins/${PluginId}/schedule?` + new URLSearchParams({
+                users: users.join(','),
+                slot_time: slotTime.toString(),
+                start,
+                end,
+            }),
             Client4.getOptions({
                 method: 'GET',
                 headers: {

@@ -9,9 +9,7 @@ import CalendarContent from 'components/calendar-content';
 const MainApp = () => {
     return (
         <div className='calendar-full-content-provider'>
-            <FluentProvider
-                theme={webLightTheme}
-            >
+            <FluentProvider theme={webLightTheme}>
                 <span className='calendar-full-content'>
                     <EventModalComponent/>
                     <HeaderComponent/>

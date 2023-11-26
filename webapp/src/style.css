@@ -65,6 +65,12 @@
     margin-top: 15px;
 }
 
+.event-description-container {
+    display: flex;
+    align-items: flex-start;
+    margin-top: 15px;
+}
+
 .event-add-users-container > i {
     color: var(--sidebar-teambar-bg);
     width: 20px;
@@ -74,6 +80,16 @@
     width: 100%;
     display: flex;
     padding-left: 30px
+}
+
+.event-description-input-container {
+    padding-left: 30px;
+    display: flex;
+    width: 100%;
+}
+.event-description-input-textarea {
+    width: 95%;
+    height: 130px;
 }
 
 .event-input-title {
@@ -472,6 +488,10 @@ table {
     border: unset;
     position: absolute;
     left: 8px;
+    top: 5px;
+}
+.title-toolbar{
+    position: absolute;
     top: 0;
 }
 

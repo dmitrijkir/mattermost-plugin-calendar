@@ -7,3 +7,5 @@ export const selectSelectedEvent = (state: GlobalState) => state[`plugins-${Plug
 export const selectIsOpenEventModal = (state: GlobalState) => state[`plugins-${PluginId}`].toggleEventModal.isOpen;
 export const getCalendarSettings = (state: GlobalState) : CalendarSettings => state[`plugins-${PluginId}`].calendarSettings;
 export const getEventNotification = (state: GlobalState) => state[`plugins-${PluginId}`].eventNotification;
+export const getMembersAddedInEvent = (state: GlobalState) => state[`plugins-${PluginId}`].membersAddedInEvent;
+export const getSelectedEventTime = (state: GlobalState) => state[`plugins-${PluginId}`].selectedEventTime;

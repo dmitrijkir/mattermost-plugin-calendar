@@ -3,15 +3,15 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/mattermost/mattermost-server/v6/plugin"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func (p *Plugin) GetSettings(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	session, err := p.API.GetSession(c.SessionId)
+func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
+	pluginContext := p.FromContext(r.Context())
+	session, err := p.API.GetSession(pluginContext.SessionId)
 	if err != nil {
 		p.API.LogError("can't get session")
 		errorResponse(w, NotAuthorizedError)
@@ -27,14 +27,13 @@ func (p *Plugin) GetSettings(c *plugin.Context, w http.ResponseWriter, r *http.R
 	}
 
 	userLoc := p.GetUserLocation(user)
-	utcLoc, _ := time.LoadLocation("UTC")
 
 	now := time.Now()
 	BusinessStartTimeUtc, _ := time.ParseInLocation(
-		BusinessTimeLayout, p.configuration.BusinessStartTime, utcLoc,
+		BusinessTimeLayout, p.configuration.BusinessStartTime, time.UTC,
 	)
 	BusinessEndTimeUtc, _ := time.ParseInLocation(
-		BusinessTimeLayout, p.configuration.BusinessEndTime, utcLoc,
+		BusinessTimeLayout, p.configuration.BusinessEndTime, time.UTC,
 	)
 
 	// Add new year for new time formatting. Old format is LMT. Now use GMT. Problem with location
@@ -99,8 +98,9 @@ func (p *Plugin) GetSettings(c *plugin.Context, w http.ResponseWriter, r *http.R
 	return
 }
 
-func (p *Plugin) UpdateSettings(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	session, err := p.API.GetSession(c.SessionId)
+func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
+	pluginContext := p.FromContext(r.Context())
+	session, err := p.API.GetSession(pluginContext.SessionId)
 	if err != nil {
 		p.API.LogError("can't get session")
 		errorResponse(w, NotAuthorizedError)
