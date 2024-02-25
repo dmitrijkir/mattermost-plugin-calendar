@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/teambition/rrule-go"
 	"time"
@@ -119,25 +120,39 @@ func (b *Background) process(t time.Time) {
 		0,
 		time.UTC,
 	)
-	rows, errSelect := b.plugin.DB.Queryx(`
-			SELECT ce.id,
-				   ce.title,
-                   ce."start",
-                   ce."end",
-                   ce.created,
-                   ce."owner",
-                   ce."channel",
-                   cm."user",
-                   ce.recurrent,
-                   ce.recurrence,
-                   ce.color,
-                   ce.description
-			FROM   calendar_events ce
-                FULL JOIN calendar_members cm
-                       ON ce.id = cm."event"
-			WHERE (ce."start" = $1 OR (ce.recurrent = true AND ce."start"::time = $2)) 
-			  	   AND (ce."processed" isnull OR ce."processed" != $3)
-`, tickWithZone, tickWithZone, tickWithZone)
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.start",
+			"ce.end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"cm.user",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+			"ce.description",
+		).
+		From("calendar_events ce").
+		Join("calendar_members cm ON ce.id = cm.event").
+		Where(sq.Eq{"start": tickWithZone}).
+		Where(sq.Or{
+			sq.And{
+				sq.Eq{"recurrent": true},
+				sq.Eq{"start": tickWithZone},
+			},
+			sq.Eq{"processed": nil},
+			sq.NotEq{"processed": tickWithZone},
+		})
+
+	querySql, argsSql, builderErr := queryBuilder.ToSql()
+	if builderErr != nil {
+		b.plugin.API.LogError(builderErr.Error())
+		return
+	}
+	rows, errSelect := b.plugin.DB.Queryx(querySql, argsSql...)
 
 	if errSelect != nil {
 		b.plugin.API.LogError(errSelect.Error())
@@ -253,12 +268,16 @@ func (b *Background) process(t time.Time) {
 			b.sendGroupOrPersonalEventNotification(value)
 		}
 
-		_, errUpdate := b.plugin.DB.NamedExec(`UPDATE PUBLIC.calendar_events
-                                           SET processed = :processed
-                                           WHERE id = :eventId`, map[string]interface{}{
-			"processed": tickWithZone,
-			"eventId":   value.Id,
-		})
+		updateBuilder := sq.Update("calendar_events").
+			Set("processed", tickWithZone).
+			Where(sq.Eq{"id": value.Id})
+		updateSql, updateArgs, updateErr := updateBuilder.ToSql()
+
+		if updateErr != nil {
+			b.plugin.API.LogError(updateErr.Error())
+			continue
+		}
+		_, errUpdate := b.plugin.DB.Queryx(updateSql, updateArgs...)
 
 		if errUpdate != nil {
 			b.plugin.API.LogError(errUpdate.Error())

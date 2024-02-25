@@ -9,7 +9,7 @@ func initDb(driver, connectionString string) *sqlx.DB {
 	db, err = sqlx.Connect(driver, connectionString)
 
 	if err != nil {
-
+		panic(err)
 	}
 
 	return db

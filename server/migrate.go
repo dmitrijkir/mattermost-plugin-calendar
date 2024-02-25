@@ -10,6 +10,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/morph"
+	"github.com/mattermost/morph/drivers"
+	"github.com/mattermost/morph/drivers/mysql"
 	"github.com/mattermost/morph/drivers/postgres"
 	"github.com/mattermost/morph/sources"
 	"github.com/mattermost/morph/sources/embedded"
@@ -67,7 +69,14 @@ func (m *Migrator) createSource() (sources.Source, error) {
 }
 
 func (m *Migrator) migrate() *model.AppError {
-	driver, err := postgres.WithInstance(m.DB.DB, &postgres.Config{})
+	var Cdriver drivers.Driver
+	var err error
+
+	if m.DB.DriverName() == "mysql" {
+		Cdriver, err = mysql.WithInstance(m.DB.DB, &mysql.Config{})
+	} else {
+		Cdriver, err = postgres.WithInstance(m.DB.DB, &postgres.Config{})
+	}
 
 	if err != nil {
 		return CantMakeMigration
@@ -85,7 +94,7 @@ func (m *Migrator) migrate() *model.AppError {
 		morph.SetMigrationTableName("calendar_db_migrations"),
 		morph.SetStatementTimeoutInSeconds(100000),
 	}
-	engine, err := morph.New(context.Background(), driver, src, opts...)
+	engine, err := morph.New(context.Background(), Cdriver, src, opts...)
 
 	if err != nil {
 		m.plugin.API.LogError(err.Error())

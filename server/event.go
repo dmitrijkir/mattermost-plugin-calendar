@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -13,30 +14,48 @@ import (
 // GetUserEventsUTC returns user events in UTC timezone
 // start and end are in format EventDateTimeLayout in UTC timezone
 // if we don't have userLocation we can't correct gen dates for recurrent events, it means that we can't return recurrent events correctly
-func (p *Plugin) GetUserEventsUTC(userId string, userLocation *time.Location, start, end time.Time) ([]Event, *model.AppError) {
+func (p *Plugin) GetUserEventsUTC(
+	userId string,
+	userLocation *time.Location,
+	start, end time.Time,
+) ([]Event, *model.AppError) {
 	var events []Event
 
-	rows, errSelect := p.DB.Queryx(`
-									   SELECT ce.id,
-											  ce.title,
-											  ce.description,
-											  ce."start",
-											  ce."end",
-											  ce.created,
-											  ce."owner",
-											  ce."channel",
-											  ce.recurrent,
-											  ce.recurrence,
-											  ce.color
-									   FROM calendar_events ce
-										    FULL JOIN calendar_members cm 
-										           ON ce.id = cm."event"
-									   WHERE (cm."user" = $1 OR ce."owner" = $2)
-											AND (
-											     (ce."start" >= $3 AND ce."start" <= $4) 
-											         or ce.recurrent = true
-											    )
-                                       `, userId, userId, start, end)
+	conditions := sq.Or{
+		sq.Eq{"cm.user": userId},
+		sq.Eq{"ce.owner": userId},
+		sq.And{
+			sq.GtOrEq{"ce.start": start},
+			sq.LtOrEq{"ce.start": end},
+		},
+		sq.Eq{"ce.recurrent": true},
+	}
+
+	// Create a new select builder
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.description",
+			"ce.start",
+			"ce.end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(conditions)
+
+	querySql, args, err := queryBuilder.ToSql()
+	if err != nil {
+		p.API.LogError(err.Error())
+		return nil, SomethingWentWrong
+	}
+	rows, errSelect := p.DB.Queryx(querySql, args...)
 
 	if errSelect != nil {
 		p.API.LogError(errSelect.Error())
@@ -52,6 +71,7 @@ func (p *Plugin) GetUserEventsUTC(userId string, userLocation *time.Location, st
 
 		if errScan != nil {
 			p.API.LogError("Can't scan row to struct")
+			p.API.LogError(errScan.Error())
 			continue
 		}
 		if addedEvent[eventDb.Id] {
@@ -162,23 +182,30 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, InvalidRequestParams)
 		return
 	}
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.start",
+			"ce.end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"ce.recurrence",
+			"ce.color",
+			"ce.description",
+			"cm.user",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.Eq{"id": eventId})
 
-	rows, errSelect := p.DB.Queryx(`
-									   SELECT ce.id,
-                                              ce.title,
-                                              ce."start",
-                                              ce."end",
-                                              ce.created,
-                                              ce."owner",
-                                              ce."channel",
-                                              ce.recurrence,
-                                              ce.color,
-                                              ce.description,
-                                              cm."user"
-                                       FROM   calendar_events ce
-                                              LEFT JOIN calendar_members cm
-                                                     ON ce.id = cm."event"
-                                       WHERE  id = $1 `, eventId)
+	querySql, sqlArgs, toSqlErr := queryBuilder.ToSql()
+	if toSqlErr != nil {
+		errorResponse(w, InvalidRequestParams)
+		return
+	}
+	rows, errSelect := p.DB.Queryx(querySql, sqlArgs...)
 	if errSelect != nil {
 		p.API.LogError("Selecting data error")
 		errorResponse(w, EventNotFound)
@@ -269,7 +296,9 @@ func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
 	startEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, start, userLoc)
 	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, end, userLoc)
 
-	events, eventsError := p.GetUserEventsUTC(user.Id, userLoc, startEventLocal.In(time.UTC), EndEventLocal.In(time.UTC))
+	events, eventsError := p.GetUserEventsUTC(
+		user.Id, userLoc, startEventLocal.In(time.UTC), EndEventLocal.In(time.UTC),
+	)
 	if eventsError != nil {
 		errorResponse(w, eventsError)
 	}
@@ -344,29 +373,43 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		event.Recurrent = false
 	}
 
-	_, errInsert := p.DB.NamedExec(`INSERT INTO PUBLIC.calendar_events
-                                                  (id,
-                                                   title,
-                                                   description,
-                                                   "start",
-                                                   "end",
-                                                   created,
-                                                   owner,
-                                                   channel,
-                                                   recurrent,
-                                                   recurrence,
-                                                   color)
-                                      VALUES      (:id,
-                                                   :title,
-                                                   :description,
-                                                   :start,
-                                                   :end,
-                                                   :created,
-                                                   :owner,
-                                                   :channel,
-                                                   :recurrent,
-                                                   :recurrence,
-                                                   :color) `, &event)
+	queryBuilder := sq.Insert("calendar_events").
+		Columns(
+			"id",
+			"title",
+			"description",
+			"start",
+			"end",
+			"created",
+			"owner",
+			"channel",
+			"recurrent",
+			"recurrence",
+			"color",
+		).
+		Values(
+			event.Id,
+			event.Title,
+			event.Description,
+			event.Start,
+			event.End,
+			event.Created,
+			event.Owner,
+			event.Channel,
+			event.Recurrent,
+			event.Recurrence,
+			event.Color,
+		)
+
+	// Prepare the SQL query
+	querySql, sqlArgs, errBuilder := queryBuilder.ToSql()
+	if errBuilder != nil {
+		p.API.LogError(err.Error())
+		errorResponse(w, CantCreateEvent)
+		return
+	}
+
+	_, errInsert := p.DB.Queryx(querySql, sqlArgs...)
 
 	if errInsert != nil {
 		p.API.LogError(errInsert.Error())
@@ -375,19 +418,19 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(event.Attendees) > 0 {
-		var insertParams []map[string]interface{}
+		builderAtt := sq.Insert("calendar_members").
+			Columns("event", "user")
 		for _, userId := range event.Attendees {
-			insertParams = append(insertParams, map[string]interface{}{
-				"event": event.Id,
-				"user":  userId,
-			})
+			builderAtt = builderAtt.Values(event.Id, userId)
 		}
 
-		_, errInsert = p.DB.NamedExec(`INSERT INTO public.calendar_members 
-															   ("event", 
-															    "user") 
-												   VALUES (:event,
-												           :user)`, insertParams)
+		queryAttendees, queryArgs, errAttendees := builderAtt.ToSql()
+		if errAttendees != nil {
+			p.API.LogError(err.Error())
+			errorResponse(w, CantCreateEvent)
+			return
+		}
+		_, errInsert = p.DB.Queryx(queryAttendees, queryArgs...)
 	}
 
 	if errInsert != nil {
@@ -419,7 +462,16 @@ func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, dbErr := p.DB.Exec("DELETE FROM calendar_events WHERE id=$1", eventId)
+	deleteBuilder := sq.Delete("calendar_members").Where(sq.Eq{"event": eventId})
+	deleteSql, deleteArgs, deleteErr := deleteBuilder.ToSql()
+
+	if deleteErr != nil {
+		p.API.LogError("can't remove event from db")
+		p.API.LogError(deleteErr.Error())
+		errorResponse(w, CantRemoveEvent)
+		return
+	}
+	_, dbErr := p.DB.Queryx(deleteSql, deleteArgs...)
 
 	if dbErr != nil {
 		p.API.LogError("can't remove event from db")
@@ -502,20 +554,35 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, CantUpdateEvent)
 		return
 	}
-	_, errUpdate := tx.NamedExec(`UPDATE PUBLIC.calendar_events 
-										SET 
-										    title = :title,
-										    description = :description,
-										    "start" = :start,
-										    "end" = :end,
-										    channel = :channel,
-										    recurrence = :recurrence,
-										    recurrent = :recurrent,
-										    color = :color
-                              			WHERE id = :id`,
-		&event)
 
-	_, errUpdate = tx.Exec(`DELETE FROM calendar_members WHERE "event" = $1`, event.Id)
+	updateFields := map[string]interface{}{
+		"title":       event.Title,
+		"description": event.Description,
+		"start":       event.Start,
+		"end":         event.End,
+		"channel":     event.Channel,
+		"recurrence":  event.Recurrence,
+		"recurrent":   event.Recurrent,
+		"color":       event.Color,
+	}
+	updateQueryBuilder := sq.Update("calendar_events").SetMap(updateFields).Where(sq.Eq{"id": event.Id})
+
+	updateSql, updateArgs, updateErr := updateQueryBuilder.ToSql()
+	if updateErr != nil {
+		p.API.LogError(updateErr.Error())
+		errorResponse(w, CantUpdateEvent)
+		return
+	}
+	_, errUpdate := tx.Queryx(updateSql, updateArgs...)
+
+	deleteBuilder := sq.Delete("calendar_members").Where(sq.Eq{"event": event.Id})
+	deleteSql, deleteArgs, deleteErr := deleteBuilder.ToSql()
+	if deleteErr != nil {
+		p.API.LogError(deleteErr.Error())
+		errorResponse(w, CantUpdateEvent)
+		return
+	}
+	_, errUpdate = tx.Queryx(deleteSql, deleteArgs...)
 
 	if errUpdate != nil {
 		if rollbackError := tx.Rollback(); rollbackError != nil {
@@ -528,17 +595,12 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(event.Attendees) > 0 {
-		var insertParams []map[string]interface{}
+		attQueryBuilder := sq.Insert("calendar_members").Columns("event", "user")
 		for _, userId := range event.Attendees {
-			insertParams = append(insertParams, map[string]interface{}{
-				"event": event.Id,
-				"user":  userId,
-			})
+			attQueryBuilder = attQueryBuilder.Values(event.Id, userId)
 		}
-
-		_, errUpdate = tx.NamedExec(`INSERT INTO public.calendar_members 
-														  ("event", "user") 
-												   VALUES (:event, :user)`, insertParams)
+		attUpdateSql, attArgs, _ := attQueryBuilder.ToSql()
+		_, errUpdate = tx.Queryx(attUpdateSql, attArgs...)
 	}
 	if errUpdate != nil {
 		if rollbackError := tx.Rollback(); rollbackError != nil {

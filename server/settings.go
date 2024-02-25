@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	sq "github.com/Masterminds/squirrel"
 	"net/http"
 	"strconv"
 	"strings"
@@ -75,14 +76,16 @@ func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 		BusinessDays:      businessDays,
 	}
 
+	queryBuilder := sq.Select().
+		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days").
+		From("calendar_settings").
+		Where(sq.Eq{"user": user.Id})
+
+	querySql, argsSql, _ := queryBuilder.ToSql()
 	errSelect := p.DB.Get(
 		&userSettings,
-		`SELECT is_open_calendar_left_bar,
-			    first_day_of_week,
-				hide_non_working_days
-		 FROM   calendar_settings
-		 WHERE  "user" = $1`,
-		user.Id,
+		querySql,
+		argsSql...,
 	)
 
 	// return default value
@@ -138,36 +141,31 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errSelect := p.DB.Get(&userSettings, `
-									   SELECT is_open_calendar_left_bar,
-                                              first_day_of_week,
-                                              hide_non_working_days
-                                       FROM   calendar_settings
-                                       WHERE  "user" = $1`, user.Id)
+	getQueryBuilder := sq.Select().
+		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days").
+		From("calendar_settings").
+		Where(sq.Eq{"user": user.Id})
+
+	getQuerySql, getArgsSql, _ := getQueryBuilder.ToSql()
+	errSelect := p.DB.Get(&userSettings, getQuerySql, getArgsSql)
 
 	if errSelect == sql.ErrNoRows {
-		_, errInsert := p.DB.NamedExec(
-			`INSERT INTO PUBLIC.calendar_settings
-						(
-						 is_open_calendar_left_bar,
-					     first_day_of_week,
-					     hide_non_working_days,
-						 "user"
-					     )
-		      		VALUES      
-					    (
-					     :is_open_calendar_left_bar,
-					     :first_day_of_week,
-					     :hide_non_working_days,
-					     :user
-					     )`,
-			map[string]interface{}{
-				"is_open_calendar_left_bar": requestUserSettings.IsOpenCalendarLeftBar,
-				"first_day_of_week":         requestUserSettings.FirstDayOfWeek,
-				"hide_non_working_days":     requestUserSettings.HideNonWorkingDays,
-				"user":                      user.Id,
-			},
-		)
+		insertQueryBuilder := sq.Insert("calendar_settings").
+			Columns(
+				"is_open_calendar_left_bar",
+				"first_day_of_week",
+				"hide_non_working_days",
+				"user",
+			).
+			Values(
+				requestUserSettings.IsOpenCalendarLeftBar,
+				requestUserSettings.FirstDayOfWeek,
+				requestUserSettings.HideNonWorkingDays,
+				user.Id,
+			)
+
+		insertQuery, insertArgs, _ := insertQueryBuilder.ToSql()
+		_, errInsert := p.DB.Queryx(insertQuery, insertArgs...)
 
 		if errInsert != nil {
 			p.API.LogError(err.Error())
@@ -179,19 +177,14 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, errUpdate := p.DB.NamedExec(
-		`UPDATE calendar_settings
-			   SET
-					 is_open_calendar_left_bar = :is_open_calendar_left_bar,
-					 first_day_of_week = :first_day_of_week,
-					 hide_non_working_days = :hide_non_working_days
-			   WHERE "user" = :user`,
-		map[string]interface{}{
-			"is_open_calendar_left_bar": requestUserSettings.IsOpenCalendarLeftBar,
-			"first_day_of_week":         requestUserSettings.FirstDayOfWeek,
-			"hide_non_working_days":     requestUserSettings.HideNonWorkingDays,
-			"user":                      user.Id,
-		})
+	updateQueryBuilder := sq.Update("calendar_settings").
+		Set("is_open_calendar_left_bar", requestUserSettings.IsOpenCalendarLeftBar).
+		Set("first_day_of_week", requestUserSettings.FirstDayOfWeek).
+		Set("hide_non_working_days", requestUserSettings.HideNonWorkingDays).
+		Where(sq.Eq{"user": user.Id})
+
+	updateQuery, updateArgs, _ := updateQueryBuilder.ToSql()
+	_, errUpdate := p.DB.Queryx(updateQuery, updateArgs...)
 
 	if errUpdate != nil {
 		p.API.LogError(err.Error())
