@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/DATA-DOG/go-sqlmock"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
@@ -32,9 +33,16 @@ func TestMigrateLegacy(t *testing.T) {
 		DB:     dbx,
 	}
 
+	queryBuilder := sq.Select().
+		Columns("id", "recurrence").
+		From("calendar_events").
+		Where(sq.Like{"recurrence": "[%"}).
+		Where("recurrent = true").
+		PlaceholderFormat(sq.Dollar)
+	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(
 		regexp.QuoteMeta(
-			"SELECT id, recurrence FROM calendar_events WHERE recurrence LIKE '[%' and recurrent = true",
+			querySql,
 		),
 	)
 
@@ -45,25 +53,30 @@ func TestMigrateLegacy(t *testing.T) {
 
 	expectedQuery.WillReturnRows(eventsRow)
 
-	dbMock.ExpectExec(
+	updateQueryBuilder := sq.Update("calendar_events").
+		Set("recurrence", "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO").
+		Where(sq.Eq{"id": "qwer"})
+
+	updateQuerySql, _, _ := updateQueryBuilder.ToSql()
+	dbMock.ExpectQuery(
 		regexp.QuoteMeta(
-			`UPDATE PUBLIC.calendar_events SET recurrence = ? WHERE id = ?`,
+			updateQuerySql,
 		),
 	).WithArgs(
 		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
 		"qwer",
-	).WillReturnResult(
-		sqlmock.NewResult(0, 0),
-	)
+	).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("qwer"))
 
-	dbMock.ExpectExec(
+	updateEmptyBuilder := sq.Update("calendar_events").
+		Set("recurrence", "").
+		Where(sq.Or{sq.Eq{"recurrence": "[]"}, sq.Eq{"recurrence": "null"}})
+
+	updateEmptySql, _, _ := updateEmptyBuilder.ToSql()
+	dbMock.ExpectQuery(
 		regexp.QuoteMeta(
-			`UPDATE calendar_events SET recurrence = '' 
-				WHERE recurrence = '[]' or recurrence = 'null'`,
+			updateEmptySql,
 		),
-	).WillReturnResult(
-		sqlmock.NewResult(0, 0),
-	)
+	).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("qazx"))
 
 	migrator.migrateLegacyRecurrentEvents()
 

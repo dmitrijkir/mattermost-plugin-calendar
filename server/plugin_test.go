@@ -72,11 +72,11 @@ func TestGetEvents(t *testing.T) {
 	sqlTimeEnd := time.Date(2023, time.March, 05, 21, 0, 0, 0, time.UTC)
 
 	conditions := sq.Or{
-		sq.Eq{"cm.user": session.UserId},
+		sq.Eq{"cm.member": session.UserId},
 		sq.Eq{"ce.owner": session.UserId},
 		sq.And{
-			sq.GtOrEq{"ce.start": sqlTimeStart},
-			sq.LtOrEq{"ce.start": sqlTimeEnd},
+			sq.GtOrEq{"ce.dt_start": sqlTimeStart},
+			sq.LtOrEq{"ce.dt_start": sqlTimeEnd},
 		},
 		sq.Eq{"ce.recurrent": true},
 	}
@@ -85,8 +85,8 @@ func TestGetEvents(t *testing.T) {
 			"ce.id",
 			"ce.title",
 			"ce.description",
-			"ce.start",
-			"ce.end",
+			"ce.dt_start",
+			"ce.dt_end",
 			"ce.created",
 			"ce.owner",
 			"ce.channel",
@@ -96,7 +96,8 @@ func TestGetEvents(t *testing.T) {
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
-		Where(conditions)
+		Where(conditions).
+		PlaceholderFormat(sq.Dollar)
 
 	expectedQuerySql, _, err := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(expectedQuerySql)).
@@ -106,8 +107,8 @@ func TestGetEvents(t *testing.T) {
 		"id",
 		"title",
 		"description",
-		"start",
-		"end",
+		"dt_start",
+		"dt_end",
 		"created",
 		"owner",
 		"channel",

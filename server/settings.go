@@ -13,6 +13,7 @@ import (
 func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 	pluginContext := p.FromContext(r.Context())
 	session, err := p.API.GetSession(pluginContext.SessionId)
+
 	if err != nil {
 		p.API.LogError("can't get session")
 		errorResponse(w, NotAuthorizedError)
@@ -79,7 +80,8 @@ func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 	queryBuilder := sq.Select().
 		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days").
 		From("calendar_settings").
-		Where(sq.Eq{"user": user.Id})
+		Where(sq.Eq{"owner": user.Id}).
+		PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	querySql, argsSql, _ := queryBuilder.ToSql()
 	errSelect := p.DB.Get(
@@ -127,16 +129,13 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	var userSettings UserSettingsRequest
 	var requestUserSettings UserSettingsRequest
 
-	errDecode := json.NewDecoder(r.Body).Decode(&requestUserSettings)
-
-	if errDecode != nil {
+	if errDecode := json.NewDecoder(r.Body).Decode(&requestUserSettings); errDecode != nil {
 		p.API.LogError(errDecode.Error())
 		errorResponse(w, InvalidRequestParams)
 		return
 	}
 
 	if requestUserSettings.FirstDayOfWeek < 0 || requestUserSettings.FirstDayOfWeek > 6 {
-		p.API.LogError(errDecode.Error())
 		errorResponse(w, InvalidRequestParams)
 		return
 	}
@@ -144,10 +143,12 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	getQueryBuilder := sq.Select().
 		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days").
 		From("calendar_settings").
-		Where(sq.Eq{"user": user.Id})
+		Where(sq.Eq{"owner": user.Id}).
+		PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	getQuerySql, getArgsSql, _ := getQueryBuilder.ToSql()
-	errSelect := p.DB.Get(&userSettings, getQuerySql, getArgsSql)
+
+	errSelect := p.DB.Get(&userSettings, getQuerySql, getArgsSql...)
 
 	if errSelect == sql.ErrNoRows {
 		insertQueryBuilder := sq.Insert("calendar_settings").
@@ -155,14 +156,15 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 				"is_open_calendar_left_bar",
 				"first_day_of_week",
 				"hide_non_working_days",
-				"user",
+				"owner",
 			).
 			Values(
 				requestUserSettings.IsOpenCalendarLeftBar,
 				requestUserSettings.FirstDayOfWeek,
 				requestUserSettings.HideNonWorkingDays,
 				user.Id,
-			)
+			).
+			PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 		insertQuery, insertArgs, _ := insertQueryBuilder.ToSql()
 		_, errInsert := p.DB.Queryx(insertQuery, insertArgs...)
@@ -181,7 +183,8 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		Set("is_open_calendar_left_bar", requestUserSettings.IsOpenCalendarLeftBar).
 		Set("first_day_of_week", requestUserSettings.FirstDayOfWeek).
 		Set("hide_non_working_days", requestUserSettings.HideNonWorkingDays).
-		Where(sq.Eq{"user": user.Id})
+		Where(sq.Eq{"owner": user.Id}).
+		PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	updateQuery, updateArgs, _ := updateQueryBuilder.ToSql()
 	_, errUpdate := p.DB.Queryx(updateQuery, updateArgs...)

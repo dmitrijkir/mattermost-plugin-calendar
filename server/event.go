@@ -22,11 +22,11 @@ func (p *Plugin) GetUserEventsUTC(
 	var events []Event
 
 	conditions := sq.Or{
-		sq.Eq{"cm.user": userId},
+		sq.Eq{"cm.member": userId},
 		sq.Eq{"ce.owner": userId},
 		sq.And{
-			sq.GtOrEq{"ce.start": start},
-			sq.LtOrEq{"ce.start": end},
+			sq.GtOrEq{"ce.dt_start": start},
+			sq.LtOrEq{"ce.dt_start": end},
 		},
 		sq.Eq{"ce.recurrent": true},
 	}
@@ -37,8 +37,8 @@ func (p *Plugin) GetUserEventsUTC(
 			"ce.id",
 			"ce.title",
 			"ce.description",
-			"ce.start",
-			"ce.end",
+			"ce.dt_start",
+			"ce.dt_end",
 			"ce.created",
 			"ce.owner",
 			"ce.channel",
@@ -48,7 +48,7 @@ func (p *Plugin) GetUserEventsUTC(
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
-		Where(conditions)
+		Where(conditions).PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	querySql, args, err := queryBuilder.ToSql()
 	if err != nil {
@@ -186,19 +186,19 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 		Columns(
 			"ce.id",
 			"ce.title",
-			"ce.start",
-			"ce.end",
+			"ce.dt_start",
+			"ce.dt_end",
 			"ce.created",
 			"ce.owner",
 			"ce.channel",
 			"ce.recurrence",
 			"ce.color",
 			"ce.description",
-			"cm.user",
+			"cm.member",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
-		Where(sq.Eq{"id": eventId})
+		Where(sq.Eq{"id": eventId}).PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	querySql, sqlArgs, toSqlErr := queryBuilder.ToSql()
 	if toSqlErr != nil {
@@ -214,7 +214,7 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 
 	type EventFromDb struct {
 		Event
-		User *string `json:"user" db:"user"`
+		User *string `json:"user" db:"member"`
 	}
 
 	var members []string
@@ -378,8 +378,8 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			"id",
 			"title",
 			"description",
-			"start",
-			"end",
+			"dt_start",
+			"dt_end",
 			"created",
 			"owner",
 			"channel",
@@ -399,7 +399,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			event.Recurrent,
 			event.Recurrence,
 			event.Color,
-		)
+		).PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	// Prepare the SQL query
 	querySql, sqlArgs, errBuilder := queryBuilder.ToSql()
@@ -419,18 +419,18 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	if len(event.Attendees) > 0 {
 		builderAtt := sq.Insert("calendar_members").
-			Columns("event", "user")
+			Columns("event", "member")
 		for _, userId := range event.Attendees {
 			builderAtt = builderAtt.Values(event.Id, userId)
 		}
 
-		queryAttendees, queryArgs, errAttendees := builderAtt.ToSql()
+		queryAttendees, queryAttArgs, errAttendees := builderAtt.PlaceholderFormat(p.GetDBPlaceholderFormat()).ToSql()
 		if errAttendees != nil {
 			p.API.LogError(err.Error())
 			errorResponse(w, CantCreateEvent)
 			return
 		}
-		_, errInsert = p.DB.Queryx(queryAttendees, queryArgs...)
+		_, errInsert = p.DB.Queryx(queryAttendees, queryAttArgs...)
 	}
 
 	if errInsert != nil {
@@ -462,7 +462,9 @@ func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deleteBuilder := sq.Delete("calendar_members").Where(sq.Eq{"event": eventId})
+	deleteBuilder := sq.Delete("calendar_events").
+		Where(sq.Eq{"id": eventId}).
+		PlaceholderFormat(p.GetDBPlaceholderFormat())
 	deleteSql, deleteArgs, deleteErr := deleteBuilder.ToSql()
 
 	if deleteErr != nil {
@@ -558,61 +560,77 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	updateFields := map[string]interface{}{
 		"title":       event.Title,
 		"description": event.Description,
-		"start":       event.Start,
-		"end":         event.End,
+		"dt_start":    event.Start,
+		"dt_end":      event.End,
 		"channel":     event.Channel,
 		"recurrence":  event.Recurrence,
 		"recurrent":   event.Recurrent,
 		"color":       event.Color,
 	}
-	updateQueryBuilder := sq.Update("calendar_events").SetMap(updateFields).Where(sq.Eq{"id": event.Id})
+	updateQueryBuilder := sq.Update("calendar_events").
+		SetMap(updateFields).
+		Where(sq.Eq{"id": event.Id}).
+		PlaceholderFormat(p.GetDBPlaceholderFormat())
 
-	updateSql, updateArgs, updateErr := updateQueryBuilder.ToSql()
-	if updateErr != nil {
-		p.API.LogError(updateErr.Error())
+	updateSql, updateArgs, _ := updateQueryBuilder.ToSql()
+
+	rows, errUpdate := tx.Queryx(updateSql, updateArgs...)
+	if errUpdate != nil {
+		p.API.LogInfo("cant update calendar event: " + errUpdate.Error())
 		errorResponse(w, CantUpdateEvent)
 		return
 	}
-	_, errUpdate := tx.Queryx(updateSql, updateArgs...)
+	if rows != nil {
+		rows.Close()
+	}
 
 	deleteBuilder := sq.Delete("calendar_members").Where(sq.Eq{"event": event.Id})
-	deleteSql, deleteArgs, deleteErr := deleteBuilder.ToSql()
+	deleteSql, deleteArgs, deleteErr := deleteBuilder.PlaceholderFormat(p.GetDBPlaceholderFormat()).ToSql()
 	if deleteErr != nil {
 		p.API.LogError(deleteErr.Error())
 		errorResponse(w, CantUpdateEvent)
 		return
 	}
-	_, errUpdate = tx.Queryx(deleteSql, deleteArgs...)
-
-	if errUpdate != nil {
+	rows, errDelete := tx.Queryx(deleteSql, deleteArgs...)
+	if errDelete != nil {
+		p.API.LogError(errDelete.Error())
 		if rollbackError := tx.Rollback(); rollbackError != nil {
 			p.API.LogError(rollbackError.Error())
-			return
 		}
-		p.API.LogError(errUpdate.Error())
 		errorResponse(w, CantUpdateEvent)
 		return
+	}
+	if rows != nil {
+		rows.Close()
 	}
 
 	if len(event.Attendees) > 0 {
-		attQueryBuilder := sq.Insert("calendar_members").Columns("event", "user")
+		attQueryBuilder := sq.Insert("calendar_members").Columns("event", "member")
 		for _, userId := range event.Attendees {
 			attQueryBuilder = attQueryBuilder.Values(event.Id, userId)
 		}
-		attUpdateSql, attArgs, _ := attQueryBuilder.ToSql()
-		_, errUpdate = tx.Queryx(attUpdateSql, attArgs...)
-	}
-	if errUpdate != nil {
-		if rollbackError := tx.Rollback(); rollbackError != nil {
-			p.API.LogError(rollbackError.Error())
+		attUpdateSql, attArgs, _ := attQueryBuilder.PlaceholderFormat(p.GetDBPlaceholderFormat()).ToSql()
+		rows, errUpdateAtt := tx.Queryx(attUpdateSql, attArgs...)
+
+		if errUpdateAtt != nil {
+			p.API.LogError(errUpdateAtt.Error())
+			if rollbackError := tx.Rollback(); rollbackError != nil {
+				p.API.LogError(rollbackError.Error())
+			}
+
+			errorResponse(w, CantUpdateEvent)
 			return
 		}
-		p.API.LogError(errUpdate.Error())
+		if rows != nil {
+			rows.Close()
+		}
+	}
+
+	if commitError := tx.Commit(); commitError != nil {
+		p.API.LogError("commit error" + commitError.Error())
 		errorResponse(w, CantUpdateEvent)
 		return
 	}
-
-	errUpdate = tx.Commit()
 
 	apiResponse(w, &event)
 	return

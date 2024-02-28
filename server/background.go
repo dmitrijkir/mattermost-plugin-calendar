@@ -124,12 +124,12 @@ func (b *Background) process(t time.Time) {
 		Columns(
 			"ce.id",
 			"ce.title",
-			"ce.start",
-			"ce.end",
+			"ce.dt_start",
+			"ce.dt_end",
 			"ce.created",
 			"ce.owner",
 			"ce.channel",
-			"cm.user",
+			"cm.member",
 			"ce.recurrent",
 			"ce.recurrence",
 			"ce.color",
@@ -137,15 +137,15 @@ func (b *Background) process(t time.Time) {
 		).
 		From("calendar_events ce").
 		Join("calendar_members cm ON ce.id = cm.event").
-		Where(sq.Eq{"start": tickWithZone}).
+		Where(sq.Eq{"dt_start": tickWithZone}).
 		Where(sq.Or{
 			sq.And{
 				sq.Eq{"recurrent": true},
-				sq.Eq{"start": tickWithZone},
+				sq.Eq{"dt_start": tickWithZone},
 			},
 			sq.Eq{"processed": nil},
 			sq.NotEq{"processed": tickWithZone},
-		})
+		}).PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
 
 	querySql, argsSql, builderErr := queryBuilder.ToSql()
 	if builderErr != nil {
@@ -161,7 +161,7 @@ func (b *Background) process(t time.Time) {
 
 	type EventFromDb struct {
 		Event
-		User *string `json:"user" db:"user"`
+		User *string `json:"user" db:"member"`
 	}
 	events := map[string]*Event{}
 
@@ -270,7 +270,8 @@ func (b *Background) process(t time.Time) {
 
 		updateBuilder := sq.Update("calendar_events").
 			Set("processed", tickWithZone).
-			Where(sq.Eq{"id": value.Id})
+			Where(sq.Eq{"id": value.Id}).
+			PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
 		updateSql, updateArgs, updateErr := updateBuilder.ToSql()
 
 		if updateErr != nil {

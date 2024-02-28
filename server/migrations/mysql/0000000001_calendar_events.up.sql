@@ -2,8 +2,8 @@ CREATE TABLE IF NOT EXISTS calendar_events
 (
     id          VARCHAR(50)                NOT NULL PRIMARY KEY,
     title       VARCHAR(255)               NOT NULL,
-    start       TIMESTAMP                  NOT NULL,
-    end         TIMESTAMP                  NOT NULL,
+    dt_start       TIMESTAMP                  NOT NULL,
+    dt_end         TIMESTAMP                  NOT NULL,
     created     TIMESTAMP                  NOT NULL,
     owner       VARCHAR(50)                NOT NULL,
     channel     VARCHAR(50),

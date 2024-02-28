@@ -8,8 +8,8 @@ type Event struct {
 	Id          string     `json:"id" db:"id"`
 	Title       string     `json:"title" db:"title"`
 	Description string     `json:"description" db:"description"`
-	Start       time.Time  `json:"start" db:"start"`
-	End         time.Time  `json:"end" db:"end"`
+	Start       time.Time  `json:"start" db:"dt_start"`
+	End         time.Time  `json:"end" db:"dt_end"`
 	Attendees   []string   `json:"attendees"`
 	Created     time.Time  `json:"created" db:"created"`
 	Owner       string     `json:"owner" db:"owner"`
