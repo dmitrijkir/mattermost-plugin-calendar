@@ -55,7 +55,8 @@ func TestMigrateLegacy(t *testing.T) {
 
 	updateQueryBuilder := sq.Update("calendar_events").
 		Set("recurrence", "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO").
-		Where(sq.Eq{"id": "qwer"})
+		Where(sq.Eq{"id": "qwer"}).
+		PlaceholderFormat(sq.Dollar)
 
 	updateQuerySql, _, _ := updateQueryBuilder.ToSql()
 	dbMock.ExpectQuery(
@@ -69,7 +70,8 @@ func TestMigrateLegacy(t *testing.T) {
 
 	updateEmptyBuilder := sq.Update("calendar_events").
 		Set("recurrence", "").
-		Where(sq.Or{sq.Eq{"recurrence": "[]"}, sq.Eq{"recurrence": "null"}})
+		Where(sq.Or{sq.Eq{"recurrence": "[]"}, sq.Eq{"recurrence": "null"}}).
+		PlaceholderFormat(sq.Dollar)
 
 	updateEmptySql, _, _ := updateEmptyBuilder.ToSql()
 	dbMock.ExpectQuery(

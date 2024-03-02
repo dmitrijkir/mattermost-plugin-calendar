@@ -87,6 +87,7 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 	attendees = append(attendees, b.plugin.BotId)
 
 	foundChannel, foundChannelError := b.plugin.API.GetGroupChannel(attendees)
+
 	if foundChannelError != nil {
 		b.plugin.API.LogError(foundChannelError.Error())
 		return
@@ -99,11 +100,11 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 
 	postModel.SetProps(b.getMessageProps(event))
 
-	_, postCreateError := b.plugin.API.CreatePost(postModel)
-	if postCreateError != nil {
+	if _, postCreateError := b.plugin.API.CreatePost(postModel); postCreateError != nil {
 		b.plugin.API.LogError(postCreateError.Error())
 		return
 	}
+
 }
 
 func (b *Background) process(t time.Time) {
@@ -120,6 +121,27 @@ func (b *Background) process(t time.Time) {
 		0,
 		time.UTC,
 	)
+
+	// different queries for different databases because of different time format
+	var recurrentTimeQuery sq.And
+	switch b.plugin.DB.DriverName() {
+	case POSTGRES:
+		recurrentTimeQuery = sq.And{
+			sq.Eq{"ce.recurrent": true},
+			sq.Eq{"ce.dt_start::time": tickWithZone},
+		}
+	case MYSQL:
+		recurrentTimeQuery = sq.And{
+			sq.Eq{"ce.recurrent": true},
+			sq.Eq{"TIME(ce.dt_start)": tickWithZone},
+		}
+	default:
+		recurrentTimeQuery = sq.And{
+			sq.Eq{"ce.recurrent": true},
+			sq.Eq{"ce.dt_start::time": tickWithZone},
+		}
+	}
+
 	queryBuilder := sq.Select().
 		Columns(
 			"ce.id",
@@ -136,18 +158,21 @@ func (b *Background) process(t time.Time) {
 			"ce.description",
 		).
 		From("calendar_events ce").
-		Join("calendar_members cm ON ce.id = cm.event").
-		Where(sq.Eq{"dt_start": tickWithZone}).
-		Where(sq.Or{
-			sq.And{
-				sq.Eq{"recurrent": true},
-				sq.Eq{"dt_start": tickWithZone},
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": tickWithZone},
+				recurrentTimeQuery,
 			},
-			sq.Eq{"processed": nil},
-			sq.NotEq{"processed": tickWithZone},
-		}).PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": tickWithZone},
+			},
+		}).
+		PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
 
 	querySql, argsSql, builderErr := queryBuilder.ToSql()
+
 	if builderErr != nil {
 		b.plugin.API.LogError(builderErr.Error())
 		return
@@ -272,15 +297,13 @@ func (b *Background) process(t time.Time) {
 			Set("processed", tickWithZone).
 			Where(sq.Eq{"id": value.Id}).
 			PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
-		updateSql, updateArgs, updateErr := updateBuilder.ToSql()
+		updateSql, updateArgs, updateErrBuilder := updateBuilder.ToSql()
 
-		if updateErr != nil {
-			b.plugin.API.LogError(updateErr.Error())
+		if updateErrBuilder != nil {
+			b.plugin.API.LogError(updateErrBuilder.Error())
 			continue
 		}
-		_, errUpdate := b.plugin.DB.Queryx(updateSql, updateArgs...)
-
-		if errUpdate != nil {
+		if _, errUpdate := b.plugin.DB.Queryx(updateSql, updateArgs...); errUpdate != nil {
 			b.plugin.API.LogError(errUpdate.Error())
 			continue
 		}

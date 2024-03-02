@@ -42,9 +42,9 @@ func (p *Plugin) GetDBPlaceholderFormat() sq.PlaceholderFormat {
 	}
 
 	switch p.DB.DriverName() {
-	case "postgres":
+	case POSTGRES:
 		return sq.Dollar
-	case "mysql":
+	case MYSQL:
 		return sq.Question
 	default:
 		return sq.Dollar

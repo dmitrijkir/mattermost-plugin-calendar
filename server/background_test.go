@@ -230,15 +230,19 @@ func TestProcessEventWithChannel(t *testing.T) {
 			"ce.description",
 		).
 		From("calendar_events ce").
-		Join("calendar_members cm ON ce.id = cm.event").
-		Where(sq.Eq{"dt_start": sqlQueryTime}).
-		Where(sq.Or{
-			sq.And{
-				sq.Eq{"recurrent": true},
-				sq.Eq{"dt_start": sqlQueryTime},
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
 			},
-			sq.Eq{"processed": nil},
-			sq.NotEq{"processed": sqlQueryTime},
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
 		}).
 		PlaceholderFormat(sq.Dollar)
 
@@ -400,16 +404,21 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 			"ce.description",
 		).
 		From("calendar_events ce").
-		Join("calendar_members cm ON ce.id = cm.event").
-		Where(sq.Eq{"dt_start": sqlQueryTime}).
-		Where(sq.Or{
-			sq.And{
-				sq.Eq{"recurrent": true},
-				sq.Eq{"dt_start": sqlQueryTime},
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
 			},
-			sq.Eq{"processed": nil},
-			sq.NotEq{"processed": sqlQueryTime},
-		}).PlaceholderFormat(sq.Dollar)
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
@@ -567,16 +576,21 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 			"ce.description",
 		).
 		From("calendar_events ce").
-		Join("calendar_members cm ON ce.id = cm.event").
-		Where(sq.Eq{"dt_start": sqlQueryTime}).
-		Where(sq.Or{
-			sq.And{
-				sq.Eq{"recurrent": true},
-				sq.Eq{"dt_start": sqlQueryTime},
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
 			},
-			sq.Eq{"processed": nil},
-			sq.NotEq{"processed": sqlQueryTime},
-		}).PlaceholderFormat(sq.Dollar)
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
@@ -717,16 +731,21 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 			"ce.description",
 		).
 		From("calendar_events ce").
-		Join("calendar_members cm ON ce.id = cm.event").
-		Where(sq.Eq{"dt_start": sqlQueryTime}).
-		Where(sq.Or{
-			sq.And{
-				sq.Eq{"recurrent": true},
-				sq.Eq{"dt_start": sqlQueryTime},
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
 			},
-			sq.Eq{"processed": nil},
-			sq.NotEq{"processed": sqlQueryTime},
-		}).PlaceholderFormat(sq.Dollar)
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
@@ -878,16 +897,21 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 			"ce.description",
 		).
 		From("calendar_events ce").
-		Join("calendar_members cm ON ce.id = cm.event").
-		Where(sq.Eq{"dt_start": sqlQueryTime}).
-		Where(sq.Or{
-			sq.And{
-				sq.Eq{"recurrent": true},
-				sq.Eq{"dt_start": sqlQueryTime},
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
 			},
-			sq.Eq{"processed": nil},
-			sq.NotEq{"processed": sqlQueryTime},
-		}).PlaceholderFormat(sq.Dollar)
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(

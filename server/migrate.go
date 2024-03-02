@@ -163,7 +163,8 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 
 		updateQueryBuilder := sq.Update("calendar_events").
 			Set("recurrence", rrule).
-			Where(sq.Eq{"id": eventDb.Id})
+			Where(sq.Eq{"id": eventDb.Id}).
+			PlaceholderFormat(m.plugin.GetDBPlaceholderFormat())
 
 		updateQuerySql, updateArgsSql, _ := updateQueryBuilder.ToSql()
 
@@ -176,7 +177,8 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 	// clear empty rows
 	updateEmptyBuilder := sq.Update("calendar_events").
 		Set("recurrence", "").
-		Where(sq.Or{sq.Eq{"recurrence": "[]"}, sq.Eq{"recurrence": "null"}})
+		Where(sq.Or{sq.Eq{"recurrence": "[]"}, sq.Eq{"recurrence": "null"}}).
+		PlaceholderFormat(m.plugin.GetDBPlaceholderFormat())
 
 	updateEmptySql, updateEmptyArgsSql, _ := updateEmptyBuilder.ToSql()
 	if _, errUpdate := m.DB.Queryx(updateEmptySql, updateEmptyArgsSql...); errUpdate != nil {
