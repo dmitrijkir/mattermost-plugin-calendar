@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/teambition/rrule-go"
 	"time"
@@ -86,6 +87,7 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 	attendees = append(attendees, b.plugin.BotId)
 
 	foundChannel, foundChannelError := b.plugin.API.GetGroupChannel(attendees)
+
 	if foundChannelError != nil {
 		b.plugin.API.LogError(foundChannelError.Error())
 		return
@@ -98,11 +100,11 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 
 	postModel.SetProps(b.getMessageProps(event))
 
-	_, postCreateError := b.plugin.API.CreatePost(postModel)
-	if postCreateError != nil {
+	if _, postCreateError := b.plugin.API.CreatePost(postModel); postCreateError != nil {
 		b.plugin.API.LogError(postCreateError.Error())
 		return
 	}
+
 }
 
 func (b *Background) process(t time.Time) {
@@ -119,25 +121,63 @@ func (b *Background) process(t time.Time) {
 		0,
 		time.UTC,
 	)
-	rows, errSelect := b.plugin.DB.Queryx(`
-			SELECT ce.id,
-				   ce.title,
-                   ce."start",
-                   ce."end",
-                   ce.created,
-                   ce."owner",
-                   ce."channel",
-                   cm."user",
-                   ce.recurrent,
-                   ce.recurrence,
-                   ce.color,
-                   ce.description
-			FROM   calendar_events ce
-                FULL JOIN calendar_members cm
-                       ON ce.id = cm."event"
-			WHERE (ce."start" = $1 OR (ce.recurrent = true AND ce."start"::time = $2)) 
-			  	   AND (ce."processed" isnull OR ce."processed" != $3)
-`, tickWithZone, tickWithZone, tickWithZone)
+
+	// different queries for different databases because of different time format
+	var recurrentTimeQuery sq.And
+	switch b.plugin.DB.DriverName() {
+	case POSTGRES:
+		recurrentTimeQuery = sq.And{
+			sq.Eq{"ce.recurrent": true},
+			sq.Eq{"ce.dt_start::time": tickWithZone},
+		}
+	case MYSQL:
+		recurrentTimeQuery = sq.And{
+			sq.Eq{"ce.recurrent": true},
+			sq.Eq{"TIME(ce.dt_start)": tickWithZone},
+		}
+	default:
+		recurrentTimeQuery = sq.And{
+			sq.Eq{"ce.recurrent": true},
+			sq.Eq{"ce.dt_start::time": tickWithZone},
+		}
+	}
+
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.dt_start",
+			"ce.dt_end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"cm.member",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+			"ce.description",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": tickWithZone},
+				recurrentTimeQuery,
+			},
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": tickWithZone},
+			},
+		}).
+		PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
+
+	querySql, argsSql, builderErr := queryBuilder.ToSql()
+
+	if builderErr != nil {
+		b.plugin.API.LogError(builderErr.Error())
+		return
+	}
+	rows, errSelect := b.plugin.DB.Queryx(querySql, argsSql...)
 
 	if errSelect != nil {
 		b.plugin.API.LogError(errSelect.Error())
@@ -146,7 +186,7 @@ func (b *Background) process(t time.Time) {
 
 	type EventFromDb struct {
 		Event
-		User *string `json:"user" db:"user"`
+		User *string `json:"user" db:"member"`
 	}
 	events := map[string]*Event{}
 
@@ -253,14 +293,17 @@ func (b *Background) process(t time.Time) {
 			b.sendGroupOrPersonalEventNotification(value)
 		}
 
-		_, errUpdate := b.plugin.DB.NamedExec(`UPDATE PUBLIC.calendar_events
-                                           SET processed = :processed
-                                           WHERE id = :eventId`, map[string]interface{}{
-			"processed": tickWithZone,
-			"eventId":   value.Id,
-		})
+		updateBuilder := sq.Update("calendar_events").
+			Set("processed", tickWithZone).
+			Where(sq.Eq{"id": value.Id}).
+			PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
+		updateSql, updateArgs, updateErrBuilder := updateBuilder.ToSql()
 
-		if errUpdate != nil {
+		if updateErrBuilder != nil {
+			b.plugin.API.LogError(updateErrBuilder.Error())
+			continue
+		}
+		if _, errUpdate := b.plugin.DB.Queryx(updateSql, updateArgs...); errUpdate != nil {
 			b.plugin.API.LogError(errUpdate.Error())
 			continue
 		}

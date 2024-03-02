@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/DATA-DOG/go-sqlmock"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
@@ -213,35 +214,51 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	postForSendChannel.SetProps(background.getMessageProps(testEvent))
 
-	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
-			SELECT ce.id,
-				   ce.title,
-                   ce."start",
-                   ce."end",
-                   ce.created,
-                   ce."owner",
-                   ce."channel",
-                   cm."user",
-                   ce.recurrent,
-                   ce.recurrence,
-                   ce.color,
-                   ce.description
-			FROM   calendar_events ce
-                FULL JOIN calendar_members cm
-                       ON ce.id = cm."event"
-			WHERE (ce."start" = $1 OR (ce.recurrent = true AND ce."start"::time = $2)) 
-			  	   AND (ce."processed" isnull OR ce."processed" != $3)
-			`)).WithArgs(sqlQueryTime, sqlQueryTime, sqlQueryTime)
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.dt_start",
+			"ce.dt_end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"cm.member",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+			"ce.description",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
+			},
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
+
+	querySql, _, _ := queryBuilder.ToSql()
+	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
+		WithArgs(sqlQueryTime, true, sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
 		"title",
-		"start",
-		"end",
+		"dt_start",
+		"dt_end",
 		"created",
 		"owner",
 		"channel",
-		"user",
+		"member",
 		"recurrent",
 		"recurrence"},
 	).AddRow("qwcw", "test event", sqlQueryTime, sqlQueryTime, sqlQueryTime,
@@ -249,10 +266,13 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	expectedQuery.WillReturnRows(eventsRow)
 
-	dbMock.ExpectExec(regexp.QuoteMeta(`UPDATE PUBLIC.calendar_events
-                                           SET processed = ?
-                                           WHERE id = ?`)).WithArgs(sqlQueryTime, "qwcw").
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	updateBuilder := sq.Update("calendar_events").
+		Set("processed", sqlQueryTime).
+		Where(sq.Eq{"id": "qwcw"}).PlaceholderFormat(sq.Dollar)
+	updateSql, _, _ := updateBuilder.ToSql()
+
+	expectedQueryUpdate := dbMock.ExpectQuery(regexp.QuoteMeta(updateSql)).WithArgs(sqlQueryTime, "qwcw")
+	expectedQueryUpdate.WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("qwcw"))
 
 	background.process(processingTime)
 
@@ -368,35 +388,51 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 	postForSendChannel.SetProps(background.getMessageProps(testEvent))
 
-	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
-			SELECT ce.id,
-				   ce.title,
-                   ce."start",
-                   ce."end",
-                   ce.created,
-                   ce."owner",
-                   ce."channel",
-                   cm."user",
-                   ce.recurrent,
-                   ce.recurrence,
-                   ce.color,
-                   ce.description
-			FROM   calendar_events ce
-                FULL JOIN calendar_members cm
-                       ON ce.id = cm."event"
-			WHERE (ce."start" = $1 OR (ce.recurrent = true AND ce."start"::time = $2)) 
-			  	   AND (ce."processed" isnull OR ce."processed" != $3)
-			`)).WithArgs(sqlQueryTime, sqlQueryTime, sqlQueryTime)
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.dt_start",
+			"ce.dt_end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"cm.member",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+			"ce.description",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
+			},
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
+
+	querySql, _, _ := queryBuilder.ToSql()
+	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
+		WithArgs(sqlQueryTime, true, sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
 		"title",
-		"start",
-		"end",
+		"dt_start",
+		"dt_end",
 		"created",
 		"owner",
 		"channel",
-		"user",
+		"member",
 		"recurrent",
 		"recurrence"},
 	).AddRow(
@@ -408,10 +444,12 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 	expectedQuery.WillReturnRows(eventsRow)
 
-	dbMock.ExpectExec(regexp.QuoteMeta(`UPDATE PUBLIC.calendar_events
-                                           SET processed = ?
-                                           WHERE id = ?`)).WithArgs(sqlQueryTime, "rec-ev").
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	updateBuilder := sq.Update("calendar_events").
+		Set("processed", sqlQueryTime).
+		Where(sq.Eq{"id": "rec-ev"}).PlaceholderFormat(sq.Dollar)
+	updateSql, _, _ := updateBuilder.ToSql()
+	expectedQueryUpdate := dbMock.ExpectQuery(regexp.QuoteMeta(updateSql)).WithArgs(sqlQueryTime, "rec-ev")
+	expectedQueryUpdate.WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("rec-ev"))
 
 	background.process(processingTime)
 	if err := dbMock.ExpectationsWereMet(); err != nil {
@@ -522,35 +560,51 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 
 	postForSendChannel.SetProps(background.getMessageProps(testEvent))
 
-	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
-			SELECT ce.id,
-				   ce.title,
-                   ce."start",
-                   ce."end",
-                   ce.created,
-                   ce."owner",
-                   ce."channel",
-                   cm."user",
-                   ce.recurrent,
-                   ce.recurrence,
-                   ce.color,
-                   ce.description
-			FROM   calendar_events ce
-                FULL JOIN calendar_members cm
-                       ON ce.id = cm."event"
-			WHERE (ce."start" = $1 OR (ce.recurrent = true AND ce."start"::time = $2)) 
-			  	   AND (ce."processed" isnull OR ce."processed" != $3)
-			`)).WithArgs(sqlQueryTime, sqlQueryTime, sqlQueryTime)
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.dt_start",
+			"ce.dt_end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"cm.member",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+			"ce.description",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
+			},
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
+
+	querySql, _, _ := queryBuilder.ToSql()
+	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
+		WithArgs(sqlQueryTime, true, sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
 		"title",
-		"start",
-		"end",
+		"dt_start",
+		"dt_end",
 		"created",
 		"owner",
 		"channel",
-		"user",
+		"member",
 		"recurrent",
 		"recurrence"},
 	).AddRow(
@@ -562,10 +616,12 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 
 	expectedQuery.WillReturnRows(eventsRow)
 
-	dbMock.ExpectExec(regexp.QuoteMeta(`UPDATE PUBLIC.calendar_events
-                                           SET processed = ?
-                                           WHERE id = ?`)).WithArgs(sqlQueryTime, "rec-ev").
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	updateBuilder := sq.Update("calendar_events").
+		Set("processed", sqlQueryTime).
+		Where(sq.Eq{"id": "rec-ev"}).PlaceholderFormat(sq.Dollar)
+	updateSql, _, _ := updateBuilder.ToSql()
+	dbMock.ExpectQuery(regexp.QuoteMeta(updateSql)).WithArgs(sqlQueryTime, "rec-ev").
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("rec-ev"))
 
 	background.process(processingTime)
 
@@ -659,35 +715,56 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 
 	api.On("CreatePost", postForSendGroup).Return(nil, nil)
 
-	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
-			SELECT ce.id,
-				   ce.title,
-                   ce."start",
-                   ce."end",
-                   ce.created,
-                   ce."owner",
-                   ce."channel",
-                   cm."user",
-                   ce.recurrent,
-                   ce.recurrence,
-                   ce.color,
-                   ce.description
-			FROM   calendar_events ce
-                FULL JOIN calendar_members cm
-                       ON ce.id = cm."event"
-			WHERE (ce."start" = $1 OR (ce.recurrent = true AND ce."start"::time = $2)) 
-			  	   AND (ce."processed" isnull OR ce."processed" != $3)`)).WithArgs(sqlQueryTime,
-		sqlQueryTime, sqlQueryTime)
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.dt_start",
+			"ce.dt_end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"cm.member",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+			"ce.description",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
+			},
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
+
+	querySql, _, _ := queryBuilder.ToSql()
+	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
+		WithArgs(
+			sqlQueryTime,
+			true,
+			sqlQueryTime,
+			sqlQueryTime,
+		)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
 		"title",
-		"start",
-		"end",
+		"dt_start",
+		"dt_end",
 		"created",
 		"owner",
 		"channel",
-		"user",
+		"member",
 		"recurrent",
 		"recurrence"},
 	).AddRow("qwert-2", "tests event without channel", sqlQueryTime, sqlQueryTime, sqlQueryTime,
@@ -695,11 +772,13 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 
 	expectedQuery.WillReturnRows(eventsRow)
 
-	dbMock.ExpectExec(regexp.QuoteMeta(`UPDATE PUBLIC.calendar_events
-                                           SET processed = ?
-                                           WHERE id = ?`)).
+	updateBuilder := sq.Update("calendar_events").
+		Set("processed", sqlQueryTime).
+		Where(sq.Eq{"id": "qwert-2"}).PlaceholderFormat(sq.Dollar)
+	updateSql, _, _ := updateBuilder.ToSql()
+	dbMock.ExpectQuery(regexp.QuoteMeta(updateSql)).
 		WithArgs(sqlQueryTime, "qwert-2").
-		WillReturnResult(sqlmock.NewResult(0, 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("qwert-2"))
 
 	background.process(processingTime)
 
@@ -802,35 +881,57 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 
 	postForSendChannel.SetProps(background.getMessageProps(testEvent))
 
-	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(`
-			SELECT ce.id,
-				   ce.title,
-                   ce."start",
-                   ce."end",
-                   ce.created,
-                   ce."owner",
-                   ce."channel",
-                   cm."user",
-                   ce.recurrent,
-                   ce.recurrence,
-                   ce.color,
-                   ce.description
-			FROM   calendar_events ce
-                FULL JOIN calendar_members cm
-                       ON ce.id = cm."event"
-			WHERE (ce."start" = $1 OR (ce.recurrent = true AND ce."start"::time = $2)) 
-			  	   AND (ce."processed" isnull OR ce."processed" != $3)
-			`)).WithArgs(sqlQueryTime, sqlQueryTime, sqlQueryTime)
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.dt_start",
+			"ce.dt_end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"cm.member",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+			"ce.description",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Or{
+				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.And{
+					sq.Eq{"ce.recurrent": true},
+					sq.Eq{"ce.dt_start::time": sqlQueryTime},
+				},
+			},
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
+
+	querySql, _, _ := queryBuilder.ToSql()
+	expectedQuery := dbMock.ExpectQuery(
+		regexp.QuoteMeta(querySql)).
+		WithArgs(
+			sqlQueryTime,
+			true,
+			sqlQueryTime,
+			sqlQueryTime,
+		)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
 		"title",
-		"start",
-		"end",
+		"dt_start",
+		"dt_end",
 		"created",
 		"owner",
 		"channel",
-		"user",
+		"member",
 		"recurrent",
 		"recurrence"},
 	).AddRow(

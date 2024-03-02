@@ -1,6 +1,8 @@
 package main
 
-import "github.com/jmoiron/sqlx"
+import (
+	"github.com/jmoiron/sqlx"
+)
 
 var db *sqlx.DB
 
@@ -9,7 +11,7 @@ func initDb(driver, connectionString string) *sqlx.DB {
 	db, err = sqlx.Connect(driver, connectionString)
 
 	if err != nil {
-
+		panic(err)
 	}
 
 	return db

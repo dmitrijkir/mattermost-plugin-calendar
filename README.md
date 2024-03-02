@@ -26,6 +26,10 @@ To install the Mattermost Calendar Plugin, follow these steps:
 2. Upload the plugin to your Mattermost server.
 3. Enable the plugin in your Mattermost settings.
 
+> **_Note_**
+> 
+> *Make sure that I set &parseTime=true for MySQL connection string.*
+
 
 ## Development
 
