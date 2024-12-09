@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/gorilla/mux"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost-server/v6/plugin"
 	"net/http"
 	"sync"
-
-	"github.com/mattermost/mattermost-server/v6/plugin"
 )
 
 const (
@@ -36,6 +36,21 @@ func (p *Plugin) SetDB(db *sqlx.DB) {
 	p.DB = db
 }
 
+func (p *Plugin) GetDBPlaceholderFormat() sq.PlaceholderFormat {
+	if p.DB == nil {
+		return sq.Dollar
+	}
+
+	switch p.DB.DriverName() {
+	case POSTGRES:
+		return sq.Dollar
+	case MYSQL:
+		return sq.Question
+	default:
+		return sq.Dollar
+	}
+
+}
 func (p *Plugin) SetBotId(botId string) {
 	p.BotId = botId
 }

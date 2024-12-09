@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/DATA-DOG/go-sqlmock"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
@@ -32,36 +33,47 @@ func TestGetUTCEvents(t *testing.T) {
 	sqlRequestTimeStart := time.Date(2023, time.February, 26, 23, 0, 0, 0, time.UTC)
 	sqlRequestTimeEnd := time.Date(2023, time.March, 05, 23, 0, 0, 0, time.UTC)
 
+	conditions := sq.Or{
+		sq.Eq{"cm.member": session.UserId},
+		sq.Eq{"ce.owner": session.UserId},
+		sq.And{
+			sq.GtOrEq{"ce.dt_start": sqlRequestTimeStart},
+			sq.LtOrEq{"ce.dt_start": sqlRequestTimeEnd},
+		},
+		sq.Eq{"ce.recurrent": true},
+	}
+
+	// Create a new select builder
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.description",
+			"ce.dt_start",
+			"ce.dt_end",
+			"ce.created",
+			"ce.owner",
+			"ce.channel",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(conditions).
+		PlaceholderFormat(sq.Dollar)
+
+	querySql, _, err := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(
-		regexp.QuoteMeta(`
-			SELECT ce.id,
-			  	   ce.title,
-			  	   ce.description,
-				   ce."start",
-				   ce."end",
-				   ce.created,
-				   ce."owner",
-				   ce."channel",
-				   ce.recurrent,
-				   ce.recurrence,
-				   ce.color
-		    FROM calendar_events ce
-				 FULL JOIN calendar_members cm 
-					    ON ce.id = cm."event"
-		    WHERE (cm."user" = $1 OR ce."owner" = $2)
-				 AND (
-					  (ce."start" >= $3 AND ce."start" <= $4) 
-						  or ce.recurrent = true
-					 )
-			`),
-	).WithArgs(session.UserId, session.UserId, sqlRequestTimeStart, sqlRequestTimeEnd)
+		regexp.QuoteMeta(querySql),
+	).WithArgs(session.UserId, session.UserId, sqlRequestTimeStart, sqlRequestTimeEnd, true)
 
 	sqlEventsRow := sqlmock.NewRows([]string{
 		"id",
 		"title",
 		"description",
-		"start",
-		"end",
+		"dt_start",
+		"dt_end",
 		"created",
 		"owner",
 		"channel",

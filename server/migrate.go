@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/morph"
+	"github.com/mattermost/morph/drivers"
+	"github.com/mattermost/morph/drivers/mysql"
 	"github.com/mattermost/morph/drivers/postgres"
 	"github.com/mattermost/morph/sources"
 	"github.com/mattermost/morph/sources/embedded"
@@ -67,7 +70,14 @@ func (m *Migrator) createSource() (sources.Source, error) {
 }
 
 func (m *Migrator) migrate() *model.AppError {
-	driver, err := postgres.WithInstance(m.DB.DB, &postgres.Config{})
+	var Cdriver drivers.Driver
+	var err error
+
+	if m.DB.DriverName() == "mysql" {
+		Cdriver, err = mysql.WithInstance(m.DB.DB, &mysql.Config{})
+	} else {
+		Cdriver, err = postgres.WithInstance(m.DB.DB, &postgres.Config{})
+	}
 
 	if err != nil {
 		return CantMakeMigration
@@ -85,7 +95,7 @@ func (m *Migrator) migrate() *model.AppError {
 		morph.SetMigrationTableName("calendar_db_migrations"),
 		morph.SetStatementTimeoutInSeconds(100000),
 	}
-	engine, err := morph.New(context.Background(), driver, src, opts...)
+	engine, err := morph.New(context.Background(), Cdriver, src, opts...)
 
 	if err != nil {
 		m.plugin.API.LogError(err.Error())
@@ -103,9 +113,14 @@ func (m *Migrator) migrate() *model.AppError {
 	return nil
 }
 func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
-	rows, errSelect := m.DB.Queryx(`
-			SELECT id, recurrence FROM calendar_events WHERE recurrence LIKE '[%' and recurrent = true
-`)
+	queryBuilder := sq.Select().
+		Columns("id", "recurrence").
+		From("calendar_events").
+		Where(sq.Like{"recurrence": "[%"}).
+		Where("recurrent = true").
+		PlaceholderFormat(m.plugin.GetDBPlaceholderFormat())
+	querySql, argsSql, _ := queryBuilder.ToSql()
+	rows, errSelect := m.DB.Queryx(querySql, argsSql...)
 	if errSelect != nil {
 		m.plugin.API.LogError(errSelect.Error())
 	}
@@ -146,23 +161,27 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 		}
 		rrule := "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=" + strings.Join(recurrenceDays, ",")
 
-		_, errUpdate := m.DB.NamedExec(`UPDATE PUBLIC.calendar_events
-                                           SET recurrence = :recurrence
-                                           WHERE id = :eventId`, map[string]interface{}{
-			"recurrence": rrule,
-			"eventId":    eventDb.Id,
-		})
-		if errUpdate != nil {
+		updateQueryBuilder := sq.Update("calendar_events").
+			Set("recurrence", rrule).
+			Where(sq.Eq{"id": eventDb.Id}).
+			PlaceholderFormat(m.plugin.GetDBPlaceholderFormat())
+
+		updateQuerySql, updateArgsSql, _ := updateQueryBuilder.ToSql()
+
+		if _, errUpdate := m.DB.Queryx(updateQuerySql, updateArgsSql...); errUpdate != nil {
 			m.plugin.API.LogError(errUpdate.Error())
 			continue
 		}
 	}
 
 	// clear empty rows
-	_, errUpdate := m.DB.Exec(`UPDATE calendar_events 
-									 SET recurrence = '' 
-									 WHERE recurrence = '[]' or recurrence = 'null'`)
-	if errUpdate != nil {
+	updateEmptyBuilder := sq.Update("calendar_events").
+		Set("recurrence", "").
+		Where(sq.Or{sq.Eq{"recurrence": "[]"}, sq.Eq{"recurrence": "null"}}).
+		PlaceholderFormat(m.plugin.GetDBPlaceholderFormat())
+
+	updateEmptySql, updateEmptyArgsSql, _ := updateEmptyBuilder.ToSql()
+	if _, errUpdate := m.DB.Queryx(updateEmptySql, updateEmptyArgsSql...); errUpdate != nil {
 		m.plugin.API.LogError(errUpdate.Error())
 		return CantMakeMigration
 	}

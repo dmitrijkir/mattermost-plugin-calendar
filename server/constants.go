@@ -7,3 +7,8 @@ const (
 	DefaultColor        = "#D0D0D0"
 	DefaultSlotTime     = 15
 )
+
+const (
+	POSTGRES = "postgres"
+	MYSQL    = "mysql"
+)
