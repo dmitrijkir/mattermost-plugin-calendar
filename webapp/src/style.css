@@ -444,11 +444,23 @@ table {
     display: flex;
 }
 
+.event-visibility-input-container {
+    padding-left: 30px;
+    width: 100%;
+    display: flex;
+}
+
 .event-channel-input {
     width: 95%;
 }
 
 .event-input-channel-wrapper {
+    display: block;
+    position: relative;
+    width: 100%;
+}
+
+.event-input-visibility-wrapper {
     display: block;
     position: relative;
     width: 100%;
@@ -474,6 +486,10 @@ table {
     cursor: pointer;
 }
 
+.event-visibility-container {
+    display: flex;
+    margin-top: 15px;
+}
 .event-color-container {
     display: flex;
     margin-top: 15px;

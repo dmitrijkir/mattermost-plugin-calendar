@@ -12,3 +12,8 @@ const (
 	POSTGRES = "postgres"
 	MYSQL    = "mysql"
 )
+
+const (
+	POSTGRES = "postgres"
+	MYSQL    = "mysql"
+)

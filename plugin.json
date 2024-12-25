@@ -6,7 +6,7 @@
     "support_url": "https://github.com/dmitrijkir/mattermost-plugin-calendar/issues",
     "release_notes_url": "",
     "icon_path": "assets/starter-template-icon.svg",
-    "version": "0.5.2",
+    "version": "0.5.3",
     "min_server_version": "7.1.0",
     "server": {
         "executables": {
