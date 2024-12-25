@@ -2,6 +2,15 @@
     color: rgb(63, 67, 80);
 }
 
+#root {
+    background-color: rgba(var(--sidebar-header-bg-rgb), 1);
+}
+
+.settings-pannel-header {
+
+    color: rgba(var(--center-channel-color-rgb), 1);
+}
+
 .calendar-main-greed {
     /*padding: 20px;*/
     height: 100%;
@@ -22,7 +31,7 @@
 
 }
 
-.modal-view-event > .modal-content {
+.modal-view-event>.modal-content {
     background-color: var(--center-channel-bg) !important;
     color: var(--center-channel-bg) !important;
 }
@@ -31,7 +40,7 @@
     opacity: 0.5 !important;
 }
 
-.input-group > a {
+.input-group>a {
     display: block;
 }
 
@@ -45,7 +54,7 @@
 
 }
 
-.datetime-container > i {
+.datetime-container>i {
     color: var(--sidebar-teambar-bg);
     width: 20px;
 }
@@ -55,7 +64,7 @@
     align-items: center;
 }
 
-.event-title-container > i {
+.event-title-container>i {
     width: 20px;
 }
 
@@ -71,7 +80,7 @@
     margin-top: 15px;
 }
 
-.event-add-users-container > i {
+.event-add-users-container>i {
     color: var(--sidebar-teambar-bg);
     width: 20px;
 }
@@ -87,6 +96,7 @@
     display: flex;
     width: 100%;
 }
+
 .event-description-input-textarea {
     width: 95%;
     height: 130px;
@@ -97,7 +107,7 @@
     width: 95%;
 }
 
-.event-input-container > i {
+.event-input-container>i {
     color: var(--sidebar-teambar-bg);
 }
 
@@ -309,7 +319,7 @@
     position: relative !important;
 }
 
-.fc-day-today > .fc-scrollgrid-sync-inner::after {
+.fc-day-today>.fc-scrollgrid-sync-inner::after {
     border-top: 4px solid;
     border-color: var(--colorBrandBackground);
     box-sizing: border-box;
@@ -320,7 +330,12 @@
     width: 100%;
 }
 
+header {
+    background-color: rgba(var(--sidebar-header-bg-rgb), 1) !important;
+}
+
 /* end day header */
+/* --sidebar-header-bg-rgb: 25, 42, 77; */
 
 /* calendar now indicator */
 .fc .fc-timegrid-now-indicator-line {
@@ -374,7 +389,7 @@ table {
     flex-shrink: 1 !important;
 }
 
-.fc-col-header-cell-cushion > a {
+.fc-col-header-cell-cushion>a {
     color: var(--sidebar-text) !important;
 }
 
@@ -388,7 +403,7 @@ table {
     margin: auto;
 }
 
-.date-arrow > i {
+.date-arrow>i {
     width: 10px;
 }
 
@@ -433,7 +448,7 @@ table {
     margin-top: 15px;
 }
 
-.event-channel-container > i {
+.event-channel-container>i {
     color: var(--sidebar-teambar-bg);
     width: 20px;
 }
@@ -446,7 +461,7 @@ table {
 
 .event-visibility-input-container {
     padding-left: 30px;
-    width: 100%;
+    /* width: 100%; */
     display: flex;
 }
 
@@ -490,12 +505,13 @@ table {
     display: flex;
     margin-top: 15px;
 }
+
 .event-color-container {
     display: flex;
     margin-top: 15px;
 }
 
-.event-color-container > i {
+.event-color-container>i {
     color: var(--sidebar-teambar-bg);
     width: 20px;
 }
@@ -506,7 +522,8 @@ table {
     left: 8px;
     top: 5px;
 }
-.title-toolbar{
+
+.title-toolbar {
     position: absolute;
     top: 0;
 }
@@ -516,15 +533,13 @@ table {
     min-width: 40px !important;
 }
 
-.event-color-items {
-
-}
+.event-color-items {}
 
 .event-color-red {
     color: #D50000;
 }
 
-.event-color-red > i {
+.event-color-red>i {
     color: #D50000;
 }
 
@@ -532,7 +547,7 @@ table {
     color: #0B8043;
 }
 
-.event-color-green > i {
+.event-color-green>i {
     color: #0B8043;
 }
 
@@ -540,7 +555,7 @@ table {
     color: #039BE5;
 }
 
-.event-color-blue > i {
+.event-color-blue>i {
     color: #039BE5;
 }
 
@@ -548,7 +563,7 @@ table {
     color: #F6BF26;
 }
 
-.event-color-yellow > i {
+.event-color-yellow>i {
     color: #F6BF26;
 }
 
@@ -556,7 +571,7 @@ table {
     color: #616161;
 }
 
-.event-color-default > i {
+.event-color-default>i {
     color: #616161;
 }
 
@@ -571,7 +586,7 @@ table {
     border: unset !important;
 }
 
-.dropdown-color-button > input {
+.dropdown-color-button>input {
     visibility: hidden;
 }
 
@@ -596,9 +611,11 @@ table {
     padding-left: 53px;
     margin-top: 10px;
 }
+
 .skeleton-dropdown {
     min-width: 230px;
 }
+
 .save-button-spinner {
     padding: 3px;
 }
@@ -635,6 +652,7 @@ table {
 .time-selector {
     min-width: 100px !important;
 }
+
 /* fl ui */
 .event-input-container-datetime {
     display: flex;
@@ -645,6 +663,7 @@ table {
 .start-date-input {
     min-width: 100px;
 }
+
 .end-date-input {
     min-width: 100px;
 }

@@ -69,7 +69,7 @@ const HeaderComponent = () => {
                             />
                         }
                     >
-                        Settings
+                        <span className='settings-pannel-header'>Settings</span>
                     </DrawerHeaderTitle>
                 </DrawerHeader>
 

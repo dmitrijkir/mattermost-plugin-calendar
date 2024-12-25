@@ -35,7 +35,6 @@ const EventAlertSelect = (props: EventAlertSelectProps) => {
                         placeholder="Select alert"
                         value={alertMapping[props.selected]}
                         onOptionSelect={(event, data: SelectOptionOnChangeData) => {
-                            console.log(data);
                             props.onSelected(data.optionValue); // update the selected value
                         }}
                     >
