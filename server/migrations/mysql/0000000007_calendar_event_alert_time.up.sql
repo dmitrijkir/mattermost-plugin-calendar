@@ -1,0 +1,1 @@
+ALTER TABLE calendar_events ADD alert_time TIMESTAMP DEFAULT NULL;

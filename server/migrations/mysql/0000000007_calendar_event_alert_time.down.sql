@@ -1,0 +1,1 @@
+ALTER TABLE calendar_events DROP COLUMN alert_time;

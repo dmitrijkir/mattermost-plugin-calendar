@@ -1,0 +1,1 @@
+ALTER TABLE calendar_events ADD team VARCHAR(255) DEFAULT '' NOT NULL;

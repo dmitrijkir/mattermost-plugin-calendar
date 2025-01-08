@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"time"
+
 	sq "github.com/Masterminds/squirrel"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/teambition/rrule-go"
-	"time"
 )
 
 const wsEventOccur = "event_occur"
@@ -128,17 +129,26 @@ func (b *Background) process(t time.Time) {
 	case POSTGRES:
 		recurrentTimeQuery = sq.And{
 			sq.Eq{"ce.recurrent": true},
-			sq.Eq{"ce.dt_start::time": tickWithZone},
+			sq.Or{
+				sq.Eq{"ce.dt_start::time": tickWithZone},
+				sq.Eq{"ce.alert_time::time": tickWithZone},
+			},
 		}
 	case MYSQL:
 		recurrentTimeQuery = sq.And{
 			sq.Eq{"ce.recurrent": true},
-			sq.Eq{"TIME(ce.dt_start)": tickWithZone},
+			sq.Or{
+				sq.Eq{"TIME(ce.dt_start)": tickWithZone},
+				sq.Eq{"TIME(ce.alert_time)": tickWithZone},
+			},
 		}
 	default:
 		recurrentTimeQuery = sq.And{
 			sq.Eq{"ce.recurrent": true},
-			sq.Eq{"ce.dt_start::time": tickWithZone},
+			sq.Or{
+				sq.Eq{"ce.dt_start::time": tickWithZone},
+				sq.Eq{"ce.alert_time": tickWithZone},
+			},
 		}
 	}
 
@@ -156,6 +166,9 @@ func (b *Background) process(t time.Time) {
 			"ce.recurrence",
 			"ce.color",
 			"ce.description",
+			"ce.alert_time",
+			"ce.alert",
+			"ce.team",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -192,7 +205,6 @@ func (b *Background) process(t time.Time) {
 
 	for rows.Next() {
 		var eventDb EventFromDb
-
 		errScan := rows.StructScan(&eventDb)
 
 		if errScan != nil {
@@ -249,7 +261,18 @@ func (b *Background) process(t time.Time) {
 					eventDb.Start.Nanosecond(),
 					eventDb.Start.Location(),
 				)
+
 				eventDb.End = eventDb.Start.Add(recEventTime)
+
+				//	calc alert time for recurrent event with alert name
+				if eventDb.Alert != EventAlertNone {
+					alertDuration, ok := EventAlertDurationMap[eventDb.Alert]
+					if !ok {
+						alertDuration = 0
+					}
+					alertTime := eventDb.Start.Add(-1 * alertDuration)
+					eventDb.AlertTime = &alertTime
+				}
 			}
 
 			var att []string
@@ -269,6 +292,9 @@ func (b *Background) process(t time.Time) {
 				Recurrent:   false,
 				Color:       eventDb.Color,
 				Description: eventDb.Description,
+				Team:        eventDb.Team,
+				Alert:       eventDb.Alert,
+				AlertTime:   eventDb.AlertTime,
 			}
 
 		}

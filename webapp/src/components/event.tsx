@@ -5,7 +5,7 @@ import { Channel } from 'mattermost-redux/types/channels';
 
 import { useDispatch, useSelector } from 'react-redux';
 
-import { getCurrentTeamId } from 'mattermost-redux/selectors/entities/teams';
+import { getCurrentTeamId, getCurrentTeam } from 'mattermost-redux/selectors/entities/teams';
 import { getUserStatuses, makeGetProfilesInChannel } from 'mattermost-redux/selectors/entities/users';
 import { getTeammateNameDisplaySetting } from 'mattermost-redux/selectors/entities/preferences';
 import { getProfilesInChannel } from 'mattermost-redux/actions/users';
@@ -22,6 +22,7 @@ import {
     PersonAdd24Regular,
     Save16Regular,
     TextDescription24Regular,
+    PeopleTeam24Regular
 } from '@fluentui/react-icons';
 import {
     Button,
@@ -42,7 +43,8 @@ import {
     Spinner,
     Textarea,
     Toolbar,
-    ToolbarButton
+    ToolbarButton,
+    Tag
 } from '@fluentui/react-components';
 import { format, parse, set } from 'date-fns';
 import { InputOnChangeData } from '@fluentui/react-input';
@@ -105,6 +107,8 @@ const EventModalComponent = () => {
     const displayNameSettings = useSelector(getTeammateNameDisplaySetting);
 
     const CurrentTeamId = useSelector(getCurrentTeamId);
+    const CurrentTeam = useSelector(getCurrentTeam);
+
     const UserStatusSelector = useSelector(getUserStatuses);
     const selectedEventTime = useSelector(getSelectedEventTime);
 
@@ -639,6 +643,9 @@ const EventModalComponent = () => {
                                             </Combobox>
                                         )}
                                     </div>
+                                </div>
+                                <div className="current-team-tag">
+                                <Tag icon={<PeopleTeam24Regular />}>{CurrentTeam.display_name}</Tag>
                                 </div>
                             </div>
 

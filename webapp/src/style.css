@@ -7,7 +7,6 @@
 }
 
 .settings-pannel-header {
-
     color: rgba(var(--center-channel-color-rgb), 1);
 }
 
@@ -446,6 +445,7 @@ table {
 .event-channel-container {
     display: flex;
     margin-top: 15px;
+    align-items: center;
 }
 
 .event-channel-container>i {
@@ -455,8 +455,11 @@ table {
 
 .event-channel-input-container {
     padding-left: 30px;
-    width: 100%;
     display: flex;
+}
+
+.current-team-tag {
+    margin-left: 5px;
 }
 
 .event-visibility-input-container {
@@ -504,6 +507,7 @@ table {
 .event-visibility-container {
     display: flex;
     margin-top: 15px;
+    align-items: center;
 }
 
 .event-color-container {
@@ -592,7 +596,11 @@ table {
 
 .dropdown-color-button-listbox {
     min-width: 60px !important;
-    left: 115px !important;
+    left: 0 !important;
+}
+
+.fui-DrawerHeader {
+    background-color: var(--sys-center-channel-bg) !important;
 }
 
 .fa-sort-down-color {

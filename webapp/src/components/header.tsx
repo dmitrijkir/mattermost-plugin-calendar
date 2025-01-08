@@ -127,7 +127,7 @@ const HeaderComponent = () => {
                                     ...settings,
                                     isOpenCalendarLeftBar: !settings.isOpenCalendarLeftBar,
                                 }));
-                                CalendarRef.current.getApi().changeView(selectedView);
+                                CalendarRef.current?.getApi().changeView(selectedView);
                             }
                         }
 
@@ -144,7 +144,7 @@ const HeaderComponent = () => {
                         appearance='subtle'
                         icon={<CalendarDay20Regular/>}
                         onClick={() => {
-                            CalendarRef.current.getApi().changeView('dayGridDay');
+                            CalendarRef.current?.getApi().changeView('dayGridDay');
                             setSelectedView('dayGridDay');
                         }}
                         disabled={selectedView === 'dayGridDay'}
@@ -153,7 +153,7 @@ const HeaderComponent = () => {
                         appearance='subtle'
                         icon={<Calendar3Day20Regular/>}
                         onClick={() => {
-                            CalendarRef.current.getApi().changeView('timeGridWeek');
+                            CalendarRef.current?.getApi().changeView('timeGridWeek');
                             setSelectedView('timeGridWeek');
                         }}
                         disabled={selectedView === 'timeGridWeek'}
@@ -162,7 +162,7 @@ const HeaderComponent = () => {
                         appearance='subtle'
                         icon={<CalendarLtr20Regular/>}
                         onClick={() => {
-                            CalendarRef.current.getApi().changeView('dayGridMonth');
+                            CalendarRef.current?.getApi().changeView('dayGridMonth');
                             setSelectedView('dayGridMonth');
                         }}
                         disabled={selectedView === 'dayGridMonth'}

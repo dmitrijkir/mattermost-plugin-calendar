@@ -1,5 +1,5 @@
 import {Alert24Regular} from "@fluentui/react-icons";
-import {Combobox, Option, SelectOnChangeData} from "@fluentui/react-components";
+import {Combobox, Option} from "@fluentui/react-components";
 import React from "react";
 
 interface EventAlertSelectProps {
@@ -13,15 +13,15 @@ interface SelectOptionOnChangeData {
 
 const EventAlertSelect = (props: EventAlertSelectProps) => {
     const alertMapping: Record<string, string> = {
-        '': '',
-        '5_minutes': '5 minutes before',
-        '15_minutes': '15 minutes before',
-        '30_minutes': '30 minutes before',
-        '1_hour': '1 hour before',
-        '2_hours': '2 hours before',
-        '1_day': '1 day before',
-        '2_days': '2 days before',
-        '1_week': '1 week before',
+        '': 'Not set',
+        '5_minutes_before': '5 minutes before',
+        '15_minutes_before': '15 minutes before',
+        '30_minutes_before': '30 minutes before',
+        '1_hour_before': '1 hour before',
+        '2_hours_before': '2 hours before',
+        '1_day_before': '1 day before',
+        '2_days_before': '2 days before',
+        '1_week_before': '1 week before',
     };
 
     const availableAlerts = Object.keys(alertMapping);

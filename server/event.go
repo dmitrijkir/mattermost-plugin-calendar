@@ -489,6 +489,15 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		event.Recurrent = false
 	}
 
+	if event.Alert != EventAlertNone {
+		alertDuration, ok := EventAlertDurationMap[event.Alert]
+		if !ok {
+			alertDuration = 0
+		}
+		alertTime := event.Start.Add(-1 * alertDuration)
+		event.AlertTime = &alertTime
+	}
+
 	queryBuilder := sq.Insert("calendar_events").
 		Columns(
 			"id",
@@ -677,6 +686,15 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		event.Recurrent = true
 	} else {
 		event.Recurrent = false
+	}
+
+	if event.Alert != EventAlertNone {
+		alertDuration, ok := EventAlertDurationMap[event.Alert]
+		if !ok {
+			alertDuration = 0
+		}
+		alertTime := event.Start.Add(-1 * alertDuration)
+		event.AlertTime = &alertTime
 	}
 
 	tx, txError := p.DB.Beginx()
