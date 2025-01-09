@@ -64,12 +64,12 @@ func TestSendGroupOrPersonalEventNotification(t *testing.T) {
 		plugin: pluginT,
 	}
 
-	postForSend.SetProps(background.getMessageProps(testEvent))
+	postForSend.SetProps(background.getMessageProps(testEvent, time.Now()))
 
 	api.On("GetDirectChannel", testEvent.Owner, botId).Return(foundChannel, nil)
 	api.On("CreatePost", postForSend).Return(nil, nil)
 
-	background.sendGroupOrPersonalEventNotification(testEvent)
+	background.sendGroupOrPersonalEventNotification(testEvent, time.Now())
 	api.AssertExpectations(t)
 
 }
@@ -128,11 +128,11 @@ func TestSendGroupOrPersonalEventGroupNotification(t *testing.T) {
 		plugin: pluginT,
 	}
 
-	postForSend.SetProps(background.getMessageProps(testEvent))
+	postForSend.SetProps(background.getMessageProps(testEvent, time.Now()))
 
 	api.On("CreatePost", postForSend).Return(nil, nil)
 
-	background.sendGroupOrPersonalEventNotification(testEvent)
+	background.sendGroupOrPersonalEventNotification(testEvent, time.Now())
 
 	api.AssertExpectations(t)
 }
@@ -212,7 +212,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		Attendees: []string{"user-Id"},
 	}
 
-	postForSendChannel.SetProps(background.getMessageProps(testEvent))
+	postForSendChannel.SetProps(background.getMessageProps(testEvent, time.Now()))
 
 	recurrentTimeQuery := sq.And{
 		sq.Eq{"ce.recurrent": true},
@@ -244,6 +244,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		Where(sq.And{
 			sq.Or{
 				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
 			sq.Or{
@@ -255,7 +256,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
-		WithArgs(sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
+		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
@@ -397,7 +398,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		Attendees: []string{"user-Id"},
 	}
 
-	postForSendChannel.SetProps(background.getMessageProps(testEvent))
+	postForSendChannel.SetProps(background.getMessageProps(testEvent, time.Now()))
 
 	recurrentTimeQuery := sq.And{
 		sq.Eq{"ce.recurrent": true},
@@ -429,6 +430,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		Where(sq.And{
 			sq.Or{
 				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
 			sq.Or{
@@ -440,7 +442,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
-		WithArgs(sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
+		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
@@ -581,7 +583,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		Attendees: []string{"user-Id"},
 	}
 
-	postForSendChannel.SetProps(background.getMessageProps(testEvent))
+	postForSendChannel.SetProps(background.getMessageProps(testEvent, time.Now()))
 
 	recurrentTimeQuery := sq.And{
 		sq.Eq{"ce.recurrent": true},
@@ -613,6 +615,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		Where(sq.And{
 			sq.Or{
 				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
 			sq.Or{
@@ -624,7 +627,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
-		WithArgs(sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
+		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
@@ -746,7 +749,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		Attendees: []string{"user-id"},
 	}
 
-	postForSendGroup.SetProps(background.getMessageProps(testEvent))
+	postForSendGroup.SetProps(background.getMessageProps(testEvent, time.Now()))
 
 	api.On("CreatePost", postForSendGroup).Return(nil, nil)
 
@@ -780,6 +783,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		Where(sq.And{
 			sq.Or{
 				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
 			sq.Or{
@@ -792,6 +796,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
 		WithArgs(
+			sqlQueryTime,
 			sqlQueryTime,
 			true,
 			sqlQueryTime,
@@ -926,7 +931,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		Attendees: []string{"user-Id"},
 	}
 
-	postForSendChannel.SetProps(background.getMessageProps(testEvent))
+	postForSendChannel.SetProps(background.getMessageProps(testEvent, time.Now()))
 
 	recurrentTimeQuery := sq.And{
 		sq.Eq{"ce.recurrent": true},
@@ -958,6 +963,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		Where(sq.And{
 			sq.Or{
 				sq.Eq{"ce.dt_start": sqlQueryTime},
+				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
 			sq.Or{
@@ -971,6 +977,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 	expectedQuery := dbMock.ExpectQuery(
 		regexp.QuoteMeta(querySql)).
 		WithArgs(
+			sqlQueryTime,
 			sqlQueryTime,
 			true,
 			sqlQueryTime,
@@ -1050,7 +1057,7 @@ func TestWSSendNotification(t *testing.T) {
 		plugin: pluginT,
 	}
 
-	background.sendWsNotification(testEvent)
+	background.sendWsNotification(testEvent, time.Now())
 
 	api.AssertExpectations(t)
 }

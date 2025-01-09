@@ -32,10 +32,18 @@ func (b *Background) Stop() {
 	b.Done <- true
 }
 
-func (b *Background) getMessageFromEvent(event *Event) string {
+func (b *Background) getMessageFromEvent(event *Event, processTime time.Time) string {
 	message := ""
-	message += fmt.Sprintf(":dart: *%s* :dart:\n", event.Title)
 
+	if event.AlertTime != nil && processTime.Equal(*event.AlertTime) {
+		alertTitle, ok := EventAlertTitleMap[event.Alert]
+		if !ok {
+			alertTitle = ""
+		}
+		message += fmt.Sprintf(":alarm_clock: **%s** *%s* :alarm_clock:\n", alertTitle, event.Title)
+	} else {
+		message += fmt.Sprintf(":dart: *%s* :dart:\n", event.Title)
+	}
 	if len(event.Attendees) > 0 {
 		members := ""
 		for _, member := range event.Attendees {
@@ -57,7 +65,7 @@ func (b *Background) getMessageFromEvent(event *Event) string {
 	return message
 }
 
-func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
+func (b *Background) sendGroupOrPersonalEventNotification(event *Event, processTime time.Time) {
 	var attendees []string
 
 	attendees = append(attendees, event.Attendees...)
@@ -72,7 +80,7 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 			UserId:    b.plugin.BotId,
 			ChannelId: dChannel.Id,
 		}
-		postModel.SetProps(b.getMessageProps(event))
+		postModel.SetProps(b.getMessageProps(event, processTime))
 		_, postCreateError := b.plugin.API.CreatePost(postModel)
 		if postCreateError != nil {
 			b.plugin.API.LogError(postCreateError.Error())
@@ -99,7 +107,7 @@ func (b *Background) sendGroupOrPersonalEventNotification(event *Event) {
 		ChannelId: foundChannel.Id,
 	}
 
-	postModel.SetProps(b.getMessageProps(event))
+	postModel.SetProps(b.getMessageProps(event, processTime))
 
 	if _, postCreateError := b.plugin.API.CreatePost(postModel); postCreateError != nil {
 		b.plugin.API.LogError(postCreateError.Error())
@@ -147,7 +155,7 @@ func (b *Background) process(t time.Time) {
 			sq.Eq{"ce.recurrent": true},
 			sq.Or{
 				sq.Eq{"ce.dt_start::time": tickWithZone},
-				sq.Eq{"ce.alert_time": tickWithZone},
+				sq.Eq{"ce.alert_time::time": tickWithZone},
 			},
 		}
 	}
@@ -175,6 +183,7 @@ func (b *Background) process(t time.Time) {
 		Where(sq.And{
 			sq.Or{
 				sq.Eq{"ce.dt_start": tickWithZone},
+				sq.Eq{"ce.alert_time": tickWithZone},
 				recurrentTimeQuery,
 			},
 			sq.Or{
@@ -300,15 +309,16 @@ func (b *Background) process(t time.Time) {
 		}
 	}
 
+	// send notifications, create posts and update processed field
 	for _, value := range events {
-		b.sendWsNotification(value)
+		b.sendWsNotification(value, tickWithZone)
 		if value.Channel != nil {
 			postModel := &model.Post{
 				ChannelId: *value.Channel,
 				UserId:    b.plugin.BotId,
 			}
 
-			postModel.SetProps(b.getMessageProps(value))
+			postModel.SetProps(b.getMessageProps(value, tickWithZone))
 			_, postErr := b.plugin.API.CreatePost(postModel)
 			if postErr != nil {
 				b.plugin.API.LogError(postErr.Error())
@@ -316,7 +326,7 @@ func (b *Background) process(t time.Time) {
 			}
 
 		} else {
-			b.sendGroupOrPersonalEventNotification(value)
+			b.sendGroupOrPersonalEventNotification(value, tickWithZone)
 		}
 
 		updateBuilder := sq.Update("calendar_events").
@@ -338,7 +348,7 @@ func (b *Background) process(t time.Time) {
 
 }
 
-func (b *Background) sendWsNotification(event *Event) {
+func (b *Background) sendWsNotification(event *Event, processTime time.Time) {
 	var attendees []string
 
 	attendees = append(attendees, event.Attendees...)
@@ -357,14 +367,14 @@ func (b *Background) sendWsNotification(event *Event) {
 	}
 
 }
-func (b *Background) getMessageProps(event *Event) model.StringInterface {
+func (b *Background) getMessageProps(event *Event, processTime time.Time) model.StringInterface {
 	color := DefaultColor
 	if event.Color == nil {
 		event.Color = &color
 	}
 
 	slackAttachment := model.SlackAttachment{
-		Text:  b.getMessageFromEvent(event),
+		Text:  b.getMessageFromEvent(event, processTime),
 		Color: *event.Color,
 	}
 

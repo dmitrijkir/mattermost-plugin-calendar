@@ -38,6 +38,18 @@ var EventAlertDurationMap = map[EventAlert]time.Duration{
 	EventAlert1WeekBefore:     7 * 24 * time.Hour,
 }
 
+var EventAlertTitleMap = map[EventAlert]string{
+	EventAlertNone:            "None",
+	EventAlert5MinutesBefore:  "5 minutes before",
+	EventAlert15MinutesBefore: "15 minutes before",
+	EventAlert30MinutesBefore: "30 minutes before",
+	EventAlert1HourBefore:     "1 hour before",
+	EventAlert2HoursBefore:    "2 hours before",
+	EventAlert1DayBefore:      "1 day before",
+	EventAlert2DaysBefore:     "2 days before",
+	EventAlert1WeekBefore:     "1 week before",
+}
+
 // UnmarshalJSON custom EventAlert unmarshaling
 func (e *EventAlert) UnmarshalJSON(b []byte) error {
 	var s string
