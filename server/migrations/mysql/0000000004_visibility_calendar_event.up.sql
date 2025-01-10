@@ -1,0 +1,1 @@
+ALTER TABLE calendar_events ADD visibility VARCHAR(255) DEFAULT 'private' NOT NULL;

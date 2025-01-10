@@ -2,10 +2,9 @@
 
 ## Parameters
 
-| name       | type     | data type | description | example                                 |
-|------------|----------|-----------|-------------|-----------------------------------------|
-| eventId    | required | string    | N/A         | "a8639bf2-9467-44b9-b797-7bf1004d2ffc"  |
-
+| name    | type     | data type | description | example                                |
+|---------|----------|-----------|-------------|----------------------------------------|
+| eventId | required | string    | N/A         | "a8639bf2-9467-44b9-b797-7bf1004d2ffc" |
 
 ## Response Event Object
 
@@ -19,15 +18,18 @@
 | channel    | optional | string    | N/A         | 516netffp7dgxx6denw6tbk9br             |
 | recurrence | required | string    | N/A         | ""                                     |
 | created    | required | datetime  | N/A         | 2023-01-28T20:09:40.829475047Z         |
+| color      | optional | string    | N/A         | #D0D0D0                                |
 | owner      | required | string    | N/A         | sh9d5kji7tf49echstq79dm36r             |
-
+| team       | optional | string    | N/A         | 516netffp7dgxx6denw6tbk9br             |
+| alert      | optional | string    | N/A         | 5_minutes_before                       |
+| visibility | optional | string    | N/A         | private                                |
 
 ## Example cURL
 
 ```javascript
-  curl 'http://localhost:8065/plugins/com.dmkir.calendar/event?eventId=316c4857-def9-4fe9-afd1-7b13308d65a7'
+  curl
+'http://localhost:8065/plugins/com.dmkir.calendar/event?eventId=316c4857-def9-4fe9-afd1-7b13308d65a7'
  ```
-
 
 ## Example response
 

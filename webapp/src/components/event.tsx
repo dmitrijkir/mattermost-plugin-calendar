@@ -1,17 +1,18 @@
-import React, {useEffect, useState} from 'react';
-import {Client4} from 'mattermost-redux/client';
-import {UserProfile} from 'mattermost-redux/types/users';
-import {Channel} from 'mattermost-redux/types/channels';
+import React, { useEffect, useState } from 'react';
+import { Client4 } from 'mattermost-redux/client';
+import { UserProfile } from 'mattermost-redux/types/users';
+import { Channel } from 'mattermost-redux/types/channels';
 
-import {useDispatch, useSelector} from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 
-import {getCurrentTeamId} from 'mattermost-redux/selectors/entities/teams';
-import {getUserStatuses, makeGetProfilesInChannel} from 'mattermost-redux/selectors/entities/users';
-import {getTeammateNameDisplaySetting} from 'mattermost-redux/selectors/entities/preferences';
-import {getProfilesInChannel} from 'mattermost-redux/actions/users';
+import { getCurrentTeamId, getCurrentTeam } from 'mattermost-redux/selectors/entities/teams';
+import { getUserStatuses, makeGetProfilesInChannel } from 'mattermost-redux/selectors/entities/users';
+import { getTeammateNameDisplaySetting } from 'mattermost-redux/selectors/entities/preferences';
+import { getProfilesInChannel } from 'mattermost-redux/actions/users';
 
 // importing the editor and the plugin from their full paths
 import {
+    Eye24Regular,
     ChatMultiple24Regular,
     Circle20Filled,
     Clock24Regular,
@@ -20,7 +21,8 @@ import {
     Pen24Regular,
     PersonAdd24Regular,
     Save16Regular,
-    TextDescription24Regular
+    TextDescription24Regular,
+    PeopleTeam24Regular
 } from '@fluentui/react-icons';
 import {
     Button,
@@ -41,24 +43,33 @@ import {
     Spinner,
     Textarea,
     Toolbar,
-    ToolbarButton
+    ToolbarButton,
+    Tag,
+    useId,
+    Toast,
+    ToastIntent,
+    ToastTitle,
+    useToastController,
+    Toaster
 } from '@fluentui/react-components';
-import {format, parse} from 'date-fns';
-import {InputOnChangeData} from '@fluentui/react-input';
+import { format, parse, set } from 'date-fns';
+import { InputOnChangeData } from '@fluentui/react-input';
 
 import roundToNearestMinutes from 'date-fns/roundToNearestMinutes';
 
-import {GlobalState} from 'mattermost-redux/types/store';
+import { GlobalState } from 'mattermost-redux/types/store';
 
-import {closeEventModal, eventSelected, updateMembersAddedInEvent, updateSelectedEventTime} from 'actions';
-import {getMembersAddedInEvent, getSelectedEventTime, selectIsOpenEventModal, selectSelectedEvent} from 'selectors';
-import {ApiClient} from 'client';
+import { closeEventModal, eventSelected, updateMembersAddedInEvent, updateSelectedEventTime } from 'actions';
+import { getMembersAddedInEvent, getSelectedEventTime, selectIsOpenEventModal, selectSelectedEvent } from 'selectors';
+import { ApiClient } from 'client';
 
 import RepeatEventCustom from './repeat-event';
 
 import CalendarRef from './calendar';
 import TimeSelector from './time-selector';
 import PlanningAssistant from './planning-assistant';
+import EventAlertSelect from "./alert-input";
+import VisibilitySelect from './visibility-input';
 
 interface AddedUserComponentProps {
     user: UserProfile
@@ -102,6 +113,8 @@ const EventModalComponent = () => {
     const displayNameSettings = useSelector(getTeammateNameDisplaySetting);
 
     const CurrentTeamId = useSelector(getCurrentTeamId);
+    const CurrentTeam = useSelector(getCurrentTeam);
+
     const UserStatusSelector = useSelector(getUserStatuses);
     const selectedEventTime = useSelector(getSelectedEventTime);
 
@@ -121,12 +134,15 @@ const EventModalComponent = () => {
 
     const [searchUsersInput, setSearchUsersInput] = useState('');
 
+    const [selectedAlert, setSelectedAlert] = useState('');
     const [selectedColor, setSelectedColor] = useState('#D0D0D0');
     const [selectedColorStyle, setSelectedColorStyle] = useState('event-color-default');
 
     const [channelsAutocomplete, setChannelsAutocomplete] = useState<Channel[]>([]);
     const [selectedChannel, setSelectedChannel] = useState({});
     const [selectedChannelText, setSelectedChannelText] = useState('');
+
+    const [selectedVisibility, setSelectedVisibility] = useState('private')
 
     const [isPlanningAssistantOpen, setIsPlanningAssistantOpen] = useState(false);
     const inputEventTitleRef = React.useRef<HTMLInputElement>(null);
@@ -144,6 +160,9 @@ const EventModalComponent = () => {
     const [showCustomRepeat, setShowCustomRepeat] = useState(false);
     const [repeatOption, setRepeatOption] = useState("Don't repeat");
     const [repeatOptionsSelected, setRepeatOptionsSelected] = useState(['empty']);
+
+    const toasterId = useId("toasterEventForm");
+    const { dispatchToast } = useToastController(toasterId);
 
     // methods
     const viewEventModalHandleClose = () => {
@@ -181,6 +200,9 @@ const EventModalComponent = () => {
         setSelectedChannel({});
         dispatch(updateMembersAddedInEvent([]));
         setSelectedColor('#D0D0D0');
+
+        setSelectedVisibility('private');
+        setSelectedAlert('');
     };
 
     const onTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,11 +210,11 @@ const EventModalComponent = () => {
     };
 
     const onStartDateChange = (event: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
-        dispatch(updateSelectedEventTime({start: parse(data.value, 'yyyy-MM-dd', new Date())}));
+        dispatch(updateSelectedEventTime({ start: parse(data.value, 'yyyy-MM-dd', new Date()) }));
     };
 
     const onEndDateChange = (event: React.ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
-        dispatch(updateSelectedEventTime({end: parse(data.value, 'yyyy-MM-dd', new Date())}));
+        dispatch(updateSelectedEventTime({ end: parse(data.value, 'yyyy-MM-dd', new Date()) }));
     };
 
     const onInputUserAction = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,6 +247,18 @@ const EventModalComponent = () => {
     };
 
     const onSaveEvent = async () => {
+
+        if (selectedVisibility === "channel" && Object.keys(selectedChannel).length === 0) {
+            dispatchToast(
+                <Toast>
+                    <ToastTitle></ToastTitle>
+                    {'You selected channel visibility but you didn\'t select a channel'} 
+                </Toast>,
+                { intent: 'error' }
+            );
+            return;
+        }
+
         const members: string[] = usersAddedInEvent.map((user: UserProfile) => user.id);
         let repeat = '';
         if (repeatOption === 'Custom') {
@@ -238,9 +272,12 @@ const EventModalComponent = () => {
                 format(selectedEventTime.end, 'yyyy-MM-dd') + 'T' + selectedEventTime.endTime + ':00Z',
                 members,
                 descriptionEvent,
+                CurrentTeamId,
+                selectedVisibility,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                 repeat,
                 selectedColor,
+                selectedAlert,
             );
             CalendarRef.current.getApi().getEventSources()[0].refetch();
             cleanState();
@@ -253,9 +290,12 @@ const EventModalComponent = () => {
                 format(selectedEventTime.end, 'yyyy-MM-dd') + 'T' + selectedEventTime.endTime + ':00Z',
                 members,
                 descriptionEvent,
+                CurrentTeamId,
+                selectedVisibility,
                 Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                 repeat,
                 selectedColor,
+                selectedAlert,
             );
             CalendarRef.current.getApi().getEventSources()[0].refetch();
             cleanState();
@@ -306,6 +346,8 @@ const EventModalComponent = () => {
 
                 setSelectedColor(data.data.color!);
                 setSelectedColorStyle(colorsMap[data.data.color!]);
+                setSelectedVisibility(data.data.visibility);
+                setSelectedAlert(data.data.alert);
 
                 if (data.data.recurrence.length !== 0) {
                     setRepeatRule(data.data.recurrence);
@@ -369,8 +411,8 @@ const EventModalComponent = () => {
         return (<span className='added-user-badge-container'>
             <Persona
                 name={getDisplayUserName(props.user)}
-                avatar={{color: 'colorful'}}
-                presence={{status: stat}}
+                avatar={{ color: 'colorful' }}
+                presence={{ status: stat }}
             />
             <Dismiss12Regular
                 className='added-user-badge-icon-container'
@@ -387,7 +429,7 @@ const EventModalComponent = () => {
             return (<div className='added-users-list'>
                 {
                     usersAddedInEvent.map((user: UserProfile) => {
-                        return <AddedUserComponent user={user}/>;
+                        return <AddedUserComponent user={user} />;
                     })
                 }
             </div>);
@@ -400,7 +442,7 @@ const EventModalComponent = () => {
             return (<DialogActions position='star'>
                 <Button
                     appearance='outline'
-                    icon={<Delete16Regular/>}
+                    icon={<Delete16Regular />}
                     onClick={onRemoveEvent}
                 >
                     {'Remove'}
@@ -436,15 +478,15 @@ const EventModalComponent = () => {
             <Dialog open={isOpenEventModal}>
                 <DialogSurface>
                     <DialogBody className='event-modal'>
-                        <DialogTitle className='event-modal-title'/>
+                        <DialogTitle className='event-modal-title' />
                         <DialogContent className='modal-container'>
                             <div className='event-color-button'>
                                 <Combobox
                                     onOptionSelect={onSelectColor}
                                     className={`dropdown-color-button ${selectedColorStyle}`}
-                                    style={{color: selectedColor, borderColor: 'unset'}}
+                                    style={{ color: selectedColor, borderColor: 'unset' }}
                                     defaultSelectedOptions={['default']}
-                                    expandIcon={<Circle20Filled className={selectedColorStyle}/>}
+                                    expandIcon={<Circle20Filled className={selectedColorStyle} />}
                                     width='50px'
                                     listbox={{
                                         className: 'dropdown-color-button-listbox',
@@ -455,35 +497,35 @@ const EventModalComponent = () => {
                                         text='default'
                                         className='event-color-items event-color-default'
                                     >
-                                        <i className='icon fa fa-circle'/>
+                                        <i className='icon fa fa-circle' />
                                     </Option>
                                     <Option
                                         key='default'
                                         text='#F2B3B3'
                                         className='event-color-items event-color-red'
                                     >
-                                        <i className='icon fa fa-circle'/>
+                                        <i className='icon fa fa-circle' />
                                     </Option>
                                     <Option
                                         key='default'
                                         text='#FCECBE'
                                         className='event-color-items event-color-yellow'
                                     >
-                                        <i className='icon fa fa-circle'/>
+                                        <i className='icon fa fa-circle' />
                                     </Option>
                                     <Option
                                         key='default'
                                         text='#B6D9C7'
                                         className='event-color-items event-color-green'
                                     >
-                                        <i className='icon fa fa-circle'/>
+                                        <i className='icon fa fa-circle' />
                                     </Option>
                                     <Option
                                         key='default'
                                         text='#B3E1F7'
                                         className='event-color-items event-color-blue'
                                     >
-                                        <i className='icon fa fa-circle'/>
+                                        <i className='icon fa fa-circle' />
                                     </Option>
                                 </Combobox>
                             </div>
@@ -499,10 +541,10 @@ const EventModalComponent = () => {
                                 </Toolbar>
                             </div>
                             <div className='event-title-container'>
-                                <Pen24Regular/>
+                                <Pen24Regular />
                                 <div className='event-input-container'>
                                     {isLoading ? (<Skeleton className='event-input-title'>
-                                        <SkeletonItem/>
+                                        <SkeletonItem />
                                     </Skeleton>) : (<Input
                                         ref={inputEventTitleRef}
                                         type='text'
@@ -517,11 +559,11 @@ const EventModalComponent = () => {
                                 </div>
                             </div>
                             <div className='datetime-container'>
-                                <Clock24Regular/>
+                                <Clock24Regular />
                                 <div className='event-input-container-datetime event-input-container'>
                                     <div className='datetime-group'>
                                         {isLoading ? (<Skeleton className='start-date-input'>
-                                            <SkeletonItem/>
+                                            <SkeletonItem />
                                         </Skeleton>) : (<Input
                                             type='date'
                                             className='start-date-input'
@@ -530,19 +572,19 @@ const EventModalComponent = () => {
                                         />)}
 
                                         {isLoading ? (<Skeleton className='start-date-input'>
-                                            <SkeletonItem/>
+                                            <SkeletonItem />
                                         </Skeleton>) : (<TimeSelector
                                             selected={selectedEventTime.startTime}
-                                            onSelect={(value) => dispatch(updateSelectedEventTime({startTime: value}))}
+                                            onSelect={(value) => dispatch(updateSelectedEventTime({ startTime: value }))}
                                         />)}
 
                                     </div>
                                     <div className='datetime-group datetime-group-end'>
                                         {isLoading ? (
-                                                <Skeleton className='end-date-input'>
-                                                    <SkeletonItem/>
-                                                </Skeleton>
-                                            ) :
+                                            <Skeleton className='end-date-input'>
+                                                <SkeletonItem />
+                                            </Skeleton>
+                                        ) :
                                             (<Input
                                                 type='date'
                                                 className='end-date-input'
@@ -550,10 +592,10 @@ const EventModalComponent = () => {
                                                 onChange={onEndDateChange}
                                             />)}
                                         {isLoading ? (<Skeleton className='end-date-input'>
-                                            <SkeletonItem/>
+                                            <SkeletonItem />
                                         </Skeleton>) : (<TimeSelector
                                             selected={selectedEventTime.endTime}
-                                            onSelect={(value) => dispatch(updateSelectedEventTime({endTime: value}))}
+                                            onSelect={(value) => dispatch(updateSelectedEventTime({ endTime: value }))}
                                         />)}
 
                                     </div>
@@ -562,8 +604,8 @@ const EventModalComponent = () => {
                             </div>
                             <div className='repeat-container'>
                                 {isLoading ? (<Skeleton className='skeleton-dropdown'>
-                                        <SkeletonItem/>
-                                    </Skeleton>) :
+                                    <SkeletonItem />
+                                </Skeleton>) :
                                     (
                                         <Combobox
                                             onOptionSelect={repeatOnSelect}
@@ -584,16 +626,16 @@ const EventModalComponent = () => {
                                             </Option>
                                         </Combobox>
                                     )}
-                                <RepeatComponent/>
+                                <RepeatComponent />
                             </div>
 
                             <div className='event-channel-container'>
-                                <ChatMultiple24Regular/>
+                                <ChatMultiple24Regular />
                                 <div className='event-channel-input-container'>
                                     <div className='event-input-channel-wrapper'>
                                         {isLoading ? (
                                             <Skeleton className='skeleton-dropdown'>
-                                                <SkeletonItem/>
+                                                <SkeletonItem />
                                             </Skeleton>
                                         ) : (
                                             <Combobox
@@ -623,14 +665,43 @@ const EventModalComponent = () => {
                                         )}
                                     </div>
                                 </div>
+                                <div className="current-team-tag">
+                                <Tag icon={<PeopleTeam24Regular />}>{CurrentTeam.display_name}</Tag>
+                                </div>
                             </div>
 
+                            {
+                                isLoading ?
+                                    <Skeleton className='skeleton-dropdown'>
+                                        <SkeletonItem />
+                                    </Skeleton>
+                                    :
+                                    <VisibilitySelect
+                                        selected={selectedVisibility}
+                                        onSelected={(selected) => setSelectedVisibility(selected)}
+                                    />
+                            }
+
+                            {
+                                isLoading ?
+                                    <Skeleton className='skeleton-dropdown'>
+                                        <SkeletonItem />
+                                    </Skeleton>
+                                    :
+                                    <EventAlertSelect
+                                        selected={selectedAlert}
+                                        onSelected={(selected) => setSelectedAlert(selected)}
+                                    />
+                            }
+
+
+
                             <div className='event-add-users-container'>
-                                <PersonAdd24Regular/>
+                                <PersonAdd24Regular />
                                 <div className='event-input-container'>
                                     <div className='event-input-users-wrapper'>
                                         {isLoading ? (<Skeleton className='skeleton-dropdown'>
-                                            <SkeletonItem/>
+                                            <SkeletonItem />
                                         </Skeleton>) : (<Combobox
                                             placeholder='Select a user'
                                             checked={false}
@@ -662,7 +733,7 @@ const EventModalComponent = () => {
                                                             name={getDisplayUserName(user)}
                                                             className='user-list-item'
                                                             as='div'
-                                                            presence={{status: stat}}
+                                                            presence={{ status: stat }}
                                                         />
                                                     </Option>);
                                                 })}
@@ -694,13 +765,13 @@ const EventModalComponent = () => {
                                 </div>
                             </div>
                             <div className='users-added-container'>
-                                <UsersAddedComponent/>
+                                <UsersAddedComponent />
                             </div>
 
                             <div className='event-description-container'>
-                                <TextDescription24Regular/>
+                                <TextDescription24Regular />
                                 <div className='event-description-input-container'>
-                                    {isLoading ? (<Skeleton className='event-description-input-textarea'><SkeletonItem/></Skeleton>) :
+                                    {isLoading ? (<Skeleton className='event-description-input-textarea'><SkeletonItem /></Skeleton>) :
                                         <Textarea
                                             placeholder='Add description'
                                             className='event-description-input-textarea'
@@ -711,8 +782,9 @@ const EventModalComponent = () => {
                                 </div>
 
                             </div>
+                            <Toaster toasterId={toasterId} />
                         </DialogContent>
-                        <RemoveEventButton/>
+                        <RemoveEventButton />
                         <DialogActions position='end'>
                             <DialogTrigger disableButtonEnhancement={true}>
                                 <Button
@@ -726,7 +798,7 @@ const EventModalComponent = () => {
                             <Button
                                 appearance='primary'
                                 onClick={onSaveEvent}
-                                icon={isSaving ? (<Spinner size='tiny'/>) : (<Save16Regular/>)}
+                                icon={isSaving ? (<Spinner size='tiny' />) : (<Save16Regular />)}
                                 disabled={isSaving}
                             >
                                 {'Save'}

@@ -5,11 +5,67 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/teambition/rrule-go"
 	"net/http"
+	"sync"
 	time "time"
 )
+
+func (p *Plugin) GetUserTeams(userId string) ([]string, *model.AppError) {
+	teams, err := p.API.GetTeamsForUser(userId)
+
+	if err != nil {
+		p.API.LogError(err.Error())
+		return nil, UserNotFound
+	}
+
+	teamIds := make([]string, len(teams))
+
+	for i, team := range teams {
+		teamIds[i] = team.Id
+	}
+
+	return teamIds, nil
+}
+
+func (p *Plugin) GetUserChannels(userId string) ([]string, *model.AppError) {
+	condition := sq.Eq{"userid": userId}
+
+	queryBuilder := sq.Select().
+		Columns("channelid").
+		From("channelmembers").
+		Where(condition).
+		PlaceholderFormat(p.GetDBPlaceholderFormat())
+
+	querySql, args, err := queryBuilder.ToSql()
+
+	if err != nil {
+		p.API.LogError(err.Error())
+		return nil, SomethingWentWrong
+	}
+	rows, errSelect := p.DB.Queryx(querySql, args...)
+
+	if errSelect != nil {
+		p.API.LogError(errSelect.Error())
+		return nil, SomethingWentWrong
+	}
+
+	var channels []string
+
+	for rows.Next() {
+		var channel string
+		errScan := rows.Scan(&channel)
+		if errScan != nil {
+			p.API.LogError(errScan.Error())
+			continue
+		}
+		channels = append(channels, channel)
+	}
+
+	return channels, nil
+}
 
 // GetUserEventsUTC returns user events in UTC timezone
 // start and end are in format EventDateTimeLayout in UTC timezone
@@ -21,14 +77,19 @@ func (p *Plugin) GetUserEventsUTC(
 ) ([]Event, *model.AppError) {
 	var events []Event
 
-	conditions := sq.Or{
-		sq.Eq{"cm.member": userId},
-		sq.Eq{"ce.owner": userId},
-		sq.And{
-			sq.GtOrEq{"ce.dt_start": start},
-			sq.LtOrEq{"ce.dt_start": end},
+	conditions := sq.And{
+		sq.Or{
+			sq.Eq{"cm.member": userId},
+			sq.Eq{"ce.owner": userId},
+			sq.NotEq{"ce.visibility": string(VisibilityPrivate)},
 		},
-		sq.Eq{"ce.recurrent": true},
+		sq.Or{
+			sq.And{
+				sq.GtOrEq{"ce.dt_start": start},
+				sq.LtOrEq{"ce.dt_start": end},
+			},
+			sq.Eq{"ce.recurrent": true},
+		},
 	}
 
 	// Create a new select builder
@@ -45,6 +106,10 @@ func (p *Plugin) GetUserEventsUTC(
 			"ce.recurrent",
 			"ce.recurrence",
 			"ce.color",
+			"ce.team",
+			"ce.visibility",
+			"ce.alert",
+			"ce.alert_time",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -55,7 +120,32 @@ func (p *Plugin) GetUserEventsUTC(
 		p.API.LogError(err.Error())
 		return nil, SomethingWentWrong
 	}
-	rows, errSelect := p.DB.Queryx(querySql, args...)
+
+	var rows *sqlx.Rows
+	var errSelect error
+	var userTeams []string
+	var userChannels []string
+
+	var wg sync.WaitGroup
+
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		rows, errSelect = p.DB.Queryx(querySql, args...)
+	}()
+
+	go func() {
+		defer wg.Done()
+		userTeams, _ = p.GetUserTeams(userId)
+	}()
+
+	go func() {
+		defer wg.Done()
+		userChannels, _ = p.GetUserChannels(userId)
+	}()
+
+	wg.Wait()
 
 	if errSelect != nil {
 		p.API.LogError(errSelect.Error())
@@ -86,6 +176,18 @@ func (p *Plugin) GetUserEventsUTC(
 		if userLocation != nil {
 			eventDb.Start = eventDb.Start.In(userLocation)
 			eventDb.End = eventDb.End.In(userLocation)
+		}
+
+		if eventDb.Visibility == VisibilityChannel && eventDb.Channel == nil {
+			continue
+		}
+
+		if eventDb.Visibility == VisibilityChannel && !contains[string](userChannels, *eventDb.Channel) {
+			continue
+		}
+
+		if eventDb.Visibility == VisibilityTeam && !contains[string](userTeams, eventDb.Team) {
+			continue
 		}
 
 		if eventDb.Recurrent {
@@ -194,6 +296,10 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 			"ce.recurrence",
 			"ce.color",
 			"ce.description",
+			"ce.visibility",
+			"ce.team",
+			"ce.alert",
+			"ce.alert_time",
 			"cm.member",
 		).
 		From("calendar_events ce").
@@ -251,6 +357,10 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 		Channel:     eventDb.Channel,
 		Recurrence:  eventDb.Recurrence,
 		Color:       eventDb.Color,
+		Team:        eventDb.Team,
+		Visibility:  eventDb.Visibility,
+		Alert:       eventDb.Alert,
+		AlertTime:   eventDb.AlertTime,
 	}
 
 	userLoc := p.GetUserLocation(user)
@@ -335,6 +445,12 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if event.Visibility == VisibilityChannel && event.Channel == nil {
+		p.API.LogError("Channel is required for channel visibility")
+		errorResponse(w, CantCreateEvent)
+		return
+	}
+
 	event.Id = uuid.New().String()
 
 	event.Created = time.Now().UTC()
@@ -373,6 +489,15 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		event.Recurrent = false
 	}
 
+	if event.Alert != EventAlertNone {
+		alertDuration, ok := EventAlertDurationMap[event.Alert]
+		if !ok {
+			alertDuration = 0
+		}
+		alertTime := event.Start.Add(-1 * alertDuration)
+		event.AlertTime = &alertTime
+	}
+
 	queryBuilder := sq.Insert("calendar_events").
 		Columns(
 			"id",
@@ -386,6 +511,10 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			"recurrent",
 			"recurrence",
 			"color",
+			"visibility",
+			"team",
+			"alert",
+			"alert_time",
 		).
 		Values(
 			event.Id,
@@ -399,6 +528,10 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			event.Recurrent,
 			event.Recurrence,
 			event.Color,
+			event.Visibility,
+			event.Team,
+			event.Alert,
+			event.AlertTime,
 		).PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	// Prepare the SQL query
@@ -516,6 +649,12 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if event.Visibility == VisibilityChannel && event.Channel == nil {
+		p.API.LogError("Channel is required for channel visibility")
+		errorResponse(w, CantUpdateEvent)
+		return
+	}
+
 	loc := p.GetUserLocation(user)
 
 	startDateInLocalTimeZone := time.Date(
@@ -549,6 +688,15 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		event.Recurrent = false
 	}
 
+	if event.Alert != EventAlertNone {
+		alertDuration, ok := EventAlertDurationMap[event.Alert]
+		if !ok {
+			alertDuration = 0
+		}
+		alertTime := event.Start.Add(-1 * alertDuration)
+		event.AlertTime = &alertTime
+	}
+
 	tx, txError := p.DB.Beginx()
 
 	if txError != nil {
@@ -566,6 +714,9 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		"recurrence":  event.Recurrence,
 		"recurrent":   event.Recurrent,
 		"color":       event.Color,
+		"visibility":  event.Visibility,
+		"alert":       event.Alert,
+		"alert_time":  event.AlertTime,
 	}
 	updateQueryBuilder := sq.Update("calendar_events").
 		SetMap(updateFields).

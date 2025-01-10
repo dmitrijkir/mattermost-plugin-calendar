@@ -19,6 +19,9 @@ export declare type GetEventResponse = {
     recurrence: string;
     color?: string
     description: string;
+    team: string
+    visibility: string
+    alert: string
 }
 
 export declare type GetEventsResponse = {
@@ -124,9 +127,12 @@ export class ApiClient implements ApiClientInterface {
         end: string,
         attendees: string[],
         description: string,
+        team: string,
+        visibility: string,
         channel?: string,
         recurrence?: string,
         color?: string,
+        alert?: string,
     ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
@@ -141,9 +147,12 @@ export class ApiClient implements ApiClientInterface {
                     end,
                     attendees,
                     description,
+                    team,
+                    visibility,
                     channel,
                     recurrence,
                     color,
+                    alert,
                 }),
             }),
         );
@@ -158,9 +167,12 @@ export class ApiClient implements ApiClientInterface {
         end: string,
         attendees: string[],
         description: string,
+        team: string,
+        visibility: string,
         channel?: string,
         recurrence?: string,
         color?: string,
+        alert?: string,
     ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
@@ -176,9 +188,12 @@ export class ApiClient implements ApiClientInterface {
                     end,
                     attendees,
                     description,
+                    team,
+                    visibility,
                     channel,
                     recurrence,
                     color,
+                    alert,
                 }),
             }),
         );
