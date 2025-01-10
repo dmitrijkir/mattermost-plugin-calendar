@@ -44,7 +44,13 @@ import {
     Textarea,
     Toolbar,
     ToolbarButton,
-    Tag
+    Tag,
+    useId,
+    Toast,
+    ToastIntent,
+    ToastTitle,
+    useToastController,
+    Toaster
 } from '@fluentui/react-components';
 import { format, parse, set } from 'date-fns';
 import { InputOnChangeData } from '@fluentui/react-input';
@@ -155,6 +161,9 @@ const EventModalComponent = () => {
     const [repeatOption, setRepeatOption] = useState("Don't repeat");
     const [repeatOptionsSelected, setRepeatOptionsSelected] = useState(['empty']);
 
+    const toasterId = useId("toasterEventForm");
+    const { dispatchToast } = useToastController(toasterId);
+
     // methods
     const viewEventModalHandleClose = () => {
         cleanState();
@@ -238,6 +247,18 @@ const EventModalComponent = () => {
     };
 
     const onSaveEvent = async () => {
+
+        if (selectedVisibility === "channel" && Object.keys(selectedChannel).length === 0) {
+            dispatchToast(
+                <Toast>
+                    <ToastTitle></ToastTitle>
+                    {'You selected channel visibility but you didn\'t select a channel'} 
+                </Toast>,
+                { intent: 'error' }
+            );
+            return;
+        }
+
         const members: string[] = usersAddedInEvent.map((user: UserProfile) => user.id);
         let repeat = '';
         if (repeatOption === 'Custom') {
@@ -761,6 +782,7 @@ const EventModalComponent = () => {
                                 </div>
 
                             </div>
+                            <Toaster toasterId={toasterId} />
                         </DialogContent>
                         <RemoveEventButton />
                         <DialogActions position='end'>
