@@ -26,3 +26,5 @@ webapp/src/manifest.js
 webapp/src/manifest.ts
 server/manifest.go
 server/data/
+node_modules
+node_modules/*
