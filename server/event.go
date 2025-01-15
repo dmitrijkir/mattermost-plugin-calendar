@@ -10,7 +10,7 @@ import (
 	"github.com/teambition/rrule-go"
 	"net/http"
 	"sync"
-	time "time"
+	"time"
 )
 
 func (p *Plugin) GetUserTeams(userId string) ([]string, *model.AppError) {
@@ -34,8 +34,8 @@ func (p *Plugin) GetUserChannels(userId string) ([]string, *model.AppError) {
 	condition := sq.Eq{"userid": userId}
 
 	queryBuilder := sq.Select().
-		Columns("channelid").
-		From("channelmembers").
+		Columns("ChannelId").
+		From("ChannelMembers").
 		Where(condition).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
 
@@ -209,11 +209,6 @@ func (p *Plugin) GetUserEventsUTC(
 					start.Location(),
 				),
 				end, false)
-
-			if errRrule != nil {
-				p.API.LogError(errRrule.Error())
-				continue
-			}
 
 			for _, eventDate := range eventDates {
 				eventTime := eventDb.End.Sub(eventDb.Start)
@@ -537,7 +532,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	// Prepare the SQL query
 	querySql, sqlArgs, errBuilder := queryBuilder.ToSql()
 	if errBuilder != nil {
-		p.API.LogError(err.Error())
+		p.API.LogError(errBuilder.Error())
 		errorResponse(w, CantCreateEvent)
 		return
 	}
@@ -559,7 +554,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 		queryAttendees, queryAttArgs, errAttendees := builderAtt.PlaceholderFormat(p.GetDBPlaceholderFormat()).ToSql()
 		if errAttendees != nil {
-			p.API.LogError(err.Error())
+			p.API.LogError(errAttendees.Error())
 			errorResponse(w, CantCreateEvent)
 			return
 		}
@@ -634,7 +629,7 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	user, userErr := p.API.GetUser(session.UserId)
 
 	if userErr != nil {
-		p.API.LogError(err.Error())
+		p.API.LogError(userErr.Error())
 		errorResponse(w, UserNotFound)
 		return
 	}

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	sq "github.com/Masterminds/squirrel"
+	"github.com/pkg/errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -150,7 +151,7 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	errSelect := p.DB.Get(&userSettings, getQuerySql, getArgsSql...)
 
-	if errSelect == sql.ErrNoRows {
+	if errors.Is(errSelect, sql.ErrNoRows) {
 		insertQueryBuilder := sq.Insert("calendar_settings").
 			Columns(
 				"is_open_calendar_left_bar",
@@ -170,7 +171,7 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		_, errInsert := p.DB.Queryx(insertQuery, insertArgs...)
 
 		if errInsert != nil {
-			p.API.LogError(err.Error())
+			p.API.LogError(errInsert.Error())
 			errorResponse(w, SomethingWentWrong)
 			return
 		}
@@ -190,7 +191,7 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	_, errUpdate := p.DB.Queryx(updateQuery, updateArgs...)
 
 	if errUpdate != nil {
-		p.API.LogError(err.Error())
+		p.API.LogError(errUpdate.Error())
 		errorResponse(w, SomethingWentWrong)
 		return
 	}

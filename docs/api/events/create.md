@@ -13,7 +13,7 @@
 | team       | optional | string    | N/A         | 516netffp7dgxx6denw6tbk9br      |
 | alert      | optional | string    | N/A         | 5_minutes_before                |
 | visibility | optional | string    | N/A         | private                         |
-| color      | optional | string    | N/A         | #D0D0D0                                |
+| color      | optional | string    | N/A         | #D0D0D0                         |
 
 ## Response Event Object
 

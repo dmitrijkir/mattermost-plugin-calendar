@@ -10,7 +10,6 @@ type EventVisibility string
 type EventAlert string
 
 const (
-	// EventAlert Alerts
 	EventAlertNone            EventAlert = ""
 	EventAlert5MinutesBefore  EventAlert = "5_minutes_before"
 	EventAlert15MinutesBefore EventAlert = "15_minutes_before"
@@ -65,7 +64,7 @@ func (e *EventAlert) UnmarshalJSON(b []byte) error {
 	}
 }
 
-func (s *EventAlert) Scan(value interface{}) error {
+func (e *EventAlert) Scan(value interface{}) error {
 	var strValue string
 
 	switch v := value.(type) {
@@ -79,7 +78,7 @@ func (s *EventAlert) Scan(value interface{}) error {
 
 	switch strValue {
 	case string(EventAlertNone), string(EventAlert5MinutesBefore), string(EventAlert15MinutesBefore), string(EventAlert30MinutesBefore), string(EventAlert1HourBefore), string(EventAlert2HoursBefore), string(EventAlert1DayBefore), string(EventAlert2DaysBefore), string(EventAlert1WeekBefore):
-		*s = EventAlert(strValue)
+		*e = EventAlert(strValue)
 		return nil
 	default:
 		return fmt.Errorf("invalid Alert set: %s", strValue)
@@ -101,7 +100,7 @@ func (e *EventVisibility) UnmarshalJSON(b []byte) error {
 	}
 }
 
-func (s *EventVisibility) Scan(value interface{}) error {
+func (e *EventVisibility) Scan(value interface{}) error {
 	var strValue string
 
 	switch v := value.(type) {
@@ -115,7 +114,7 @@ func (s *EventVisibility) Scan(value interface{}) error {
 
 	switch strValue {
 	case string(VisibilityChannel), string(VisibilityPrivate), string(VisibilityTeam):
-		*s = EventVisibility(strValue)
+		*e = EventVisibility(strValue)
 		return nil
 	default:
 		return fmt.Errorf("invalid SubscriptionStatus: %s", strValue)
