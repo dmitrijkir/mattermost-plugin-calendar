@@ -89,7 +89,7 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 			}
 
 			userBusyTime := make([]bool, 96)
-			userSchEvents := []UserScheduleEvent{}
+			var userSchEvents []UserScheduleEvent
 			// convert event utc time to user location
 			for _, event := range userEvents {
 				userEvent := UserScheduleEvent{

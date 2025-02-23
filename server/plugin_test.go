@@ -74,8 +74,8 @@ func TestGetEvents(t *testing.T) {
 
 	// Create a new select builder
 	queryBuilderUsersInChannel := sq.Select().
-		Columns("channelid").
-		From("channelmembers").
+		Columns("ChannelId").
+		From("ChannelMembers").
 		Where(sq.Eq{"userid": session.UserId}).
 		PlaceholderFormat(sq.Dollar)
 

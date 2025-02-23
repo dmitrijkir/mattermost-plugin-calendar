@@ -217,7 +217,7 @@ func (b *Background) process(t time.Time) {
 		errScan := rows.StructScan(&eventDb)
 
 		if errScan != nil {
-			b.plugin.API.LogError(errSelect.Error())
+			b.plugin.API.LogError(errScan.Error())
 			continue
 		}
 

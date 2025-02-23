@@ -123,6 +123,7 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 	rows, errSelect := m.DB.Queryx(querySql, argsSql...)
 	if errSelect != nil {
 		m.plugin.API.LogError(errSelect.Error())
+		return CantMakeMigration
 	}
 
 	type EventFromDb struct {
@@ -146,11 +147,11 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 		errScan := rows.StructScan(&eventDb)
 
 		if errScan != nil {
-			m.plugin.API.LogError(errSelect.Error())
+			m.plugin.API.LogError(errScan.Error())
 			continue
 		}
 
-		recurrenceDays := []string{}
+		var recurrenceDays []string
 
 		for value := range *eventDb.Recurrence {
 			recurrenceDays = append(recurrenceDays, dayOfWeek[value])
