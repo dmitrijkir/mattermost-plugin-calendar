@@ -798,3 +798,37 @@ table {
     right: 20px;
 
 }
+
+/* iCal Settings */
+.ical-settings-container {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--colorNeutralStroke2);
+}
+
+.ical-settings-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.ical-settings-enabled {
+    margin-top: 12px;
+}
+
+.ical-url-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.ical-url-input {
+    flex: 1;
+}
+
+.ical-actions {
+    display: flex;
+    gap: 8px;
+}

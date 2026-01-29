@@ -22,6 +22,7 @@ import {getCalendarSettings} from '../selectors';
 import {CalendarSettings} from '../types/settings';
 
 import CalendarRef from './calendar';
+import ICalSettings from './ical-settings';
 
 const HeaderComponent = () => {
     const dispatch = useDispatch();
@@ -113,6 +114,7 @@ const HeaderComponent = () => {
                             />
                         </div>
                     </p>
+                    <ICalSettings/>
                 </DrawerBody>
             </DrawerOverlay>
 
