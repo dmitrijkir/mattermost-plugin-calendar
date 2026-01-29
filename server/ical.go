@@ -102,7 +102,7 @@ func (p *Plugin) GetICalToken(w http.ResponseWriter, r *http.Request) {
 	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
 	icalURL := ""
 	if siteURL != nil && *siteURL != "" {
-		icalURL = *siteURL + "/plugins/" + PluginId + "/ical/" + token.Token
+		icalURL = *siteURL + "/plugins/" + PluginId + "/ical/feed/" + token.Token
 	}
 
 	apiResponse(w, &ICalTokenResponse{
@@ -160,7 +160,7 @@ func (p *Plugin) GenerateICalToken(w http.ResponseWriter, r *http.Request) {
 	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
 	icalURL := ""
 	if siteURL != nil && *siteURL != "" {
-		icalURL = *siteURL + "/plugins/" + PluginId + "/ical/" + newToken
+		icalURL = *siteURL + "/plugins/" + PluginId + "/ical/feed/" + newToken
 	}
 
 	apiResponse(w, &ICalTokenResponse{
