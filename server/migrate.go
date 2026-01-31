@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
+	"strings"
+
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -16,8 +19,6 @@ import (
 	"github.com/mattermost/morph/drivers/postgres"
 	"github.com/mattermost/morph/sources"
 	"github.com/mattermost/morph/sources/embedded"
-	"path/filepath"
-	"strings"
 )
 
 //go:embed migrations
@@ -48,10 +49,14 @@ type Migrator struct {
 }
 
 func (m *Migrator) createSource() (sources.Source, error) {
-	assetsList, err := assets.ReadDir(filepath.Join("migrations", m.DB.DriverName()))
+	// Use path.Join instead of filepath.Join because embed.FS always uses forward slashes
+	// regardless of the OS (even on Windows)
+	driverName := m.DB.DriverName()
+	migrationDir := path.Join("migrations", driverName)
 
+	assetsList, err := assets.ReadDir(migrationDir)
 	if err != nil {
-		m.plugin.API.LogError(err.Error())
+		m.plugin.API.LogError("Failed to read migrations directory", "dir", migrationDir, "error", err.Error())
 		return nil, err
 	}
 
@@ -59,10 +64,11 @@ func (m *Migrator) createSource() (sources.Source, error) {
 	for i, entry := range assetsList {
 		assetNamesForDriver[i] = entry.Name()
 	}
+
 	src, err := embedded.WithInstance(&embedded.AssetSource{
 		Names: assetNamesForDriver,
 		AssetFunc: func(name string) ([]byte, error) {
-			return assets.ReadFile(filepath.Join("migrations", m.DB.DriverName(), name))
+			return assets.ReadFile(path.Join(migrationDir, name))
 		},
 	})
 
