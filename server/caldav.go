@@ -129,6 +129,7 @@ func (b *CalDAVBackend) handleOptions(w http.ResponseWriter, r *http.Request) {
 
 func (b *CalDAVBackend) handlePropfind(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
+	depth := r.Header.Get("Depth")
 
 	// Determine what we're querying
 	isRoot := strings.HasSuffix(path, b.token+"/") || strings.HasSuffix(path, b.token)
@@ -138,7 +139,10 @@ func (b *CalDAVBackend) handlePropfind(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusMultiStatus)
 
 	var response string
-	if isCalendar {
+	if isCalendar && depth == "1" {
+		// Depth 1 on calendar - return calendar info + list of events
+		response = b.calendarPropfindWithEvents()
+	} else if isCalendar {
 		response = b.calendarPropfindResponse()
 	} else if isRoot {
 		response = b.rootPropfindResponse()
@@ -228,6 +232,61 @@ func (b *CalDAVBackend) calendarPropfindResponse() string {
 </d:multistatus>`, b.basePath, time.Now().Unix(), time.Now().Unix())
 }
 
+func (b *CalDAVBackend) calendarPropfindWithEvents() string {
+	user, _ := b.plugin.API.GetUser(b.userID)
+
+	// Get events
+	now := time.Now().UTC()
+	start := now.AddDate(-1, 0, 0)
+	end := now.AddDate(2, 0, 0)
+
+	var userLoc *time.Location
+	if user != nil {
+		userLoc = b.plugin.GetUserLocation(user)
+	}
+	events, _ := b.plugin.GetUserEventsForICalUTC(b.userID, userLoc, start, end)
+
+	var buf bytes.Buffer
+	buf.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
+	buf.WriteString(`<d:multistatus xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav" xmlns:cs="http://calendarserver.org/ns/" xmlns:ical="http://apple.com/ns/ical/">`)
+
+	// First, the calendar collection itself
+	buf.WriteString(fmt.Sprintf(`
+  <d:response>
+    <d:href>%s/calendar/</d:href>
+    <d:propstat>
+      <d:prop>
+        <d:resourcetype>
+          <d:collection/>
+          <cal:calendar/>
+        </d:resourcetype>
+        <d:displayname>Mattermost Calendar</d:displayname>
+        <cs:getctag>%d</cs:getctag>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>`, b.basePath, time.Now().Unix()))
+
+	// Then each event
+	for _, event := range events {
+		buf.WriteString(fmt.Sprintf(`
+  <d:response>
+    <d:href>%s/calendar/%s.ics</d:href>
+    <d:propstat>
+      <d:prop>
+        <d:getetag>"%d"</d:getetag>
+        <d:getcontenttype>text/calendar; charset=utf-8</d:getcontenttype>
+        <d:resourcetype/>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>`, b.basePath, event.Id, event.Created.UnixNano()))
+	}
+
+	buf.WriteString(`</d:multistatus>`)
+	return buf.String()
+}
+
 func (b *CalDAVBackend) handleReport(w http.ResponseWriter, r *http.Request) {
 	user, userErr := b.plugin.API.GetUser(b.userID)
 	if userErr != nil {
@@ -307,6 +366,8 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	b.plugin.API.LogInfo("CalDAV PUT", "eventID", eventID, "body", string(body))
+
 	cal, err := ical.NewDecoder(bytes.NewReader(body)).Decode()
 	if err != nil {
 		http.Error(w, "Failed to parse iCalendar data", http.StatusBadRequest)
@@ -321,8 +382,19 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 
 	// Check if event exists
 	existingEvent, _ := b.getEventByID(eventID)
+	isUpdate := existingEvent != nil
 
-	if existingEvent != nil {
+	if isUpdate {
+		// Preserve owner and created time from existing event
+		event.Owner = existingEvent.Owner
+		event.Created = existingEvent.Created
+
+		// Check if user owns the event
+		if existingEvent.Owner != b.userID {
+			http.Error(w, "Unauthorized", http.StatusForbidden)
+			return
+		}
+
 		err = b.updateEvent(event)
 	} else {
 		event.Id = eventID
@@ -337,8 +409,18 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("ETag", fmt.Sprintf(`"%d"`, event.Created.UnixNano()))
-	w.WriteHeader(http.StatusCreated)
+	// Get the saved event to return correct ETag
+	savedEvent, _ := b.getEventByID(eventID)
+	if savedEvent != nil {
+		w.Header().Set("ETag", fmt.Sprintf(`"%d"`, savedEvent.Created.UnixNano()))
+	}
+
+	if isUpdate {
+		w.WriteHeader(http.StatusNoContent)
+	} else {
+		w.Header().Set("Location", fmt.Sprintf("%s/calendar/%s.ics", b.basePath, eventID))
+		w.WriteHeader(http.StatusCreated)
+	}
 }
 
 func (b *CalDAVBackend) handleDelete(w http.ResponseWriter, r *http.Request) {
