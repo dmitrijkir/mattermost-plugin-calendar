@@ -19,70 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCalDAVBackend_CurrentUserPrincipal(t *testing.T) {
-	assert := assert.New(t)
-
-	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token-1234567890123456789012345678901234567890123456789012")
-
-	principal, err := backend.CurrentUserPrincipal(nil)
-	assert.Nil(err)
-	assert.Contains(principal, "/caldav/")
-	assert.Contains(principal, "test-token-1234567890123456789012345678901234567890123456789012")
-}
-
-func TestCalDAVBackend_CalendarHomeSetPath(t *testing.T) {
-	assert := assert.New(t)
-
-	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token-1234567890123456789012345678901234567890123456789012")
-
-	path, err := backend.CalendarHomeSetPath(nil)
-	assert.Nil(err)
-	assert.Contains(path, "/caldav/")
-	assert.Contains(path, "test-token-1234567890123456789012345678901234567890123456789012")
-}
-
-func TestCalDAVBackend_ListCalendars(t *testing.T) {
-	assert := assert.New(t)
-
-	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token-1234567890123456789012345678901234567890123456789012")
-
-	calendars, err := backend.ListCalendars(nil)
-	assert.Nil(err)
-	assert.Equal(1, len(calendars))
-	assert.Equal("Mattermost Calendar", calendars[0].Name)
-	assert.Contains(calendars[0].Path, "/calendar/")
-	assert.Contains(calendars[0].SupportedComponentSet, "VEVENT")
-}
-
-func TestCalDAVBackend_GetCalendar(t *testing.T) {
-	assert := assert.New(t)
-
-	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token-1234567890123456789012345678901234567890123456789012")
-
-	// Test valid calendar path
-	calendar, err := backend.GetCalendar(nil, "/plugins/com.dmkir.calendar/caldav/token/calendar/")
-	assert.Nil(err)
-	assert.Equal("Mattermost Calendar", calendar.Name)
-
-	// Test invalid path
-	_, err = backend.GetCalendar(nil, "/invalid/path")
-	assert.NotNil(err)
-}
-
-func TestCalDAVBackend_CreateCalendar(t *testing.T) {
-	assert := assert.New(t)
-
-	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token-1234567890123456789012345678901234567890123456789012")
-
-	err := backend.CreateCalendar(nil, nil)
-	assert.NotNil(err, "Creating additional calendars should not be supported")
-}
-
 func TestCalDAVBackend_extractEventID(t *testing.T) {
 	assert := assert.New(t)
 
@@ -109,28 +45,40 @@ func TestCalDAVBackend_extractEventID(t *testing.T) {
 	}
 }
 
-func TestCalDAVBackend_generateETag(t *testing.T) {
+func TestEventETag(t *testing.T) {
 	assert := assert.New(t)
 
-	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
-
-	created := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	event := &Event{
-		Id:      "event-123",
-		Created: created,
+		Id:          "event-123",
+		Title:       "Test Event",
+		Description: "Test description",
+		Start:       now,
+		End:         now.Add(time.Hour),
+		Recurrent:   false,
+		Recurrence:  "",
 	}
 
-	etag := backend.generateETag(event)
-	assert.Contains(etag, `"`)
-	assert.NotEmpty(etag)
+	etag1 := eventETag(event)
+	assert.NotEmpty(etag1)
 
 	// Same event should produce same ETag
-	etag2 := backend.generateETag(event)
-	assert.Equal(etag, etag2)
+	etag2 := eventETag(event)
+	assert.Equal(etag1, etag2)
+
+	// Modified event should produce different ETag
+	event.Title = "Modified Title"
+	etag3 := eventETag(event)
+	assert.NotEqual(etag1, etag3)
+
+	// Changing time should change ETag
+	event.Title = "Test Event"
+	event.Start = now.Add(time.Minute)
+	etag4 := eventETag(event)
+	assert.NotEqual(etag1, etag4)
 }
 
-func TestCalDAVBackend_eventToICalendar(t *testing.T) {
+func TestCalDAVBackend_eventToICalendarString(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
@@ -154,34 +102,18 @@ func TestCalDAVBackend_eventToICalendar(t *testing.T) {
 		Recurrent:   false,
 	}
 
-	cal := backend.eventToICalendar(event, user)
-	assert.NotNil(cal)
-
-	// Verify calendar properties
-	version := cal.Props.Get(ical.PropVersion)
-	assert.NotNil(version)
-	assert.Equal("2.0", version.Value)
-
-	// Verify VEVENT component
-	assert.Equal(1, len(cal.Children))
-	vevent := cal.Children[0]
-	assert.Equal(ical.CompEvent, vevent.Name)
-
-	// Verify event properties
-	uid := vevent.Props.Get(ical.PropUID)
-	assert.NotNil(uid)
-	assert.Equal("event-123", uid.Value)
-
-	summary := vevent.Props.Get(ical.PropSummary)
-	assert.NotNil(summary)
-	assert.Equal("Test Event", summary.Value)
-
-	desc := vevent.Props.Get(ical.PropDescription)
-	assert.NotNil(desc)
-	assert.Equal("Test description", desc.Value)
+	icalStr := backend.eventToICalendarString(event, user)
+	assert.Contains(icalStr, "BEGIN:VCALENDAR")
+	assert.Contains(icalStr, "END:VCALENDAR")
+	assert.Contains(icalStr, "BEGIN:VEVENT")
+	assert.Contains(icalStr, "END:VEVENT")
+	assert.Contains(icalStr, "UID:event-123")
+	assert.Contains(icalStr, "SUMMARY:Test Event")
+	assert.Contains(icalStr, "DESCRIPTION:Test description")
+	assert.Contains(icalStr, "ORGANIZER:mailto:test@example.com")
 }
 
-func TestCalDAVBackend_eventToICalendar_Recurring(t *testing.T) {
+func TestCalDAVBackend_eventToICalendarString_Recurring(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
@@ -199,16 +131,9 @@ func TestCalDAVBackend_eventToICalendar_Recurring(t *testing.T) {
 		Recurrence: "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
 	}
 
-	cal := backend.eventToICalendar(event, nil)
-	assert.NotNil(cal)
-
-	vevent := cal.Children[0]
-	rrule := vevent.Props.Get(ical.PropRecurrenceRule)
-	assert.NotNil(rrule)
-	// go-ical library escapes semicolons, so we check for the unescaped content
-	assert.Contains(rrule.Value, "FREQ=WEEKLY")
-	assert.Contains(rrule.Value, "INTERVAL=1")
-	assert.Contains(rrule.Value, "BYDAY=MO")
+	icalStr := backend.eventToICalendarString(event, nil)
+	assert.Contains(icalStr, "RRULE:FREQ=WEEKLY")
+	assert.Contains(icalStr, "BYDAY=MO")
 }
 
 func TestCalDAVBackend_icalendarToEvent(t *testing.T) {
@@ -389,6 +314,7 @@ func TestServeCalDAV_PROPFIND(t *testing.T) {
 			"manualTimezone":       "UTC",
 		},
 	}, nil)
+	api.On("LogInfo", "CalDAV request", "method", "PROPFIND", "path", "/caldav/abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234/").Return()
 
 	// DB mocks
 	db, dbMock, err := sqlmock.New()
@@ -607,66 +533,6 @@ func TestGenerateICalToken_WithCalDAVURL(t *testing.T) {
 	assert.Contains(bodyStr, `"url":`)
 	assert.Contains(bodyStr, `"caldavUrl":`)
 	assert.Contains(bodyStr, "/caldav/")
-
-	api.AssertExpectations(t)
-}
-
-func TestCalDAVBackend_ListCalendarObjects(t *testing.T) {
-	assert := assert.New(t)
-
-	api := plugintest.API{}
-	api.On("GetUser", "test-user").Return(&model.User{
-		Id:       "test-user",
-		Username: "testuser",
-		Email:    "test@example.com",
-		Timezone: map[string]string{
-			"useAutomaticTimezone": "false",
-			"manualTimezone":       "UTC",
-		},
-	}, nil)
-	api.On("GetTeamsForUser", "test-user").Return([]*model.Team{
-		{Id: "team-1", DisplayName: "Test Team"},
-	}, nil)
-
-	// DB mocks
-	db, dbMock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	dbx := sqlx.NewDb(db, "sqlmock")
-
-	// Mock events query - return some events
-	now := time.Now().UTC()
-	dbMock.ExpectQuery("SELECT").
-		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "title", "description", "dt_start", "dt_end",
-			"created", "owner", "channel", "recurrent", "recurrence",
-			"color", "team", "visibility", "alert", "alert_time",
-		}).
-			AddRow("event-1", "Test Event", "Description", now, now.Add(time.Hour),
-				now, "test-user", nil, false, "",
-				"#D0D0D0", "team-1", "private", "", nil))
-
-	// Mock channel query
-	dbMock.ExpectQuery("SELECT ChannelId").
-		WillReturnRows(sqlmock.NewRows([]string{"ChannelId"}))
-
-	calPlugin := Plugin{
-		MattermostPlugin: plugin.MattermostPlugin{
-			API: &api,
-		},
-		DB: dbx,
-	}
-
-	backend := NewCalDAVBackend(&calPlugin, "test-user", "test-token")
-	objects, err := backend.ListCalendarObjects(nil, "/calendar/", nil)
-
-	assert.Nil(err)
-	assert.Equal(1, len(objects))
-	assert.Equal("event-1", backend.extractEventID(objects[0].Path))
-	assert.NotNil(objects[0].Data)
 
 	api.AssertExpectations(t)
 }

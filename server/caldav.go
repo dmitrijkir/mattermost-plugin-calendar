@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -246,6 +248,13 @@ func (b *CalDAVBackend) calendarPropfindWithEvents() string {
 	}
 	events, _ := b.plugin.GetUserEventsForICalUTC(b.userID, userLoc, start, end)
 
+	// Log events for debugging
+	var eventIDs []string
+	for _, e := range events {
+		eventIDs = append(eventIDs, e.Id)
+	}
+	b.plugin.API.LogInfo("CalDAV PROPFIND events", "count", len(events), "ids", strings.Join(eventIDs, ","))
+
 	var buf bytes.Buffer
 	buf.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
 	buf.WriteString(`<d:multistatus xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav" xmlns:cs="http://calendarserver.org/ns/" xmlns:ical="http://apple.com/ns/ical/">`)
@@ -274,13 +283,13 @@ func (b *CalDAVBackend) calendarPropfindWithEvents() string {
     <d:href>%s/calendar/%s.ics</d:href>
     <d:propstat>
       <d:prop>
-        <d:getetag>"%d"</d:getetag>
+        <d:getetag>"%s"</d:getetag>
         <d:getcontenttype>text/calendar; charset=utf-8</d:getcontenttype>
         <d:resourcetype/>
       </d:prop>
       <d:status>HTTP/1.1 200 OK</d:status>
     </d:propstat>
-  </d:response>`, b.basePath, event.Id, event.Created.UnixNano()))
+  </d:response>`, b.basePath, event.Id, eventETag(&event)))
 	}
 
 	buf.WriteString(`</d:multistatus>`)
@@ -294,6 +303,62 @@ func (b *CalDAVBackend) handleReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Read and parse the REPORT body to see what's being requested
+	body, _ := io.ReadAll(r.Body)
+	b.plugin.API.LogInfo("CalDAV REPORT body", "body", string(body))
+
+	// Check if this is a calendar-multiget (requesting specific events)
+	var requestedEventIDs []string
+	if strings.Contains(string(body), "calendar-multiget") {
+		// Parse hrefs from the request using regex
+		// Looking for href tags like <D:href>...</D:href>
+		bodyStr := string(body)
+		// Find all href values - they end with .ics
+		idx := 0
+		for {
+			// Find href opening tag (case insensitive)
+			hrefStart := strings.Index(strings.ToLower(bodyStr[idx:]), "<d:href>")
+			if hrefStart == -1 {
+				hrefStart = strings.Index(strings.ToLower(bodyStr[idx:]), "<href>")
+			}
+			if hrefStart == -1 {
+				break
+			}
+			hrefStart += idx
+
+			// Find the closing tag
+			var hrefEnd int
+			if strings.Contains(bodyStr[hrefStart:hrefStart+10], "<D:href>") || strings.Contains(bodyStr[hrefStart:hrefStart+10], "<d:href>") {
+				hrefEnd = strings.Index(bodyStr[hrefStart:], "</D:href>")
+				if hrefEnd == -1 {
+					hrefEnd = strings.Index(bodyStr[hrefStart:], "</d:href>")
+				}
+			} else {
+				hrefEnd = strings.Index(bodyStr[hrefStart:], "</href>")
+			}
+			if hrefEnd == -1 {
+				break
+			}
+			hrefEnd += hrefStart
+
+			// Extract href content
+			tagEnd := strings.Index(bodyStr[hrefStart:], ">") + hrefStart + 1
+			href := bodyStr[tagEnd:hrefEnd]
+
+			// Extract event ID from href (last part before .ics)
+			if strings.HasSuffix(href, ".ics") {
+				parts := strings.Split(href, "/")
+				if len(parts) > 0 {
+					eventID := strings.TrimSuffix(parts[len(parts)-1], ".ics")
+					requestedEventIDs = append(requestedEventIDs, eventID)
+				}
+			}
+
+			idx = hrefEnd + 1
+		}
+		b.plugin.API.LogInfo("CalDAV REPORT multiget", "requestedEventIDs", strings.Join(requestedEventIDs, ","))
+	}
+
 	// Get events
 	now := time.Now().UTC()
 	start := now.AddDate(-1, 0, 0)
@@ -304,6 +369,21 @@ func (b *CalDAVBackend) handleReport(w http.ResponseWriter, r *http.Request) {
 	if eventsErr != nil {
 		http.Error(w, "Failed to get events", http.StatusInternalServerError)
 		return
+	}
+
+	// If specific event IDs were requested, filter events
+	if len(requestedEventIDs) > 0 {
+		var filteredEvents []Event
+		for _, event := range events {
+			for _, reqID := range requestedEventIDs {
+				if event.Id == reqID {
+					filteredEvents = append(filteredEvents, event)
+					break
+				}
+			}
+		}
+		b.plugin.API.LogInfo("CalDAV REPORT filtered", "requested", len(requestedEventIDs), "found", len(filteredEvents))
+		events = filteredEvents
 	}
 
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
@@ -320,12 +400,12 @@ func (b *CalDAVBackend) handleReport(w http.ResponseWriter, r *http.Request) {
     <d:href>%s/calendar/%s.ics</d:href>
     <d:propstat>
       <d:prop>
-        <d:getetag>"%d"</d:getetag>
+        <d:getetag>"%s"</d:getetag>
         <cal:calendar-data>%s</cal:calendar-data>
       </d:prop>
       <d:status>HTTP/1.1 200 OK</d:status>
     </d:propstat>
-  </d:response>`, b.basePath, event.Id, event.Created.UnixNano(), xmlEscape(icalData)))
+  </d:response>`, b.basePath, event.Id, eventETag(&event), xmlEscape(icalData)))
 	}
 
 	buf.WriteString(`</d:multistatus>`)
@@ -349,16 +429,12 @@ func (b *CalDAVBackend) handleGet(w http.ResponseWriter, r *http.Request) {
 	icalData := b.eventToICalendarString(event, user)
 
 	w.Header().Set("Content-Type", "text/calendar; charset=utf-8")
-	w.Header().Set("ETag", fmt.Sprintf(`"%d"`, event.Created.UnixNano()))
+	w.Header().Set("ETag", fmt.Sprintf(`"%s"`, eventETag(event)))
 	w.Write([]byte(icalData))
 }
 
 func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
-	eventID := b.extractEventID(r.URL.Path)
-	if eventID == "" {
-		// Generate new ID for new events
-		eventID = uuid.New().String()
-	}
+	urlEventID := b.extractEventID(r.URL.Path)
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -366,13 +442,34 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b.plugin.API.LogInfo("CalDAV PUT", "eventID", eventID, "body", string(body))
-
 	cal, err := ical.NewDecoder(bytes.NewReader(body)).Decode()
 	if err != nil {
+		b.plugin.API.LogError("CalDAV PUT: failed to parse iCal", "error", err.Error(), "body", string(body))
 		http.Error(w, "Failed to parse iCalendar data", http.StatusBadRequest)
 		return
 	}
+
+	// Extract UID from iCal data
+	icalUID := ""
+	for _, child := range cal.Children {
+		if child.Name == ical.CompEvent {
+			if uid := child.Props.Get(ical.PropUID); uid != nil {
+				icalUID = uid.Value
+			}
+			break
+		}
+	}
+
+	// Determine event ID: prefer URL ID, fallback to iCal UID, generate new if neither
+	eventID := urlEventID
+	if eventID == "" {
+		eventID = icalUID
+	}
+	if eventID == "" {
+		eventID = uuid.New().String()
+	}
+
+	b.plugin.API.LogInfo("CalDAV PUT", "urlEventID", urlEventID, "icalUID", icalUID, "eventID", eventID)
 
 	event, err := b.icalendarToEvent(cal, eventID)
 	if err != nil {
@@ -380,9 +477,18 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if event exists
+	// Check if event exists by URL ID first, then by iCal UID
 	existingEvent, _ := b.getEventByID(eventID)
+	if existingEvent == nil && icalUID != "" && icalUID != eventID {
+		existingEvent, _ = b.getEventByID(icalUID)
+		if existingEvent != nil {
+			eventID = icalUID
+			event.Id = icalUID
+		}
+	}
+
 	isUpdate := existingEvent != nil
+	b.plugin.API.LogInfo("CalDAV PUT decision", "isUpdate", isUpdate, "finalEventID", eventID)
 
 	if isUpdate {
 		// Preserve owner and created time from existing event
@@ -396,11 +502,13 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 		}
 
 		err = b.updateEvent(event)
+		b.plugin.API.LogInfo("CalDAV PUT update", "eventID", eventID, "title", event.Title, "error", fmt.Sprintf("%v", err))
 	} else {
 		event.Id = eventID
 		event.Owner = b.userID
 		event.Created = time.Now().UTC()
 		err = b.createEvent(event)
+		b.plugin.API.LogInfo("CalDAV PUT create", "eventID", eventID, "title", event.Title, "error", fmt.Sprintf("%v", err))
 	}
 
 	if err != nil {
@@ -412,7 +520,9 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 	// Get the saved event to return correct ETag
 	savedEvent, _ := b.getEventByID(eventID)
 	if savedEvent != nil {
-		w.Header().Set("ETag", fmt.Sprintf(`"%d"`, savedEvent.Created.UnixNano()))
+		etag := eventETag(savedEvent)
+		w.Header().Set("ETag", fmt.Sprintf(`"%s"`, etag))
+		b.plugin.API.LogInfo("CalDAV PUT response", "eventID", eventID, "etag", etag, "isUpdate", isUpdate)
 	}
 
 	if isUpdate {
@@ -425,6 +535,8 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 
 func (b *CalDAVBackend) handleDelete(w http.ResponseWriter, r *http.Request) {
 	eventID := b.extractEventID(r.URL.Path)
+	b.plugin.API.LogInfo("CalDAV DELETE", "eventID", eventID, "path", r.URL.Path)
+
 	if eventID == "" {
 		http.Error(w, "Invalid event path", http.StatusBadRequest)
 		return
@@ -648,4 +760,19 @@ func xmlEscape(s string) string {
 	var buf bytes.Buffer
 	xml.EscapeText(&buf, []byte(s))
 	return buf.String()
+}
+
+// eventETag generates a deterministic ETag based on event content
+func eventETag(event *Event) string {
+	// Create hash from event content that changes when event is modified
+	data := fmt.Sprintf("%s|%s|%s|%s|%s|%v",
+		event.Title,
+		event.Description,
+		event.Start.UTC().Format(time.RFC3339),
+		event.End.UTC().Format(time.RFC3339),
+		event.Recurrence,
+		event.Recurrent,
+	)
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:8]) // Use first 8 bytes for shorter ETag
 }
