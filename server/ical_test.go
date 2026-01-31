@@ -212,7 +212,8 @@ func TestGetICalToken_Found(t *testing.T) {
 	assert.Equal(http.StatusOK, result.StatusCode)
 
 	expectedURL := siteURL + "/plugins/" + PluginId + "/ical/feed/" + tokenValue
-	expectedJSON := `{"data":{"token":"` + tokenValue + `","url":"` + expectedURL + `","enabled":true}}`
+	expectedCalDAVURL := siteURL + "/plugins/" + PluginId + "/caldav/" + tokenValue + "/"
+	expectedJSON := `{"data":{"token":"` + tokenValue + `","url":"` + expectedURL + `","caldavUrl":"` + expectedCalDAVURL + `","enabled":true}}`
 	assert.JSONEq(expectedJSON, string(bodyBytes))
 
 	api.AssertExpectations(t)

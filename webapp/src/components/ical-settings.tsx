@@ -14,7 +14,8 @@ import {ApiClient, ICalTokenResponse} from '../client';
 const ICalSettings = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [tokenData, setTokenData] = useState<ICalTokenResponse | null>(null);
-    const [copied, setCopied] = useState<boolean>(false);
+    const [copiedIcal, setCopiedIcal] = useState<boolean>(false);
+    const [copiedCaldav, setCopiedCaldav] = useState<boolean>(false);
     const [actionLoading, setActionLoading] = useState<boolean>(false);
 
     useEffect(() => {
@@ -69,14 +70,26 @@ const ICalSettings = () => {
         }
     };
 
-    const handleCopy = async () => {
+    const handleCopyIcal = async () => {
         if (tokenData?.url) {
             try {
                 await navigator.clipboard.writeText(tokenData.url);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
+                setCopiedIcal(true);
+                setTimeout(() => setCopiedIcal(false), 2000);
             } catch (error) {
-                console.error('Failed to copy URL:', error);
+                console.error('Failed to copy iCal URL:', error);
+            }
+        }
+    };
+
+    const handleCopyCaldav = async () => {
+        if (tokenData?.caldavUrl) {
+            try {
+                await navigator.clipboard.writeText(tokenData.caldavUrl);
+                setCopiedCaldav(true);
+                setTimeout(() => setCopiedCaldav(false), 2000);
+            } catch (error) {
+                console.error('Failed to copy CalDAV URL:', error);
             }
         }
     };
@@ -101,11 +114,17 @@ const ICalSettings = () => {
                 </Text>
             </div>
             <Text size={200}>
-                {'Subscribe to your calendar from external apps like Apple Calendar, Google Calendar, or Outlook.'}
+                {'Subscribe to your calendar from external apps like Apple Calendar, Google Calendar, or Outlook. Use iCal for read-only access or CalDAV for two-way sync.'}
             </Text>
 
             {tokenData?.enabled ? (
                 <div className='ical-settings-enabled'>
+                    <Text
+                        size={200}
+                        weight='semibold'
+                    >
+                        {'iCal Feed URL (read-only):'}
+                    </Text>
                     <div className='ical-url-container'>
                         <Input
                             readOnly={true}
@@ -114,9 +133,29 @@ const ICalSettings = () => {
                         />
                         <Button
                             appearance='subtle'
-                            icon={copied ? <Checkmark20Regular/> : <Copy20Regular/>}
-                            onClick={handleCopy}
-                            title='Copy URL'
+                            icon={copiedIcal ? <Checkmark20Regular/> : <Copy20Regular/>}
+                            onClick={handleCopyIcal}
+                            title='Copy iCal URL'
+                        />
+                    </div>
+                    <Text
+                        size={200}
+                        weight='semibold'
+                        style={{marginTop: '12px'}}
+                    >
+                        {'CalDAV URL (read/write sync):'}
+                    </Text>
+                    <div className='ical-url-container'>
+                        <Input
+                            readOnly={true}
+                            value={tokenData.caldavUrl || ''}
+                            className='ical-url-input'
+                        />
+                        <Button
+                            appearance='subtle'
+                            icon={copiedCaldav ? <Checkmark20Regular/> : <Copy20Regular/>}
+                            onClick={handleCopyCaldav}
+                            title='Copy CalDAV URL'
                         />
                     </div>
                     <div className='ical-actions'>

@@ -10,6 +10,7 @@ import {CalendarSettings} from './types/settings';
 export declare type ICalTokenResponse = {
     token?: string;
     url?: string;
+    caldavUrl?: string;
     enabled: boolean;
 }
 

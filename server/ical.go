@@ -23,9 +23,10 @@ type ICalToken struct {
 
 // ICalTokenResponse is the response format for iCal token API
 type ICalTokenResponse struct {
-	Token   string `json:"token,omitempty"`
-	URL     string `json:"url,omitempty"`
-	Enabled bool   `json:"enabled"`
+	Token     string `json:"token,omitempty"`
+	URL       string `json:"url,omitempty"`
+	CalDAVURL string `json:"caldavUrl,omitempty"`
+	Enabled   bool   `json:"enabled"`
 }
 
 var (
@@ -101,14 +102,17 @@ func (p *Plugin) GetICalToken(w http.ResponseWriter, r *http.Request) {
 
 	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
 	icalURL := ""
+	caldavURL := ""
 	if siteURL != nil && *siteURL != "" {
 		icalURL = *siteURL + "/plugins/" + PluginId + "/ical/feed/" + token.Token
+		caldavURL = *siteURL + "/plugins/" + PluginId + "/caldav/" + token.Token + "/"
 	}
 
 	apiResponse(w, &ICalTokenResponse{
-		Token:   token.Token,
-		URL:     icalURL,
-		Enabled: true,
+		Token:     token.Token,
+		URL:       icalURL,
+		CalDAVURL: caldavURL,
+		Enabled:   true,
 	})
 }
 
@@ -159,14 +163,17 @@ func (p *Plugin) GenerateICalToken(w http.ResponseWriter, r *http.Request) {
 
 	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
 	icalURL := ""
+	caldavURL := ""
 	if siteURL != nil && *siteURL != "" {
 		icalURL = *siteURL + "/plugins/" + PluginId + "/ical/feed/" + newToken
+		caldavURL = *siteURL + "/plugins/" + PluginId + "/caldav/" + newToken + "/"
 	}
 
 	apiResponse(w, &ICalTokenResponse{
-		Token:   newToken,
-		URL:     icalURL,
-		Enabled: true,
+		Token:     newToken,
+		URL:       icalURL,
+		CalDAVURL: caldavURL,
+		Enabled:   true,
 	})
 }
 

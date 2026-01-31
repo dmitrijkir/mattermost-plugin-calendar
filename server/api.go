@@ -26,6 +26,9 @@ func (p *Plugin) InitAPI() *mux.Router {
 	// iCal feed endpoint (token is 64-char hex string)
 	r.HandleFunc("/ical/feed/{token}", p.ServeICalFeed).Methods("GET")
 
+	// CalDAV endpoints (use PathPrefix for all CalDAV requests)
+	r.PathPrefix("/caldav/{token}/").HandlerFunc(p.ServeCalDAV)
+
 	// 404 handler
 	r.Handle("{anything:.*}", http.NotFoundHandler())
 	return r
