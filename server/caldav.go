@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -788,15 +786,19 @@ func (b *CalDAVBackend) createEvent(event *Event) error {
 		}
 	}
 
+	now := time.Now().UTC()
+	event.Created = now
+	event.Updated = now
+
 	queryBuilder := sq.Insert("calendar_events").
 		Columns(
 			"id", "title", "description", "dt_start", "dt_end",
-			"created", "owner", "channel", "recurrent", "recurrence",
+			"created", "updated", "owner", "channel", "recurrent", "recurrence",
 			"color", "visibility", "team", "alert", "alert_time",
 		).
 		Values(
 			event.Id, event.Title, event.Description, event.Start, event.End,
-			event.Created, event.Owner, event.Channel, event.Recurrent, event.Recurrence,
+			event.Created, event.Updated, event.Owner, event.Channel, event.Recurrent, event.Recurrence,
 			event.Color, event.Visibility, event.Team, event.Alert, event.AlertTime,
 		).
 		PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
@@ -815,6 +817,8 @@ func (b *CalDAVBackend) createEvent(event *Event) error {
 }
 
 func (b *CalDAVBackend) updateEvent(event *Event) error {
+	event.Updated = time.Now().UTC()
+
 	updateFields := map[string]interface{}{
 		"title":       event.Title,
 		"description": event.Description,
@@ -822,6 +826,7 @@ func (b *CalDAVBackend) updateEvent(event *Event) error {
 		"dt_end":      event.End,
 		"recurrence":  event.Recurrence,
 		"recurrent":   event.Recurrent,
+		"updated":     event.Updated,
 	}
 
 	updateQueryBuilder := sq.Update("calendar_events").
@@ -848,17 +853,8 @@ func xmlEscape(s string) string {
 	return buf.String()
 }
 
-// eventETag generates a deterministic ETag based on event content
+// eventETag generates a deterministic ETag based on event's Updated timestamp
 func eventETag(event *Event) string {
-	// Create hash from event content that changes when event is modified
-	data := fmt.Sprintf("%s|%s|%s|%s|%s|%v",
-		event.Title,
-		event.Description,
-		event.Start.UTC().Format(time.RFC3339),
-		event.End.UTC().Format(time.RFC3339),
-		event.Recurrence,
-		event.Recurrent,
-	)
-	hash := sha256.Sum256([]byte(data))
-	return hex.EncodeToString(hash[:8]) // Use first 8 bytes for shorter ETag
+	// Use Updated timestamp for ETag - changes every time event is modified
+	return fmt.Sprintf("%x", event.Updated.UnixNano())
 }

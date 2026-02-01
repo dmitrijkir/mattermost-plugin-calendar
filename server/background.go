@@ -167,6 +167,7 @@ func (b *Background) process(t time.Time) {
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"cm.member",

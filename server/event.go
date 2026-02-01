@@ -101,6 +101,7 @@ func (p *Plugin) GetUserEventsUTC(
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"ce.recurrent",
@@ -286,6 +287,7 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"ce.recurrence",
@@ -348,6 +350,7 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 		End:         eventDb.End,
 		Attendees:   members,
 		Created:     eventDb.Created,
+		Updated:     eventDb.Updated,
 		Owner:       eventDb.Owner,
 		Channel:     eventDb.Channel,
 		Recurrence:  eventDb.Recurrence,
@@ -448,7 +451,9 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	event.Id = uuid.New().String()
 
-	event.Created = time.Now().UTC()
+	now := time.Now().UTC()
+	event.Created = now
+	event.Updated = now
 	event.Owner = user.Id
 
 	loc := p.GetUserLocation(user)
@@ -501,6 +506,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			"dt_start",
 			"dt_end",
 			"created",
+			"updated",
 			"owner",
 			"channel",
 			"recurrent",
@@ -518,6 +524,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			event.Start,
 			event.End,
 			event.Created,
+			event.Updated,
 			event.Owner,
 			event.Channel,
 			event.Recurrent,
@@ -692,6 +699,8 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		event.AlertTime = &alertTime
 	}
 
+	event.Updated = time.Now().UTC()
+
 	tx, txError := p.DB.Beginx()
 
 	if txError != nil {
@@ -712,6 +721,7 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		"visibility":  event.Visibility,
 		"alert":       event.Alert,
 		"alert_time":  event.AlertTime,
+		"updated":     event.Updated,
 	}
 	updateQueryBuilder := sq.Update("calendar_events").
 		SetMap(updateFields).

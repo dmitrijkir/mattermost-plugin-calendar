@@ -56,6 +56,7 @@ func TestEventETag(t *testing.T) {
 		Description: "Test description",
 		Start:       now,
 		End:         now.Add(time.Hour),
+		Updated:     now,
 		Recurrent:   false,
 		Recurrence:  "",
 	}
@@ -67,16 +68,16 @@ func TestEventETag(t *testing.T) {
 	etag2 := eventETag(event)
 	assert.Equal(etag1, etag2)
 
-	// Modified event should produce different ETag
-	event.Title = "Modified Title"
+	// Changing Updated timestamp should produce different ETag
+	event.Updated = now.Add(time.Second)
 	etag3 := eventETag(event)
 	assert.NotEqual(etag1, etag3)
 
-	// Changing time should change ETag
-	event.Title = "Test Event"
-	event.Start = now.Add(time.Minute)
+	// Different Updated time should produce different ETag
+	event.Updated = now.Add(time.Minute)
 	etag4 := eventETag(event)
 	assert.NotEqual(etag1, etag4)
+	assert.NotEqual(etag3, etag4)
 }
 
 func TestCalDAVBackend_eventToICalendarString(t *testing.T) {

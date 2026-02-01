@@ -315,6 +315,7 @@ func (p *Plugin) GetUserEventsForICalUTC(
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"ce.recurrent",
