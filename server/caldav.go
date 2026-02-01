@@ -41,18 +41,34 @@ func (p *Plugin) ServeCalDAV(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	token := vars["token"]
 
+	// Log all incoming requests for debugging
+	p.API.LogInfo("CalDAV incoming request",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"host", r.Host,
+		"user-agent", r.Header.Get("User-Agent"),
+		"hasAuth", r.Header.Get("Authorization") != "")
+
 	if token == "" || len(token) != 64 {
+		p.API.LogError("CalDAV invalid token", "token_length", len(token))
 		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
-	// CalDAV clients require Basic Auth - we accept any credentials since real auth is via token
-	username, password, ok := r.BasicAuth()
-	if !ok || username == "" || password == "" {
-		w.Header().Set("WWW-Authenticate", `Basic realm="CalDAV"`)
-		http.Error(w, "Authentication required", http.StatusUnauthorized)
+	// Set DAV headers early for discovery (Apple Calendar needs this)
+	w.Header().Set("DAV", "1, 2, 3, calendar-access, addressbook")
+	w.Header().Set("Server", "Mattermost-Calendar-CalDAV/1.0")
+
+	// Allow OPTIONS without authentication for CalDAV discovery (required by Apple Calendar)
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Allow", "OPTIONS, PROPFIND, PROPPATCH, REPORT, GET, PUT, DELETE, MKCALENDAR")
+		w.WriteHeader(http.StatusOK)
 		return
 	}
+
+	// Authentication is via token in URL - no Basic Auth required
+	// This allows Apple Calendar to work over HTTP (it refuses to send passwords over HTTP)
+	// The 64-char token in the URL is the secret that authenticates the user
 
 	// Look up the token and get the user ID
 	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
@@ -110,6 +126,8 @@ func (b *CalDAVBackend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		b.handleOptions(w, r)
 	case "PROPFIND":
 		b.handlePropfind(w, r)
+	case "PROPPATCH":
+		b.handleProppatch(w, r)
 	case "REPORT":
 		b.handleReport(w, r)
 	case "GET":
@@ -118,24 +136,56 @@ func (b *CalDAVBackend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		b.handlePut(w, r)
 	case "DELETE":
 		b.handleDelete(w, r)
+	case "MKCALENDAR":
+		// We don't support creating additional calendars
+		http.Error(w, "Calendar already exists", http.StatusMethodNotAllowed)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 func (b *CalDAVBackend) handleOptions(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Allow", "OPTIONS, PROPFIND, REPORT, GET, PUT, DELETE")
-	w.Header().Set("DAV", "1, 2, calendar-access")
-	w.WriteHeader(http.StatusNoContent)
+	w.Header().Set("Allow", "OPTIONS, PROPFIND, PROPPATCH, REPORT, GET, PUT, DELETE")
+	w.Header().Set("DAV", "1, 2, 3, calendar-access")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (b *CalDAVBackend) handleProppatch(w http.ResponseWriter, r *http.Request) {
+	// Apple Calendar may try to set calendar properties (color, display name, etc.)
+	// We accept the request but don't actually store the changes
+	// Return success to keep the client happy
+	b.plugin.API.LogInfo("CalDAV PROPPATCH", "path", r.URL.Path)
+
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.WriteHeader(http.StatusMultiStatus)
+
+	response := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<d:multistatus xmlns:d="DAV:">
+  <d:response>
+    <d:href>%s</d:href>
+    <d:propstat>
+      <d:prop/>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+</d:multistatus>`, r.URL.Path)
+
+	w.Write([]byte(response))
 }
 
 func (b *CalDAVBackend) handlePropfind(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	depth := r.Header.Get("Depth")
 
+	// Read request body to see what properties are requested
+	body, _ := io.ReadAll(r.Body)
+	b.plugin.API.LogInfo("CalDAV PROPFIND", "path", path, "depth", depth, "body", string(body))
+
 	// Determine what we're querying
 	isRoot := strings.HasSuffix(path, b.token+"/") || strings.HasSuffix(path, b.token)
 	isCalendar := strings.Contains(path, "/calendar")
+
+	b.plugin.API.LogInfo("CalDAV PROPFIND routing", "isRoot", isRoot, "isCalendar", isCalendar, "depth", depth)
 
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	w.WriteHeader(http.StatusMultiStatus)
@@ -146,61 +196,92 @@ func (b *CalDAVBackend) handlePropfind(w http.ResponseWriter, r *http.Request) {
 		response = b.calendarPropfindWithEvents()
 	} else if isCalendar {
 		response = b.calendarPropfindResponse()
+	} else if isRoot && depth == "1" {
+		// Depth 1 on root - return root + calendar collection (Apple Calendar needs this)
+		response = b.rootPropfindWithCalendars()
 	} else if isRoot {
 		response = b.rootPropfindResponse()
 	} else {
 		response = b.rootPropfindResponse()
 	}
 
+	b.plugin.API.LogInfo("CalDAV PROPFIND response length", "length", len(response))
 	w.Write([]byte(response))
 }
 
 func (b *CalDAVBackend) rootPropfindResponse() string {
+	// Return only info about the principal/root - not the calendar
+	// Apple Calendar expects current-user-principal to point to a principal resource
 	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
-<d:multistatus xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav" xmlns:cs="http://calendarserver.org/ns/">
-  <d:response>
-    <d:href>%s/</d:href>
-    <d:propstat>
-      <d:prop>
-        <d:resourcetype>
-          <d:collection/>
-        </d:resourcetype>
-        <d:current-user-principal>
-          <d:href>%s/</d:href>
-        </d:current-user-principal>
-        <d:principal-URL>
-          <d:href>%s/</d:href>
-        </d:principal-URL>
-        <cal:calendar-home-set>
-          <d:href>%s/</d:href>
-        </cal:calendar-home-set>
-        <cal:calendar-user-address-set>
-          <d:href>mailto:user@localhost</d:href>
-        </cal:calendar-user-address-set>
-        <d:displayname>Mattermost User</d:displayname>
-      </d:prop>
-      <d:status>HTTP/1.1 200 OK</d:status>
-    </d:propstat>
-  </d:response>
-  <d:response>
-    <d:href>%s/calendar/</d:href>
-    <d:propstat>
-      <d:prop>
-        <d:resourcetype>
-          <d:collection/>
-          <cal:calendar/>
-        </d:resourcetype>
-        <d:displayname>Mattermost Calendar</d:displayname>
-        <cal:supported-calendar-component-set>
-          <cal:comp name="VEVENT"/>
-        </cal:supported-calendar-component-set>
-        <cs:getctag>%d</cs:getctag>
-        <d:sync-token>%d</d:sync-token>
-      </d:prop>
-      <d:status>HTTP/1.1 200 OK</d:status>
-    </d:propstat>
-  </d:response>
-</d:multistatus>`, b.basePath, b.basePath, b.basePath, b.basePath, b.basePath, time.Now().Unix(), time.Now().Unix())
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/">
+  <D:response>
+    <D:href>%s/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype>
+          <D:collection/>
+          <D:principal/>
+        </D:resourcetype>
+        <D:current-user-principal>
+          <D:href>%s/</D:href>
+        </D:current-user-principal>
+        <D:principal-URL>
+          <D:href>%s/</D:href>
+        </D:principal-URL>
+        <C:calendar-home-set>
+          <D:href>%s/</D:href>
+        </C:calendar-home-set>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>`, b.basePath, b.basePath, b.basePath, b.basePath)
+}
+
+func (b *CalDAVBackend) rootPropfindWithCalendars() string {
+	// Return root + calendar collection for Depth: 1 requests (Apple Calendar needs this)
+	return fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<D:multistatus xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/" xmlns:I="http://apple.com/ns/ical/">
+  <D:response>
+    <D:href>%s/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype>
+          <D:collection/>
+        </D:resourcetype>
+        <D:current-user-principal>
+          <D:href>%s/</D:href>
+        </D:current-user-principal>
+        <D:displayname>Mattermost Calendar</D:displayname>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+  <D:response>
+    <D:href>%s/calendar/</D:href>
+    <D:propstat>
+      <D:prop>
+        <D:resourcetype>
+          <D:collection/>
+          <C:calendar/>
+        </D:resourcetype>
+        <D:displayname>Mattermost Calendar</D:displayname>
+        <I:calendar-color>#1E90FFFF</I:calendar-color>
+        <I:calendar-order>1</I:calendar-order>
+        <C:supported-calendar-component-set>
+          <C:comp name="VEVENT"/>
+        </C:supported-calendar-component-set>
+        <CS:getctag>%d</CS:getctag>
+        <D:current-user-privilege-set>
+          <D:privilege><D:read/></D:privilege>
+          <D:privilege><D:write/></D:privilege>
+          <D:privilege><D:write-content/></D:privilege>
+        </D:current-user-privilege-set>
+      </D:prop>
+      <D:status>HTTP/1.1 200 OK</D:status>
+    </D:propstat>
+  </D:response>
+</D:multistatus>`, b.basePath, b.basePath, b.basePath, time.Now().Unix())
 }
 
 func (b *CalDAVBackend) calendarPropfindResponse() string {

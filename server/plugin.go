@@ -139,6 +139,12 @@ func (p *Plugin) OnDeactivate() error {
 
 // handles HTTP requests.
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+	// Log all incoming requests to the plugin for debugging
+	p.API.LogDebug("Plugin HTTP request",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"user-agent", r.Header.Get("User-Agent"))
+
 	ctx := context.WithValue(r.Context(), "pluginRequest", c)
 	r = r.Clone(ctx)
 	p.router.ServeHTTP(w, r)
