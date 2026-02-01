@@ -205,6 +205,70 @@ func TestCalDAVBackend_icalendarToEvent_NoVEVENT(t *testing.T) {
 	assert.Contains(err.Error(), "no VEVENT")
 }
 
+func TestCalDAVBackend_icalendarToEvent_WithTimezone(t *testing.T) {
+	assert := assert.New(t)
+
+	calPlugin := &Plugin{}
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+
+	// Parse iCalendar with TZID parameter (like Apple Calendar sends)
+	icalData := `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Apple Inc.//macOS//EN
+BEGIN:VEVENT
+UID:test-uid
+DTSTART;TZID=Europe/Moscow:20240115T110000
+DTEND;TZID=Europe/Moscow:20240115T120000
+SUMMARY:Test Event with Timezone
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ics.ParseCalendar(strings.NewReader(icalData))
+	assert.Nil(err)
+
+	event, err := backend.icalendarToEvent(cal, "event-123")
+	assert.Nil(err)
+	assert.Equal("Test Event with Timezone", event.Title)
+
+	// Moscow is UTC+3, so 11:00 Moscow = 08:00 UTC
+	expectedStartUTC := time.Date(2024, 1, 15, 8, 0, 0, 0, time.UTC)
+	expectedEndUTC := time.Date(2024, 1, 15, 9, 0, 0, 0, time.UTC)
+
+	assert.Equal(expectedStartUTC, event.Start)
+	assert.Equal(expectedEndUTC, event.End)
+}
+
+func TestCalDAVBackend_icalendarToEvent_UTCTime(t *testing.T) {
+	assert := assert.New(t)
+
+	calPlugin := &Plugin{}
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+
+	// Parse iCalendar with UTC time (ends with Z)
+	icalData := `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:test-uid
+DTSTART:20240115T110000Z
+DTEND:20240115T120000Z
+SUMMARY:Test Event UTC
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ics.ParseCalendar(strings.NewReader(icalData))
+	assert.Nil(err)
+
+	event, err := backend.icalendarToEvent(cal, "event-123")
+	assert.Nil(err)
+
+	// Time should remain as specified (already UTC)
+	expectedStart := time.Date(2024, 1, 15, 11, 0, 0, 0, time.UTC)
+	expectedEnd := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	assert.Equal(expectedStart, event.Start)
+	assert.Equal(expectedEnd, event.End)
+}
+
 func TestServeCalDAV_InvalidToken(t *testing.T) {
 	assert := assert.New(t)
 

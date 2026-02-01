@@ -740,28 +740,15 @@ func (b *CalDAVBackend) icalendarToEvent(cal *ics.Calendar, eventID string) (*Ev
 	}
 
 	if dtstart := vevent.GetProperty(ics.ComponentPropertyDtStart); dtstart != nil {
-		start, err := time.Parse("20060102T150405Z", dtstart.Value)
-		if err != nil {
-			// Try parsing with timezone
-			start, err = time.Parse("20060102T150405", dtstart.Value)
-			if err == nil {
-				start = start.UTC()
-			}
-		}
-		if err == nil {
+		start := b.parseICalTime(dtstart)
+		if !start.IsZero() {
 			event.Start = start
 		}
 	}
 
 	if dtend := vevent.GetProperty(ics.ComponentPropertyDtEnd); dtend != nil {
-		end, err := time.Parse("20060102T150405Z", dtend.Value)
-		if err != nil {
-			end, err = time.Parse("20060102T150405", dtend.Value)
-			if err == nil {
-				end = end.UTC()
-			}
-		}
-		if err == nil {
+		end := b.parseICalTime(dtend)
+		if !end.IsZero() {
 			event.End = end
 		}
 	}
@@ -776,6 +763,54 @@ func (b *CalDAVBackend) icalendarToEvent(cal *ics.Calendar, eventID string) (*Ev
 	}
 
 	return event, nil
+}
+
+// parseICalTime parses an iCalendar datetime property with proper timezone handling
+func (b *CalDAVBackend) parseICalTime(prop *ics.IANAProperty) time.Time {
+	if prop == nil {
+		return time.Time{}
+	}
+
+	value := prop.Value
+
+	// Check for UTC format (ends with Z)
+	if strings.HasSuffix(value, "Z") {
+		t, err := time.Parse("20060102T150405Z", value)
+		if err == nil {
+			return t
+		}
+	}
+
+	// Check for TZID parameter (ICalParameters is map[string][]string)
+	tzid := ""
+	if tzidValues, ok := prop.ICalParameters["TZID"]; ok && len(tzidValues) > 0 {
+		tzid = tzidValues[0]
+	}
+
+	// Parse the time value
+	t, err := time.Parse("20060102T150405", value)
+	if err != nil {
+		// Try date-only format
+		t, err = time.Parse("20060102", value)
+		if err != nil {
+			return time.Time{}
+		}
+	}
+
+	// If we have a TZID, parse in that timezone and convert to UTC
+	if tzid != "" {
+		loc, err := time.LoadLocation(tzid)
+		if err == nil {
+			// Create time in the specified timezone
+			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), loc)
+			return t.UTC()
+		}
+		b.plugin.API.LogWarn("Unknown timezone", "tzid", tzid, "error", err.Error())
+	}
+
+	// No timezone info - assume it's already in user's local time, treat as UTC
+	// (This is a fallback - ideally all times should have timezone info)
+	return t.UTC()
 }
 
 func (b *CalDAVBackend) createEvent(event *Event) error {
