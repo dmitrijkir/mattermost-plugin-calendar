@@ -43,7 +43,9 @@ const LeftBarCalendar = () => {
 
     const onSelectDate = React.useCallback((date: Date, dateRangeArray: Date[]): void => {
         setSelectedDate(date);
-        CalendarRef.current.getApi().gotoDate(date);
+        // Format as YYYY-MM-DD to avoid timezone issues with gotoDate
+        const dateString = format(date, 'yyyy-MM-dd');
+        CalendarRef.current.getApi().gotoDate(dateString);
     }, []);
 
     if (settings.isOpenCalendarLeftBar) {
