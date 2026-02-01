@@ -12,7 +12,7 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-	"github.com/emersion/go-ical"
+	ics "github.com/arran4/golang-ical"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -523,7 +523,7 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cal, err := ical.NewDecoder(bytes.NewReader(body)).Decode()
+	cal, err := ics.ParseCalendar(bytes.NewReader(body))
 	if err != nil {
 		b.plugin.API.LogError("CalDAV PUT: failed to parse iCal", "error", err.Error(), "body", string(body))
 		http.Error(w, "Failed to parse iCalendar data", http.StatusBadRequest)
@@ -532,12 +532,10 @@ func (b *CalDAVBackend) handlePut(w http.ResponseWriter, r *http.Request) {
 
 	// Extract UID from iCal data
 	icalUID := ""
-	for _, child := range cal.Children {
-		if child.Name == ical.CompEvent {
-			if uid := child.Props.Get(ical.PropUID); uid != nil {
-				icalUID = uid.Value
-			}
-			break
+	events := cal.Events()
+	if len(events) > 0 {
+		if uid := events[0].GetProperty(ics.ComponentPropertyUniqueId); uid != nil {
+			icalUID = uid.Value
 		}
 	}
 
@@ -689,81 +687,88 @@ func (b *CalDAVBackend) getEventByID(eventID string) (*Event, error) {
 }
 
 func (b *CalDAVBackend) eventToICalendarString(event *Event, user *model.User) string {
-	var buf bytes.Buffer
-	buf.WriteString("BEGIN:VCALENDAR\r\n")
-	buf.WriteString("VERSION:2.0\r\n")
-	buf.WriteString("PRODID:-//Mattermost Calendar Plugin//EN\r\n")
-	buf.WriteString("BEGIN:VEVENT\r\n")
-	buf.WriteString(fmt.Sprintf("UID:%s\r\n", event.Id))
-	buf.WriteString(fmt.Sprintf("DTSTAMP:%s\r\n", event.Created.UTC().Format("20060102T150405Z")))
-	buf.WriteString(fmt.Sprintf("DTSTART:%s\r\n", event.Start.UTC().Format("20060102T150405Z")))
-	buf.WriteString(fmt.Sprintf("DTEND:%s\r\n", event.End.UTC().Format("20060102T150405Z")))
-	buf.WriteString(fmt.Sprintf("SUMMARY:%s\r\n", event.Title))
+	cal := ics.NewCalendar()
+	cal.SetMethod(ics.MethodPublish)
+	cal.SetProductId("-//Mattermost Calendar Plugin//EN")
+	cal.SetVersion("2.0")
+
+	icsEvent := cal.AddEvent(event.Id)
+	icsEvent.SetDtStampTime(event.Created)
+	icsEvent.SetCreatedTime(event.Created)
+	icsEvent.SetStartAt(event.Start)
+	icsEvent.SetEndAt(event.End)
+	icsEvent.SetSummary(event.Title)
 
 	if event.Description != "" {
-		buf.WriteString(fmt.Sprintf("DESCRIPTION:%s\r\n", event.Description))
+		icsEvent.SetDescription(event.Description)
 	}
 
 	if user != nil && user.Email != "" {
-		buf.WriteString(fmt.Sprintf("ORGANIZER:mailto:%s\r\n", user.Email))
+		icsEvent.SetOrganizer(user.Email, ics.WithCN(user.GetDisplayName("")))
 	}
 
 	if event.Recurrent && event.Recurrence != "" {
-		rrule := event.Recurrence
-		if !strings.HasPrefix(rrule, "RRULE:") {
-			rrule = "RRULE:" + rrule
+		rruleStr := event.Recurrence
+		if strings.HasPrefix(rruleStr, "RRULE:") {
+			rruleStr = rruleStr[6:]
 		}
-		buf.WriteString(rrule + "\r\n")
+		icsEvent.AddRrule(rruleStr)
 	}
 
-	buf.WriteString("STATUS:CONFIRMED\r\n")
-	buf.WriteString("END:VEVENT\r\n")
-	buf.WriteString("END:VCALENDAR\r\n")
+	icsEvent.SetStatus(ics.ObjectStatusConfirmed)
 
-	return buf.String()
+	return cal.Serialize()
 }
 
-func (b *CalDAVBackend) icalendarToEvent(cal *ical.Calendar, eventID string) (*Event, error) {
-	var vevent *ical.Component
-	for _, child := range cal.Children {
-		if child.Name == ical.CompEvent {
-			vevent = child
-			break
-		}
-	}
-
-	if vevent == nil {
+func (b *CalDAVBackend) icalendarToEvent(cal *ics.Calendar, eventID string) (*Event, error) {
+	events := cal.Events()
+	if len(events) == 0 {
 		return nil, fmt.Errorf("no VEVENT found in calendar")
 	}
+
+	vevent := events[0]
 
 	event := &Event{
 		Id:         eventID,
 		Visibility: VisibilityPrivate,
 	}
 
-	if summary := vevent.Props.Get(ical.PropSummary); summary != nil {
+	if summary := vevent.GetProperty(ics.ComponentPropertySummary); summary != nil {
 		event.Title = summary.Value
 	}
 
-	if desc := vevent.Props.Get(ical.PropDescription); desc != nil {
+	if desc := vevent.GetProperty(ics.ComponentPropertyDescription); desc != nil {
 		event.Description = desc.Value
 	}
 
-	if dtstart := vevent.Props.Get(ical.PropDateTimeStart); dtstart != nil {
-		start, err := dtstart.DateTime(time.UTC)
+	if dtstart := vevent.GetProperty(ics.ComponentPropertyDtStart); dtstart != nil {
+		start, err := time.Parse("20060102T150405Z", dtstart.Value)
+		if err != nil {
+			// Try parsing with timezone
+			start, err = time.Parse("20060102T150405", dtstart.Value)
+			if err == nil {
+				start = start.UTC()
+			}
+		}
 		if err == nil {
 			event.Start = start
 		}
 	}
 
-	if dtend := vevent.Props.Get(ical.PropDateTimeEnd); dtend != nil {
-		end, err := dtend.DateTime(time.UTC)
+	if dtend := vevent.GetProperty(ics.ComponentPropertyDtEnd); dtend != nil {
+		end, err := time.Parse("20060102T150405Z", dtend.Value)
+		if err != nil {
+			end, err = time.Parse("20060102T150405", dtend.Value)
+			if err == nil {
+				end = end.UTC()
+			}
+		}
 		if err == nil {
 			event.End = end
 		}
 	}
 
-	if rrule := vevent.Props.Get(ical.PropRecurrenceRule); rrule != nil {
+	if rrule := vevent.GetProperty(ics.ComponentPropertyRrule); rrule != nil {
 		event.Recurrence = "RRULE:" + rrule.Value
 		event.Recurrent = true
 	}

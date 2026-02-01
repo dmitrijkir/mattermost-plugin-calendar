@@ -11,12 +11,13 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	sq "github.com/Masterminds/squirrel"
-	"github.com/emersion/go-ical"
+	ics "github.com/arran4/golang-ical"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestCalDAVBackend_extractEventID(t *testing.T) {
@@ -110,7 +111,7 @@ func TestCalDAVBackend_eventToICalendarString(t *testing.T) {
 	assert.Contains(icalStr, "UID:event-123")
 	assert.Contains(icalStr, "SUMMARY:Test Event")
 	assert.Contains(icalStr, "DESCRIPTION:Test description")
-	assert.Contains(icalStr, "ORGANIZER:mailto:test@example.com")
+	assert.Contains(icalStr, "ORGANIZER;CN=testuser:mailto:test@example.com")
 }
 
 func TestCalDAVBackend_eventToICalendarString_Recurring(t *testing.T) {
@@ -142,22 +143,19 @@ func TestCalDAVBackend_icalendarToEvent(t *testing.T) {
 	calPlugin := &Plugin{}
 	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
 
-	// Create a simple iCalendar
-	cal := ical.NewCalendar()
-	cal.Props.SetText(ical.PropVersion, "2.0")
-	cal.Props.SetText(ical.PropProductID, "-//Test//EN")
-
-	vevent := ical.NewComponent(ical.CompEvent)
-	vevent.Props.SetText(ical.PropUID, "test-uid")
-	vevent.Props.SetText(ical.PropSummary, "Test Event")
-	vevent.Props.SetText(ical.PropDescription, "Test description")
+	// Create a simple iCalendar using arran4/golang-ical
+	cal := ics.NewCalendar()
+	cal.SetVersion("2.0")
+	cal.SetProductId("-//Test//EN")
 
 	start := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2024, 1, 15, 11, 0, 0, 0, time.UTC)
-	vevent.Props.SetDateTime(ical.PropDateTimeStart, start)
-	vevent.Props.SetDateTime(ical.PropDateTimeEnd, end)
 
-	cal.Children = append(cal.Children, vevent)
+	vevent := cal.AddEvent("test-uid")
+	vevent.SetSummary("Test Event")
+	vevent.SetDescription("Test description")
+	vevent.SetStartAt(start)
+	vevent.SetEndAt(end)
 
 	event, err := backend.icalendarToEvent(cal, "event-123")
 	assert.Nil(err)
@@ -175,21 +173,18 @@ func TestCalDAVBackend_icalendarToEvent_WithRRULE(t *testing.T) {
 	calPlugin := &Plugin{}
 	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
 
-	cal := ical.NewCalendar()
-	vevent := ical.NewComponent(ical.CompEvent)
-	vevent.Props.SetText(ical.PropSummary, "Recurring Event")
-	vevent.Props.SetText(ical.PropRecurrenceRule, "FREQ=DAILY;COUNT=10")
+	cal := ics.NewCalendar()
+	start := time.Now().UTC().Truncate(time.Second)
 
-	start := time.Now().UTC()
-	vevent.Props.SetDateTime(ical.PropDateTimeStart, start)
-	vevent.Props.SetDateTime(ical.PropDateTimeEnd, start.Add(time.Hour))
-
-	cal.Children = append(cal.Children, vevent)
+	vevent := cal.AddEvent("test-uid")
+	vevent.SetSummary("Recurring Event")
+	vevent.SetStartAt(start)
+	vevent.SetEndAt(start.Add(time.Hour))
+	vevent.AddRrule("FREQ=DAILY;COUNT=10")
 
 	event, err := backend.icalendarToEvent(cal, "event-123")
 	assert.Nil(err)
 	assert.True(event.Recurrent)
-	// go-ical library may escape semicolons, so check for presence of RRULE prefix and key parts
 	assert.True(strings.HasPrefix(event.Recurrence, "RRULE:"))
 	assert.Contains(event.Recurrence, "FREQ=DAILY")
 	assert.Contains(event.Recurrence, "COUNT=10")
@@ -201,8 +196,8 @@ func TestCalDAVBackend_icalendarToEvent_NoVEVENT(t *testing.T) {
 	calPlugin := &Plugin{}
 	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
 
-	cal := ical.NewCalendar()
-	cal.Props.SetText(ical.PropVersion, "2.0")
+	cal := ics.NewCalendar()
+	cal.SetVersion("2.0")
 
 	_, err := backend.icalendarToEvent(cal, "event-123")
 	assert.NotNil(err)
@@ -212,7 +207,16 @@ func TestCalDAVBackend_icalendarToEvent_NoVEVENT(t *testing.T) {
 func TestServeCalDAV_InvalidToken(t *testing.T) {
 	assert := assert.New(t)
 
-	calPlugin := Plugin{}
+	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/caldav/short/", "user-agent", "").Return()
+	api.On("LogInfo", "CalDAV incoming request", "method", "GET", "path", "/caldav/short/", "host", "example.com", "user-agent", "", "hasAuth", false).Return()
+	api.On("LogError", "CalDAV invalid token", "token_length", 5).Return()
+
+	calPlugin := Plugin{
+		MattermostPlugin: plugin.MattermostPlugin{
+			API: &api,
+		},
+	}
 	calPlugin.router = calPlugin.InitAPI()
 
 	// Test with short token
@@ -229,16 +233,48 @@ func TestServeCalDAV_InvalidToken(t *testing.T) {
 }
 
 func TestServeCalDAV_NoBasicAuth(t *testing.T) {
+	// Authentication is now via token in URL, not Basic Auth
+	// This test verifies that without Basic Auth, the request still proceeds to token lookup
 	assert := assert.New(t)
-
-	calPlugin := Plugin{}
-	calPlugin.router = calPlugin.InitAPI()
 
 	tokenValue := "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
 
+	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/caldav/"+tokenValue+"/", "user-agent", "").Return()
+	api.On("LogInfo", "CalDAV incoming request", "method", "GET", "path", "/caldav/"+tokenValue+"/", "host", "example.com", "user-agent", "", "hasAuth", false).Return()
+	api.On("LogError", "ServeCalDAV: token not found: sql: no rows in result set").Return()
+
+	// DB mocks - token not found
+	db, dbMock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	// Mock query for token - return empty result
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+		From("calendar_ical_tokens").
+		Where(sq.Eq{"token": tokenValue}).
+		PlaceholderFormat(sq.Dollar)
+
+	querySql, _, _ := queryBuilder.ToSql()
+	dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
+		WithArgs(tokenValue).
+		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used"}))
+
+	calPlugin := Plugin{
+		MattermostPlugin: plugin.MattermostPlugin{
+			API: &api,
+		},
+		DB: dbx,
+	}
+	calPlugin.router = calPlugin.InitAPI()
+
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/caldav/"+tokenValue+"/", nil)
-	// No Basic Auth header
+	// No Basic Auth header - should still work, auth is via token in URL
 
 	calPlugin.ServeHTTP(nil, w, r)
 
@@ -246,14 +282,20 @@ func TestServeCalDAV_NoBasicAuth(t *testing.T) {
 	assert.NotNil(result)
 	defer result.Body.Close()
 
+	// Token not found in DB, so returns 401
 	assert.Equal(http.StatusUnauthorized, result.StatusCode)
-	assert.Contains(result.Header.Get("WWW-Authenticate"), "Basic")
+
+	api.AssertExpectations(t)
 }
 
 func TestServeCalDAV_TokenNotFound(t *testing.T) {
 	assert := assert.New(t)
 
+	tokenValue := "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
+
 	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/caldav/"+tokenValue+"/", "user-agent", "").Return()
+	api.On("LogInfo", "CalDAV incoming request", "method", "GET", "path", "/caldav/"+tokenValue+"/", "host", "example.com", "user-agent", "", "hasAuth", true).Return()
 	api.On("LogError", "ServeCalDAV: token not found: sql: no rows in result set").Return()
 
 	// DB mocks
@@ -264,8 +306,6 @@ func TestServeCalDAV_TokenNotFound(t *testing.T) {
 	defer db.Close()
 
 	dbx := sqlx.NewDb(db, "sqlmock")
-
-	tokenValue := "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
 
 	// Mock query for token - return empty result
 	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
@@ -304,7 +344,14 @@ func TestServeCalDAV_TokenNotFound(t *testing.T) {
 func TestServeCalDAV_PROPFIND(t *testing.T) {
 	assert := assert.New(t)
 
+	tokenValue := "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
+
 	api := plugintest.API{}
+	// Use mock.Anything for log calls to avoid brittleness
+	api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return().Maybe()
+	api.On("LogInfo", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return().Maybe()
+	api.On("LogInfo", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return().Maybe()
+	api.On("LogInfo", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return().Maybe()
 	api.On("GetUser", "test-user").Return(&model.User{
 		Id:       "test-user",
 		Username: "testuser",
@@ -314,7 +361,12 @@ func TestServeCalDAV_PROPFIND(t *testing.T) {
 			"manualTimezone":       "UTC",
 		},
 	}, nil)
-	api.On("LogInfo", "CalDAV request", "method", "PROPFIND", "path", "/caldav/abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234/").Return()
+	propfindBody := `<?xml version="1.0" encoding="UTF-8"?>
+<D:propfind xmlns:D="DAV:">
+  <D:prop>
+    <D:current-user-principal/>
+  </D:prop>
+</D:propfind>`
 
 	// DB mocks
 	db, dbMock, err := sqlmock.New()
@@ -325,7 +377,6 @@ func TestServeCalDAV_PROPFIND(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
-	tokenValue := "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
 	createdTime := time.Now().UTC()
 
 	// Mock query for token
@@ -358,13 +409,6 @@ func TestServeCalDAV_PROPFIND(t *testing.T) {
 	}
 	calPlugin.router = calPlugin.InitAPI()
 
-	propfindBody := `<?xml version="1.0" encoding="UTF-8"?>
-<D:propfind xmlns:D="DAV:">
-  <D:prop>
-    <D:current-user-principal/>
-  </D:prop>
-</D:propfind>`
-
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("PROPFIND", "/caldav/"+tokenValue+"/", strings.NewReader(propfindBody))
 	r.Header.Set("Content-Type", "application/xml")
@@ -395,6 +439,7 @@ func TestGetICalToken_WithCalDAVURL(t *testing.T) {
 	}
 
 	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/ical/token", "user-agent", "").Return()
 	session := &model.Session{
 		UserId: "test-user",
 	}
@@ -469,6 +514,7 @@ func TestGenerateICalToken_WithCalDAVURL(t *testing.T) {
 	}
 
 	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "POST", "path", "/ical/token", "user-agent", "").Return()
 	session := &model.Session{
 		UserId: "test-user",
 	}

@@ -93,6 +93,7 @@ func TestGetICalToken_NotFound(t *testing.T) {
 	}
 
 	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/ical/token", "user-agent", "").Return()
 	session := &model.Session{
 		UserId: "test-user",
 	}
@@ -152,6 +153,7 @@ func TestGetICalToken_Found(t *testing.T) {
 	}
 
 	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/ical/token", "user-agent", "").Return()
 	session := &model.Session{
 		UserId: "test-user",
 	}
@@ -227,6 +229,7 @@ func TestGenerateICalToken(t *testing.T) {
 	}
 
 	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "POST", "path", "/ical/token", "user-agent", "").Return()
 	session := &model.Session{
 		UserId: "test-user",
 	}
@@ -303,6 +306,7 @@ func TestRevokeICalToken(t *testing.T) {
 	}
 
 	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "DELETE", "path", "/ical/token", "user-agent", "").Return()
 	session := &model.Session{
 		UserId: "test-user",
 	}
@@ -355,7 +359,14 @@ func TestRevokeICalToken(t *testing.T) {
 func TestServeICalFeed_InvalidToken(t *testing.T) {
 	assert := assert.New(t)
 
-	calPlugin := Plugin{}
+	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/ical/feed/short", "user-agent", "").Return()
+
+	calPlugin := Plugin{
+		MattermostPlugin: plugin.MattermostPlugin{
+			API: &api,
+		},
+	}
 	calPlugin.router = calPlugin.InitAPI()
 
 	// Test with short token
@@ -374,7 +385,10 @@ func TestServeICalFeed_InvalidToken(t *testing.T) {
 func TestServeICalFeed_TokenNotFound(t *testing.T) {
 	assert := assert.New(t)
 
+	tokenValue := "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
+
 	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/ical/feed/"+tokenValue, "user-agent", "").Return()
 	api.On("LogError", "ServeICalFeed: token not found: sql: no rows in result set").Return()
 
 	// DB mocks
@@ -385,8 +399,6 @@ func TestServeICalFeed_TokenNotFound(t *testing.T) {
 	defer db.Close()
 
 	dbx := sqlx.NewDb(db, "sqlmock")
-
-	tokenValue := "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"
 
 	// Mock query for token - return empty result
 	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
@@ -504,6 +516,7 @@ func TestGetICalToken_NotAuthorized(t *testing.T) {
 	}
 
 	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/ical/token", "user-agent", "").Return()
 	api.On("GetSession", ctx.SessionId).Return(nil, model.NewAppError("", "", nil, "", http.StatusUnauthorized))
 	api.On("LogError", "can't get session").Return()
 
