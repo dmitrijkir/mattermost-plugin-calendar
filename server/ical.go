@@ -15,10 +15,11 @@ import (
 
 // ICalToken represents a user's iCal subscription token
 type ICalToken struct {
-	Token    string     `json:"token" db:"token"`
-	UserID   string     `json:"user_id" db:"user_id"`
-	Created  time.Time  `json:"created" db:"created"`
-	LastUsed *time.Time `json:"last_used" db:"last_used"`
+	Token         string     `json:"token" db:"token"`
+	UserID        string     `json:"user_id" db:"user_id"`
+	Created       time.Time  `json:"created" db:"created"`
+	LastUsed      *time.Time `json:"last_used" db:"last_used"`
+	CalendarColor *string    `json:"calendar_color" db:"calendar_color"`
 }
 
 // ICalTokenResponse is the response format for iCal token API
@@ -78,7 +79,7 @@ func (p *Plugin) GetICalToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"user_id": session.UserId}).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
@@ -222,7 +223,7 @@ func (p *Plugin) ServeICalFeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Look up the token and get the user ID
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"token": token}).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())

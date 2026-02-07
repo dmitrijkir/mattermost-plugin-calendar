@@ -109,7 +109,7 @@ func TestGetICalToken_NotFound(t *testing.T) {
 	dbx := sqlx.NewDb(db, "sqlmock")
 
 	// Mock query for token - return empty result
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"user_id": session.UserId}).
 		PlaceholderFormat(sq.Dollar)
@@ -117,7 +117,7 @@ func TestGetICalToken_NotFound(t *testing.T) {
 	querySql, _, _ := queryBuilder.ToSql()
 	dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
 		WithArgs(session.UserId).
-		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used"}))
+		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used", "calendar_color"}))
 
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
@@ -180,7 +180,7 @@ func TestGetICalToken_Found(t *testing.T) {
 	createdTime := time.Now().UTC()
 
 	// Mock query for token - return existing token
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"user_id": session.UserId}).
 		PlaceholderFormat(sq.Dollar)
@@ -188,8 +188,8 @@ func TestGetICalToken_Found(t *testing.T) {
 	querySql, _, _ := queryBuilder.ToSql()
 	dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
 		WithArgs(session.UserId).
-		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used"}).
-			AddRow(tokenValue, session.UserId, createdTime, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used", "calendar_color"}).
+			AddRow(tokenValue, session.UserId, createdTime, nil, "#1E90FFFF"))
 
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
@@ -401,7 +401,7 @@ func TestServeICalFeed_TokenNotFound(t *testing.T) {
 	dbx := sqlx.NewDb(db, "sqlmock")
 
 	// Mock query for token - return empty result
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"token": tokenValue}).
 		PlaceholderFormat(sq.Dollar)
@@ -409,7 +409,7 @@ func TestServeICalFeed_TokenNotFound(t *testing.T) {
 	querySql, _, _ := queryBuilder.ToSql()
 	dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
 		WithArgs(tokenValue).
-		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used"}))
+		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used", "calendar_color"}))
 
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{

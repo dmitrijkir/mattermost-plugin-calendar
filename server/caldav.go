@@ -18,19 +18,21 @@ import (
 
 // CalDAVBackend handles CalDAV operations for Mattermost Calendar
 type CalDAVBackend struct {
-	plugin   *Plugin
-	userID   string
-	token    string
-	basePath string
+	plugin        *Plugin
+	userID        string
+	token         string
+	basePath      string
+	calendarColor string
 }
 
 // NewCalDAVBackend creates a new CalDAV backend for a specific user
-func NewCalDAVBackend(plugin *Plugin, userID, token string) *CalDAVBackend {
+func NewCalDAVBackend(plugin *Plugin, userID, token, calendarColor string) *CalDAVBackend {
 	return &CalDAVBackend{
-		plugin:   plugin,
-		userID:   userID,
-		token:    token,
-		basePath: "/plugins/" + PluginId + "/caldav/" + token,
+		plugin:        plugin,
+		userID:        userID,
+		token:         token,
+		basePath:      "/plugins/" + PluginId + "/caldav/" + token,
+		calendarColor: calendarColor,
 	}
 }
 
@@ -69,7 +71,7 @@ func (p *Plugin) ServeCalDAV(w http.ResponseWriter, r *http.Request) {
 	// The 64-char token in the URL is the secret that authenticates the user
 
 	// Look up the token and get the user ID
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"token": token}).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
@@ -108,7 +110,11 @@ func (p *Plugin) ServeCalDAV(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create backend and handle request
-	backend := NewCalDAVBackend(p, icalToken.UserID, token)
+	calendarColor := "#1E90FFFF"
+	if icalToken.CalendarColor != nil {
+		calendarColor = *icalToken.CalendarColor
+	}
+	backend := NewCalDAVBackend(p, icalToken.UserID, token, calendarColor)
 	backend.ServeHTTP(w, r)
 }
 
@@ -149,10 +155,32 @@ func (b *CalDAVBackend) handleOptions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (b *CalDAVBackend) handleProppatch(w http.ResponseWriter, r *http.Request) {
-	// Apple Calendar may try to set calendar properties (color, display name, etc.)
-	// We accept the request but don't actually store the changes
-	// Return success to keep the client happy
 	b.plugin.API.LogInfo("CalDAV PROPPATCH", "path", r.URL.Path)
+
+	body, _ := io.ReadAll(r.Body)
+	bodyStr := string(body)
+
+	// Extract and save calendar-color if present
+	if color := extractCalendarColor(bodyStr); color != "" {
+		b.plugin.API.LogInfo("CalDAV PROPPATCH saving calendar color", "color", color)
+
+		updateBuilder := sq.Update("calendar_ical_tokens").
+			Set("calendar_color", color).
+			Where(sq.Eq{"token": b.token}).
+			PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
+
+		updateSql, updateArgs, sqlErr := updateBuilder.ToSql()
+		if sqlErr != nil {
+			b.plugin.API.LogError("CalDAV PROPPATCH: SQL build error: " + sqlErr.Error())
+		} else {
+			_, dbErr := b.plugin.DB.Exec(updateSql, updateArgs...)
+			if dbErr != nil {
+				b.plugin.API.LogError("CalDAV PROPPATCH: DB update error: " + dbErr.Error())
+			} else {
+				b.calendarColor = color
+			}
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 	w.WriteHeader(http.StatusMultiStatus)
@@ -169,6 +197,38 @@ func (b *CalDAVBackend) handleProppatch(w http.ResponseWriter, r *http.Request) 
 </d:multistatus>`, r.URL.Path)
 
 	w.Write([]byte(response))
+}
+
+// extractCalendarColor extracts the calendar-color value from a PROPPATCH XML body.
+func extractCalendarColor(body string) string {
+	// Look for calendar-color element value in the XML body
+	// Apple sends: <I:calendar-color xmlns:I="http://apple.com/ns/ical/">#RRGGBBAA</I:calendar-color>
+	// or variations like <A:calendar-color ...>
+	marker := "calendar-color"
+	idx := strings.Index(body, marker)
+	if idx == -1 {
+		return ""
+	}
+
+	// Find the closing > of the opening tag
+	tagClose := strings.Index(body[idx:], ">")
+	if tagClose == -1 {
+		return ""
+	}
+	valueStart := idx + tagClose + 1
+
+	// Find the opening < of the closing tag
+	valueEnd := strings.Index(body[valueStart:], "<")
+	if valueEnd == -1 {
+		return ""
+	}
+
+	color := strings.TrimSpace(body[valueStart : valueStart+valueEnd])
+	// Validate it looks like a color (#RGB, #RRGGBB, or #RRGGBBAA)
+	if len(color) >= 4 && color[0] == '#' {
+		return color
+	}
+	return ""
 }
 
 func (b *CalDAVBackend) handlePropfind(w http.ResponseWriter, r *http.Request) {
@@ -264,7 +324,7 @@ func (b *CalDAVBackend) rootPropfindWithCalendars() string {
           <C:calendar/>
         </D:resourcetype>
         <D:displayname>Mattermost Calendar</D:displayname>
-        <I:calendar-color>#1E90FFFF</I:calendar-color>
+        <I:calendar-color>%s</I:calendar-color>
         <I:calendar-order>1</I:calendar-order>
         <C:supported-calendar-component-set>
           <C:comp name="VEVENT"/>
@@ -279,7 +339,7 @@ func (b *CalDAVBackend) rootPropfindWithCalendars() string {
       <D:status>HTTP/1.1 200 OK</D:status>
     </D:propstat>
   </D:response>
-</D:multistatus>`, b.basePath, b.basePath, b.basePath, time.Now().Unix())
+</D:multistatus>`, b.basePath, b.basePath, b.basePath, b.calendarColor, time.Now().Unix())
 }
 
 func (b *CalDAVBackend) calendarPropfindResponse() string {
@@ -299,7 +359,7 @@ func (b *CalDAVBackend) calendarPropfindResponse() string {
         </cal:supported-calendar-component-set>
         <cs:getctag>%d</cs:getctag>
         <d:sync-token>%d</d:sync-token>
-        <ical:calendar-color>#1E90FFFF</ical:calendar-color>
+        <ical:calendar-color>%s</ical:calendar-color>
         <ical:calendar-order>1</ical:calendar-order>
         <d:current-user-privilege-set>
           <d:privilege><d:read/></d:privilege>
@@ -310,7 +370,7 @@ func (b *CalDAVBackend) calendarPropfindResponse() string {
       <d:status>HTTP/1.1 200 OK</d:status>
     </d:propstat>
   </d:response>
-</d:multistatus>`, b.basePath, time.Now().Unix(), time.Now().Unix())
+</d:multistatus>`, b.basePath, time.Now().Unix(), time.Now().Unix(), b.calendarColor)
 }
 
 func (b *CalDAVBackend) calendarPropfindWithEvents() string {

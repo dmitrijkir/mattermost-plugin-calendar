@@ -31,13 +31,8 @@ const eventDataTransformation = (content, response) => {
 };
 
 const LeftBarCalendar = () => {
-    const today = new Date();
-    const nextMonth = addMonths(new Date(), 1);
-    const [month, setMonth] = useState<Date>(nextMonth);
-
     const [selectedDate, setSelectedDate] = useState<Date>();
     const dateRangeType = DateRangeType.Week;
-    const firstDayOfWeek = DayOfWeek.Monday;
 
     const settings: CalendarSettings = useSelector(getCalendarSettings);
 
@@ -152,10 +147,10 @@ const CalendarContent = () => {
                         function dayOfWeekAsString(dayIndex: number) {
                             return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex] || '';
                         }
-
+                        const showDay = CalendarRef.current?.getApi().view.type !== 'dayGridMonth';
                         return (<>
                             <div className={`custom-day-header  ${dayHeaderProps.isToday ? 'custom-day-today' : ''}`}>
-                                <div className='custom-day-header-day'>{dayHeaderProps.date.getDate()}</div>
+                                {showDay ? <div className='custom-day-header-day'>{dayHeaderProps.date.getDate()}</div> : ''}
                                 <div
                                     className='custom-day-header-weekday'
                                 >{dayOfWeekAsString(dayHeaderProps.date.getDay())}</div>

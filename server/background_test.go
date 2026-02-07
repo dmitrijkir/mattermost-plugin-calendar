@@ -218,7 +218,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		sq.Eq{"ce.recurrent": true},
 		sq.Or{
 			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time": sqlQueryTime},
+			sq.Eq{"ce.alert_time::time": sqlQueryTime},
 		},
 	}
 	queryBuilder := sq.Select().
@@ -228,6 +228,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"cm.member",
@@ -264,6 +265,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		"dt_start",
 		"dt_end",
 		"created",
+		"updated",
 		"owner",
 		"channel",
 		"member",
@@ -274,7 +276,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 		"alert_time",
 	},
 	).AddRow("qwcw", "test event", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		"owner_id", channelId, "user-Id", false, "", "team1", "", nil)
+		sqlQueryTime, "owner_id", channelId, "user-Id", false, "", "team1", "", nil)
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -404,7 +406,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		sq.Eq{"ce.recurrent": true},
 		sq.Or{
 			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time": sqlQueryTime},
+			sq.Eq{"ce.alert_time::time": sqlQueryTime},
 		},
 	}
 	queryBuilder := sq.Select().
@@ -414,6 +416,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"cm.member",
@@ -450,6 +453,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		"dt_start",
 		"dt_end",
 		"created",
+		"updated",
 		"owner",
 		"channel",
 		"member",
@@ -462,7 +466,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 	).AddRow(
 		"rec-ev", "test event recevent", recurrentEventTimeStart,
 		recurrentEventTimeEnd, featureTime,
-		"owner_id", channelId, "user-Id", true,
+		featureTime, "owner_id", channelId, "user-Id", true,
 		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
 		"team1", "", nil,
 	)
@@ -589,7 +593,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		sq.Eq{"ce.recurrent": true},
 		sq.Or{
 			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time": sqlQueryTime},
+			sq.Eq{"ce.alert_time::time": sqlQueryTime},
 		},
 	}
 	queryBuilder := sq.Select().
@@ -599,6 +603,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"cm.member",
@@ -635,6 +640,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		"dt_start",
 		"dt_end",
 		"created",
+		"updated",
 		"owner",
 		"channel",
 		"member",
@@ -647,7 +653,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 	).AddRow(
 		"rec-ev", "test event recurrent", recurrentEventTimeStart,
 		recurrentEventTimeEnd, recurrentEventTimeStart,
-		"owner_id", channelId, "user-Id", true,
+		recurrentEventTimeStart, "owner_id", channelId, "user-Id", true,
 		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
 		"team1", "", nil,
 	)
@@ -757,7 +763,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		sq.Eq{"ce.recurrent": true},
 		sq.Or{
 			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time": sqlQueryTime},
+			sq.Eq{"ce.alert_time::time": sqlQueryTime},
 		},
 	}
 	queryBuilder := sq.Select().
@@ -767,6 +773,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"cm.member",
@@ -810,6 +817,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		"dt_start",
 		"dt_end",
 		"created",
+		"updated",
 		"owner",
 		"channel",
 		"member",
@@ -820,7 +828,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		"alert_time",
 	},
 	).AddRow("qwert-2", "tests event without channel", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		"owner-id", nil, "user-id", false, "", "team1", "", nil)
+		sqlQueryTime, "owner-id", nil, "user-id", false, "", "team1", "", nil)
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -937,7 +945,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		sq.Eq{"ce.recurrent": true},
 		sq.Or{
 			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time": sqlQueryTime},
+			sq.Eq{"ce.alert_time::time": sqlQueryTime},
 		},
 	}
 	queryBuilder := sq.Select().
@@ -947,6 +955,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"cm.member",
@@ -991,6 +1000,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		"dt_start",
 		"dt_end",
 		"created",
+		"updated",
 		"owner",
 		"channel",
 		"member",
@@ -1002,7 +1012,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 	).AddRow(
 		"rec-ev", "test event recurrent",
 		recurrentEventTimeStart, recurrentEventTimeEnd, recurrentEventTimeStart,
-		"owner_id", channelId, "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,MO",
+		recurrentEventTimeStart, "owner_id", channelId, "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,MO",
 		"team1", "", nil,
 	)
 

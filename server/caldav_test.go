@@ -24,7 +24,7 @@ func TestCalDAVBackend_extractEventID(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
 
 	tests := []struct {
 		path     string
@@ -84,7 +84,7 @@ func TestCalDAVBackend_eventToICalendarString(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
 
 	user := &model.User{
 		Id:       "user-123",
@@ -119,7 +119,7 @@ func TestCalDAVBackend_eventToICalendarString_Recurring(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
 
 	now := time.Now().UTC()
 	event := &Event{
@@ -142,7 +142,7 @@ func TestCalDAVBackend_icalendarToEvent(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
 
 	// Create a simple iCalendar using arran4/golang-ical
 	cal := ics.NewCalendar()
@@ -172,7 +172,7 @@ func TestCalDAVBackend_icalendarToEvent_WithRRULE(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
 
 	cal := ics.NewCalendar()
 	start := time.Now().UTC().Truncate(time.Second)
@@ -195,7 +195,7 @@ func TestCalDAVBackend_icalendarToEvent_NoVEVENT(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
 
 	cal := ics.NewCalendar()
 	cal.SetVersion("2.0")
@@ -209,7 +209,7 @@ func TestCalDAVBackend_icalendarToEvent_WithTimezone(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
 
 	// Parse iCalendar with TZID parameter (like Apple Calendar sends)
 	icalData := `BEGIN:VCALENDAR
@@ -242,7 +242,7 @@ func TestCalDAVBackend_icalendarToEvent_UTCTime(t *testing.T) {
 	assert := assert.New(t)
 
 	calPlugin := &Plugin{}
-	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token")
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
 
 	// Parse iCalendar with UTC time (ends with Z)
 	icalData := `BEGIN:VCALENDAR
@@ -319,7 +319,7 @@ func TestServeCalDAV_NoBasicAuth(t *testing.T) {
 	dbx := sqlx.NewDb(db, "sqlmock")
 
 	// Mock query for token - return empty result
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"token": tokenValue}).
 		PlaceholderFormat(sq.Dollar)
@@ -327,7 +327,7 @@ func TestServeCalDAV_NoBasicAuth(t *testing.T) {
 	querySql, _, _ := queryBuilder.ToSql()
 	dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
 		WithArgs(tokenValue).
-		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used"}))
+		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used", "calendar_color"}))
 
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
@@ -373,7 +373,7 @@ func TestServeCalDAV_TokenNotFound(t *testing.T) {
 	dbx := sqlx.NewDb(db, "sqlmock")
 
 	// Mock query for token - return empty result
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"token": tokenValue}).
 		PlaceholderFormat(sq.Dollar)
@@ -381,7 +381,7 @@ func TestServeCalDAV_TokenNotFound(t *testing.T) {
 	querySql, _, _ := queryBuilder.ToSql()
 	dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
 		WithArgs(tokenValue).
-		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used"}))
+		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used", "calendar_color"}))
 
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
@@ -445,16 +445,17 @@ func TestServeCalDAV_PROPFIND(t *testing.T) {
 	createdTime := time.Now().UTC()
 
 	// Mock query for token
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"token": tokenValue}).
 		PlaceholderFormat(sq.Dollar)
 
+	defaultColor := "#1E90FFFF"
 	querySql, _, _ := queryBuilder.ToSql()
 	dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
 		WithArgs(tokenValue).
-		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used"}).
-			AddRow(tokenValue, "test-user", createdTime, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used", "calendar_color"}).
+			AddRow(tokenValue, "test-user", createdTime, nil, defaultColor))
 
 	// Mock update last_used
 	updateBuilder := sq.Update("calendar_ical_tokens").
@@ -531,7 +532,7 @@ func TestGetICalToken_WithCalDAVURL(t *testing.T) {
 	createdTime := time.Now().UTC()
 
 	// Mock query for token - return existing token
-	queryBuilder := sq.Select("token", "user_id", "created", "last_used").
+	queryBuilder := sq.Select("token", "user_id", "created", "last_used", "calendar_color").
 		From("calendar_ical_tokens").
 		Where(sq.Eq{"user_id": session.UserId}).
 		PlaceholderFormat(sq.Dollar)
@@ -539,8 +540,8 @@ func TestGetICalToken_WithCalDAVURL(t *testing.T) {
 	querySql, _, _ := queryBuilder.ToSql()
 	dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
 		WithArgs(session.UserId).
-		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used"}).
-			AddRow(tokenValue, session.UserId, createdTime, nil))
+		WillReturnRows(sqlmock.NewRows([]string{"token", "user_id", "created", "last_used", "calendar_color"}).
+			AddRow(tokenValue, session.UserId, createdTime, nil, "#1E90FFFF"))
 
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
