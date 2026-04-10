@@ -134,6 +134,10 @@ func (p *Plugin) OnActivate() error {
 func (p *Plugin) OnDeactivate() error {
 	GetBackgroundJob().Done <- true
 
+	if p.DB != nil {
+		p.DB.Close()
+	}
+
 	return nil
 }
 
