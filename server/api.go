@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/gorilla/mux"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 func (p *Plugin) InitAPI() *mux.Router {
@@ -17,6 +18,18 @@ func (p *Plugin) InitAPI() *mux.Router {
 	r.HandleFunc("/settings", p.UpdateSettings).Methods("PUT")
 
 	r.HandleFunc("/schedule", p.GetSchedule).Methods("GET")
+
+	// iCal token management
+	r.HandleFunc("/ical/token", p.GetICalToken).Methods("GET")
+	r.HandleFunc("/ical/token", p.GenerateICalToken).Methods("POST")
+	r.HandleFunc("/ical/token", p.RevokeICalToken).Methods("DELETE")
+	// iCal feed endpoint (token is 64-char hex string)
+	r.HandleFunc("/ical/feed/{token}", p.ServeICalFeed).Methods("GET")
+
+	// CalDAV endpoints (use PathPrefix for all CalDAV requests)
+	// Handle both with and without trailing slash
+	r.PathPrefix("/caldav/{token}/").HandlerFunc(p.ServeCalDAV)
+	r.HandleFunc("/caldav/{token}", p.ServeCalDAV)
 
 	// 404 handler
 	r.Handle("{anything:.*}", http.NotFoundHandler())

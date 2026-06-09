@@ -129,6 +129,7 @@ type Event struct {
 	End         time.Time       `json:"end" db:"dt_end"`
 	Attendees   []string        `json:"attendees"`
 	Created     time.Time       `json:"created" db:"created"`
+	Updated     time.Time       `json:"updated" db:"updated"`
 	Owner       string          `json:"owner" db:"owner"`
 	Team        string          `json:"team" db:"team"`
 	Channel     *string         `json:"channel" db:"channel"`

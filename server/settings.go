@@ -168,13 +168,13 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 			PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 		insertQuery, insertArgs, _ := insertQueryBuilder.ToSql()
-		_, errInsert := p.DB.Queryx(insertQuery, insertArgs...)
-
+		insertRows, errInsert := p.DB.Queryx(insertQuery, insertArgs...)
 		if errInsert != nil {
 			p.API.LogError(errInsert.Error())
 			errorResponse(w, SomethingWentWrong)
 			return
 		}
+		insertRows.Close()
 
 		apiResponse(w, &userSettings)
 		return
@@ -188,13 +188,13 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	updateQuery, updateArgs, _ := updateQueryBuilder.ToSql()
-	_, errUpdate := p.DB.Queryx(updateQuery, updateArgs...)
-
+	updateRows, errUpdate := p.DB.Queryx(updateQuery, updateArgs...)
 	if errUpdate != nil {
 		p.API.LogError(errUpdate.Error())
 		errorResponse(w, SomethingWentWrong)
 		return
 	}
+	updateRows.Close()
 
 	apiResponse(w, &requestUserSettings)
 	return

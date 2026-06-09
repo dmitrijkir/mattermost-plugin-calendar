@@ -7,6 +7,13 @@ import getSiteURL from 'components/utils';
 import {id as PluginId} from './manifest';
 import {CalendarSettings} from './types/settings';
 
+export declare type ICalTokenResponse = {
+    token?: string;
+    url?: string;
+    caldavUrl?: string;
+    enabled: boolean;
+}
+
 export declare type GetEventResponse = {
     id: string;
     title: string;
@@ -247,6 +254,48 @@ export class ApiClient implements ApiClientInterface {
                     firstDayOfWeek: settings.firstDayOfWeek,
                     hideNonWorkingDays: settings.hideNonWorkingDays,
                 }),
+            }),
+        );
+        const data = await response.json();
+        return data.data;
+    }
+
+    static async getICalToken(): Promise<ICalTokenResponse> {
+        const response = await fetch(
+            getSiteURL() + `/plugins/${PluginId}/ical/token`,
+            Client4.getOptions({
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }),
+        );
+        const data = await response.json();
+        return data.data;
+    }
+
+    static async generateICalToken(): Promise<ICalTokenResponse> {
+        const response = await fetch(
+            getSiteURL() + `/plugins/${PluginId}/ical/token`,
+            Client4.getOptions({
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            }),
+        );
+        const data = await response.json();
+        return data.data;
+    }
+
+    static async revokeICalToken(): Promise<ICalTokenResponse> {
+        const response = await fetch(
+            getSiteURL() + `/plugins/${PluginId}/ical/token`,
+            Client4.getOptions({
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
             }),
         );
         const data = await response.json();

@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
+	"strings"
+
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -16,8 +19,6 @@ import (
 	"github.com/mattermost/morph/drivers/postgres"
 	"github.com/mattermost/morph/sources"
 	"github.com/mattermost/morph/sources/embedded"
-	"path/filepath"
-	"strings"
 )
 
 //go:embed migrations
@@ -48,10 +49,14 @@ type Migrator struct {
 }
 
 func (m *Migrator) createSource() (sources.Source, error) {
-	assetsList, err := assets.ReadDir(filepath.Join("migrations", m.DB.DriverName()))
+	// Use path.Join instead of filepath.Join because embed.FS always uses forward slashes
+	// regardless of the OS (even on Windows)
+	driverName := m.DB.DriverName()
+	migrationDir := path.Join("migrations", driverName)
 
+	assetsList, err := assets.ReadDir(migrationDir)
 	if err != nil {
-		m.plugin.API.LogError(err.Error())
+		m.plugin.API.LogError("Failed to read migrations directory", "dir", migrationDir, "error", err.Error())
 		return nil, err
 	}
 
@@ -59,10 +64,11 @@ func (m *Migrator) createSource() (sources.Source, error) {
 	for i, entry := range assetsList {
 		assetNamesForDriver[i] = entry.Name()
 	}
+
 	src, err := embedded.WithInstance(&embedded.AssetSource{
 		Names: assetNamesForDriver,
 		AssetFunc: func(name string) ([]byte, error) {
-			return assets.ReadFile(filepath.Join("migrations", m.DB.DriverName(), name))
+			return assets.ReadFile(path.Join(migrationDir, name))
 		},
 	})
 
@@ -125,6 +131,7 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 		m.plugin.API.LogError(errSelect.Error())
 		return CantMakeMigration
 	}
+	defer rows.Close()
 
 	type EventFromDb struct {
 		Id         string          `json:"id" db:"id"`
@@ -169,10 +176,12 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 
 		updateQuerySql, updateArgsSql, _ := updateQueryBuilder.ToSql()
 
-		if _, errUpdate := m.DB.Queryx(updateQuerySql, updateArgsSql...); errUpdate != nil {
+		migrateRows, errUpdate := m.DB.Queryx(updateQuerySql, updateArgsSql...)
+		if errUpdate != nil {
 			m.plugin.API.LogError(errUpdate.Error())
 			continue
 		}
+		migrateRows.Close()
 	}
 
 	// clear empty rows
@@ -182,10 +191,12 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 		PlaceholderFormat(m.plugin.GetDBPlaceholderFormat())
 
 	updateEmptySql, updateEmptyArgsSql, _ := updateEmptyBuilder.ToSql()
-	if _, errUpdate := m.DB.Queryx(updateEmptySql, updateEmptyArgsSql...); errUpdate != nil {
+	emptyRows, errUpdate := m.DB.Queryx(updateEmptySql, updateEmptyArgsSql...)
+	if errUpdate != nil {
 		m.plugin.API.LogError(errUpdate.Error())
 		return CantMakeMigration
 	}
+	emptyRows.Close()
 
 	return nil
 }

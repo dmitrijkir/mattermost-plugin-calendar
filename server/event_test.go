@@ -32,6 +32,9 @@ func TestGetUTCEvents(t *testing.T) {
 
 	dbx := sqlx.NewDb(db, "sqlmock")
 
+	// Queries run concurrently in goroutines, so order is non-deterministic
+	dbMock.MatchExpectationsInOrder(false)
+
 	sqlRequestTimeStart := time.Date(2023, time.February, 26, 23, 0, 0, 0, time.UTC)
 	sqlRequestTimeEnd := time.Date(2023, time.March, 05, 23, 0, 0, 0, time.UTC)
 
@@ -59,6 +62,7 @@ func TestGetUTCEvents(t *testing.T) {
 			"ce.dt_start",
 			"ce.dt_end",
 			"ce.created",
+			"ce.updated",
 			"ce.owner",
 			"ce.channel",
 			"ce.recurrent",
@@ -85,6 +89,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"dt_start",
 		"dt_end",
 		"created",
+		"updated",
 		"owner",
 		"channel",
 		"recurrent",
@@ -105,6 +110,7 @@ func TestGetUTCEvents(t *testing.T) {
 		sqlRequestTimeStart,
 		sqlRequestTimeStart.Add(time.Minute*30),
 		sqlRequestTimeEnd,
+		sqlRequestTimeEnd,
 		session.UserId,
 		"channel-1",
 		false,
@@ -122,6 +128,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"",
 		sqlRequestTimeStart,
 		sqlRequestTimeStart.Add(time.Minute*30),
+		sqlRequestTimeEnd,
 		sqlRequestTimeEnd,
 		session.UserId,
 		"channel-1",
@@ -142,6 +149,7 @@ func TestGetUTCEvents(t *testing.T) {
 		sqlRequestTimeStart,
 		sqlRequestTimeStart.Add(time.Minute*30),
 		sqlRequestTimeEnd,
+		sqlRequestTimeEnd,
 		session.UserId,
 		"channel-1",
 		false,
@@ -158,6 +166,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"",
 		sqlRequestTimeStart,
 		sqlRequestTimeStart.Add(time.Minute*30),
+		sqlRequestTimeEnd,
 		sqlRequestTimeEnd,
 		"another-user",
 		"channel-1",
@@ -178,6 +187,7 @@ func TestGetUTCEvents(t *testing.T) {
 		sqlRequestTimeStart.Add(-time.Hour*24*14),
 		sqlRequestTimeStart.Add(-time.Hour*24*14).Add(time.Minute*30),
 		sqlRequestTimeEnd,
+		sqlRequestTimeEnd,
 		session.UserId,
 		"channel-1",
 		true,
@@ -196,6 +206,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"",
 		time.Date(2023, time.February, 27, 23, 0, 0, 0, time.UTC),
 		time.Date(2023, time.February, 27, 24, 0, 0, 0, time.UTC),
+		sqlRequestTimeEnd,
 		sqlRequestTimeEnd,
 		session.UserId,
 		"channel-1",
