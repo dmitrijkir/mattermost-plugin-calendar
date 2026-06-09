@@ -131,6 +131,7 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 		m.plugin.API.LogError(errSelect.Error())
 		return CantMakeMigration
 	}
+	defer rows.Close()
 
 	type EventFromDb struct {
 		Id         string          `json:"id" db:"id"`
@@ -175,10 +176,12 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 
 		updateQuerySql, updateArgsSql, _ := updateQueryBuilder.ToSql()
 
-		if _, errUpdate := m.DB.Queryx(updateQuerySql, updateArgsSql...); errUpdate != nil {
+		migrateRows, errUpdate := m.DB.Queryx(updateQuerySql, updateArgsSql...)
+		if errUpdate != nil {
 			m.plugin.API.LogError(errUpdate.Error())
 			continue
 		}
+		migrateRows.Close()
 	}
 
 	// clear empty rows
@@ -188,10 +191,12 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 		PlaceholderFormat(m.plugin.GetDBPlaceholderFormat())
 
 	updateEmptySql, updateEmptyArgsSql, _ := updateEmptyBuilder.ToSql()
-	if _, errUpdate := m.DB.Queryx(updateEmptySql, updateEmptyArgsSql...); errUpdate != nil {
+	emptyRows, errUpdate := m.DB.Queryx(updateEmptySql, updateEmptyArgsSql...)
+	if errUpdate != nil {
 		m.plugin.API.LogError(errUpdate.Error())
 		return CantMakeMigration
 	}
+	emptyRows.Close()
 
 	return nil
 }

@@ -206,6 +206,7 @@ func (b *Background) process(t time.Time) {
 		b.plugin.API.LogError(errSelect.Error())
 		return
 	}
+	defer rows.Close()
 
 	type EventFromDb struct {
 		Event
@@ -340,10 +341,12 @@ func (b *Background) process(t time.Time) {
 			b.plugin.API.LogError(updateErrBuilder.Error())
 			continue
 		}
-		if _, errUpdate := b.plugin.DB.Queryx(updateSql, updateArgs...); errUpdate != nil {
+		updateRows, errUpdate := b.plugin.DB.Queryx(updateSql, updateArgs...)
+		if errUpdate != nil {
 			b.plugin.API.LogError(errUpdate.Error())
 			continue
 		}
+		updateRows.Close()
 
 	}
 

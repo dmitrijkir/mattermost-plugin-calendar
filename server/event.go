@@ -51,6 +51,7 @@ func (p *Plugin) GetUserChannels(userId string) ([]string, *model.AppError) {
 		p.API.LogError(errSelect.Error())
 		return nil, SomethingWentWrong
 	}
+	defer rows.Close()
 
 	var channels []string
 
@@ -152,6 +153,7 @@ func (p *Plugin) GetUserEventsUTC(
 		p.API.LogError(errSelect.Error())
 		return nil, SomethingWentWrong
 	}
+	defer rows.Close()
 
 	addedEvent := map[string]bool{}
 	for rows.Next() {
@@ -314,6 +316,7 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, EventNotFound)
 		return
 	}
+	defer rows.Close()
 
 	type EventFromDb struct {
 		Event
@@ -544,13 +547,13 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, errInsert := p.DB.Queryx(querySql, sqlArgs...)
-
+	insertRows, errInsert := p.DB.Queryx(querySql, sqlArgs...)
 	if errInsert != nil {
 		p.API.LogError(errInsert.Error())
 		errorResponse(w, CantCreateEvent)
 		return
 	}
+	insertRows.Close()
 
 	if len(event.Attendees) > 0 {
 		builderAtt := sq.Insert("calendar_members").
@@ -565,7 +568,11 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			errorResponse(w, CantCreateEvent)
 			return
 		}
-		_, errInsert = p.DB.Queryx(queryAttendees, queryAttArgs...)
+		attRows, errInsertAtt := p.DB.Queryx(queryAttendees, queryAttArgs...)
+		if errInsertAtt == nil {
+			attRows.Close()
+		}
+		errInsert = errInsertAtt
 	}
 
 	if errInsert != nil {
@@ -608,13 +615,13 @@ func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, CantRemoveEvent)
 		return
 	}
-	_, dbErr := p.DB.Queryx(deleteSql, deleteArgs...)
-
+	deleteRows, dbErr := p.DB.Queryx(deleteSql, deleteArgs...)
 	if dbErr != nil {
 		p.API.LogError("can't remove event from db")
 		errorResponse(w, CantRemoveEvent)
 		return
 	}
+	deleteRows.Close()
 
 	apiResponse(w, map[string]interface{}{
 		"success": true,
