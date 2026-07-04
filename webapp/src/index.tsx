@@ -1,8 +1,6 @@
 import {Action, Store} from 'redux';
 import {GlobalState} from 'mattermost-redux/types/store';
 
-import {render} from 'react-dom';
-
 import React from 'react';
 
 import {Provider} from 'react-redux';
