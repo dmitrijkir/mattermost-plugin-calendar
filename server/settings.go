@@ -72,14 +72,20 @@ func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 		businessDays = append(businessDays, day)
 	}
 
+	jitsiBaseURL := p.configuration.JitsiBaseURL
+	if jitsiBaseURL == "" {
+		jitsiBaseURL = DefaultJitsiBaseURL
+	}
+
 	userSettings := UserSettings{
 		BusinessStartTime: BusinessStartTimeUtc.In(userLoc).Format(BusinessTimeLayout),
 		BusinessEndTime:   BusinessEndTimeUtc.In(userLoc).Format(BusinessTimeLayout),
 		BusinessDays:      businessDays,
+		JitsiBaseURL:      jitsiBaseURL,
 	}
 
 	queryBuilder := sq.Select().
-		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days").
+		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days", "call_color", "event_color").
 		From("calendar_settings").
 		Where(sq.Eq{"owner": user.Id}).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
@@ -96,6 +102,8 @@ func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 		userSettings.IsOpenCalendarLeftBar = true
 		userSettings.FirstDayOfWeek = 1
 		userSettings.HideNonWorkingDays = false
+		userSettings.CallColor = DefaultCallColor
+		userSettings.EventColor = DefaultEventColor
 		apiResponse(w, &userSettings)
 		return
 	}
@@ -122,9 +130,11 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type UserSettingsRequest struct {
-		IsOpenCalendarLeftBar bool `json:"isOpenCalendarLeftBar" db:"is_open_calendar_left_bar"`
-		FirstDayOfWeek        int  `json:"firstDayOfWeek" db:"first_day_of_week"`
-		HideNonWorkingDays    bool `json:"hideNonWorkingDays" db:"hide_non_working_days"`
+		IsOpenCalendarLeftBar bool   `json:"isOpenCalendarLeftBar" db:"is_open_calendar_left_bar"`
+		FirstDayOfWeek        int    `json:"firstDayOfWeek" db:"first_day_of_week"`
+		HideNonWorkingDays    bool   `json:"hideNonWorkingDays" db:"hide_non_working_days"`
+		CallColor             string `json:"callColor" db:"call_color"`
+		EventColor            string `json:"eventColor" db:"event_color"`
 	}
 
 	var userSettings UserSettingsRequest
@@ -141,8 +151,19 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if requestUserSettings.CallColor == "" {
+		requestUserSettings.CallColor = DefaultCallColor
+	}
+	if requestUserSettings.EventColor == "" {
+		requestUserSettings.EventColor = DefaultEventColor
+	}
+	if !strings.HasPrefix(requestUserSettings.CallColor, "#") || !strings.HasPrefix(requestUserSettings.EventColor, "#") {
+		errorResponse(w, InvalidRequestParams)
+		return
+	}
+
 	getQueryBuilder := sq.Select().
-		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days").
+		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days", "call_color", "event_color").
 		From("calendar_settings").
 		Where(sq.Eq{"owner": user.Id}).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
@@ -157,12 +178,16 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 				"is_open_calendar_left_bar",
 				"first_day_of_week",
 				"hide_non_working_days",
+				"call_color",
+				"event_color",
 				"owner",
 			).
 			Values(
 				requestUserSettings.IsOpenCalendarLeftBar,
 				requestUserSettings.FirstDayOfWeek,
 				requestUserSettings.HideNonWorkingDays,
+				requestUserSettings.CallColor,
+				requestUserSettings.EventColor,
 				user.Id,
 			).
 			PlaceholderFormat(p.GetDBPlaceholderFormat())
@@ -176,7 +201,7 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		insertRows.Close()
 
-		apiResponse(w, &userSettings)
+		apiResponse(w, &requestUserSettings)
 		return
 	}
 
@@ -184,6 +209,8 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		Set("is_open_calendar_left_bar", requestUserSettings.IsOpenCalendarLeftBar).
 		Set("first_day_of_week", requestUserSettings.FirstDayOfWeek).
 		Set("hide_non_working_days", requestUserSettings.HideNonWorkingDays).
+		Set("call_color", requestUserSettings.CallColor).
+		Set("event_color", requestUserSettings.EventColor).
 		Where(sq.Eq{"owner": user.Id}).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
 

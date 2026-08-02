@@ -72,6 +72,8 @@ func TestGetUTCEvents(t *testing.T) {
 			"ce.visibility",
 			"ce.alert",
 			"ce.alert_time",
+			"ce.type",
+			"ce.meeting_link",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -99,6 +101,8 @@ func TestGetUTCEvents(t *testing.T) {
 		"visibility",
 		"alert",
 		"alert_time",
+		"type",
+		"meeting_link",
 	})
 
 	//	add events to sqlEventsRow
@@ -120,6 +124,8 @@ func TestGetUTCEvents(t *testing.T) {
 		VisibilityPrivate,
 		"",
 		nil,
+		"call",
+		nil,
 	)
 	// recurrent event, every monday, tuesday, wednesday
 	sqlEventsRow.AddRow(
@@ -138,6 +144,8 @@ func TestGetUTCEvents(t *testing.T) {
 		"team1",
 		VisibilityPrivate,
 		"",
+		nil,
+		"call",
 		nil,
 	)
 
@@ -159,6 +167,8 @@ func TestGetUTCEvents(t *testing.T) {
 		VisibilityPrivate,
 		"",
 		nil,
+		"call",
+		nil,
 	)
 	sqlEventsRow.AddRow(
 		"event-3",
@@ -176,6 +186,8 @@ func TestGetUTCEvents(t *testing.T) {
 		"team1",
 		VisibilityPrivate,
 		"",
+		nil,
+		"call",
 		nil,
 	)
 
@@ -197,6 +209,8 @@ func TestGetUTCEvents(t *testing.T) {
 		VisibilityPrivate,
 		"",
 		nil,
+		"call",
+		nil,
 	)
 
 	// recurrent event, corner case, start 00:00, and repeat every current week day
@@ -216,6 +230,8 @@ func TestGetUTCEvents(t *testing.T) {
 		"team1",
 		VisibilityPrivate,
 		"",
+		nil,
+		"call",
 		nil,
 	)
 	//
@@ -243,7 +259,7 @@ func TestGetUTCEvents(t *testing.T) {
 		DB: dbx,
 	}
 
-	events, eventsErr := calPlugin.GetUserEventsUTC(session.UserId, userLocation, sqlRequestTimeStart, sqlRequestTimeEnd)
+	events, eventsErr := calPlugin.GetUserEventsUTC(session.UserId, userLocation, sqlRequestTimeStart, sqlRequestTimeEnd, "")
 
 	if eventsErr != nil {
 		t.Errorf("Error getting events: %s", eventsErr)

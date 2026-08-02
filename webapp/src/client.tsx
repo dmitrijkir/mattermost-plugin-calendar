@@ -29,6 +29,8 @@ export declare type GetEventResponse = {
     team: string
     visibility: string
     alert: string
+    type: string
+    meetingLink?: string
 }
 
 export declare type GetEventsResponse = {
@@ -159,6 +161,8 @@ export class ApiClient implements ApiClientInterface {
         recurrence?: string,
         color?: string,
         alert?: string,
+        type?: string,
+        meetingLink?: string,
     ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
@@ -179,6 +183,8 @@ export class ApiClient implements ApiClientInterface {
                     recurrence,
                     color,
                     alert,
+                    type,
+                    meetingLink,
                 }),
             }),
         );
@@ -200,6 +206,8 @@ export class ApiClient implements ApiClientInterface {
         recurrence?: string,
         color?: string,
         alert?: string,
+        type?: string,
+        meetingLink?: string,
     ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
@@ -221,6 +229,8 @@ export class ApiClient implements ApiClientInterface {
                     recurrence,
                     color,
                     alert,
+                    type,
+                    meetingLink,
                 }),
             }),
         );
@@ -276,6 +286,8 @@ export class ApiClient implements ApiClientInterface {
                     isOpenCalendarLeftBar: settings.isOpenCalendarLeftBar,
                     firstDayOfWeek: settings.firstDayOfWeek,
                     hideNonWorkingDays: settings.hideNonWorkingDays,
+                    callColor: settings.callColor,
+                    eventColor: settings.eventColor,
                 }),
             }),
         );

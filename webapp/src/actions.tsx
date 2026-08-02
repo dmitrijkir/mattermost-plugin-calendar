@@ -57,6 +57,13 @@ export const updateMembersAddedInEvent = (members: UserProfile[]) => {
     };
 };
 
+export const updateSelectedCalendarType = (calendarType: string) => {
+    return {
+        type: 'updateSelectedCalendarType',
+        payload: calendarType,
+    };
+};
+
 export const updateSelectedEventTime = (event: SelectedEventTime) => {
     if (event.startTime && event.start) {
         const startT = event.startTime.split(':');

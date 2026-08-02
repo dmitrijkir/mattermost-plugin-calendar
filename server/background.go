@@ -62,6 +62,10 @@ func (b *Background) getMessageFromEvent(event *Event, processTime time.Time) st
 		message += fmt.Sprintf("**description:**\n%s", event.Description)
 	}
 
+	if event.MeetingLink != nil && *event.MeetingLink != "" {
+		message += fmt.Sprintf("\n**meeting:** %s", *event.MeetingLink)
+	}
+
 	return message
 }
 
@@ -178,6 +182,8 @@ func (b *Background) process(t time.Time) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -306,6 +312,8 @@ func (b *Background) process(t time.Time) {
 				Team:        eventDb.Team,
 				Alert:       eventDb.Alert,
 				AlertTime:   eventDb.AlertTime,
+				Type:        eventDb.Type,
+				MeetingLink: eventDb.MeetingLink,
 			}
 
 		}

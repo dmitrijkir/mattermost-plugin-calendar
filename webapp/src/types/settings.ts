@@ -5,4 +5,7 @@ export declare type CalendarSettings = {
     businessEndTime: string;
     businessDays: number[];
     hideNonWorkingDays: boolean;
+    callColor: string;
+    eventColor: string;
+    jitsiBaseUrl: string;
 };

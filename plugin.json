@@ -47,6 +47,14 @@
                 "help_text": "Business days for exp: '1,2,3,4,5' from mon to fri",
                 "default": "1,2,3,4,5",
                 "placeholder": "1"
+            },
+            {
+                "key": "JitsiBaseURL",
+                "display_name": "Jitsi server base URL",
+                "type": "text",
+                "help_text": "Base URL used when generating a Jitsi meeting link for an event",
+                "default": "https://meet.jit.si",
+                "placeholder": "https://meet.jit.si"
             }
         ]
     }

@@ -11,14 +11,16 @@ import {
     CalendarDay20Regular,
     CalendarEmpty16Filled,
     CalendarLtr20Regular,
+    Call20Regular,
+    PeopleCommunity20Regular,
     LineHorizontal3Regular,
     Settings20Regular,
     Dismiss24Regular,
 } from '@fluentui/react-icons';
 
-import {openEventModal, updateCalendarSettingsOnServer} from 'actions';
+import {openEventModal, updateCalendarSettingsOnServer, updateSelectedCalendarType} from 'actions';
 
-import {getCalendarSettings} from '../selectors';
+import {getCalendarSettings, getSelectedCalendarType} from '../selectors';
 import {CalendarSettings} from '../types/settings';
 
 import CalendarRef from './calendar';
@@ -27,6 +29,7 @@ import ICalSettings from './ical-settings';
 const HeaderComponent = () => {
     const dispatch = useDispatch();
     const settings: CalendarSettings = useSelector(getCalendarSettings);
+    const selectedCalendarType: string = useSelector(getSelectedCalendarType);
     const [settingsPanelOpen, setSettingsPanelOpen] = useState<boolean>(false);
     const [selectedView, setSelectedView] = useState<string>('timeGridWeek');
 
@@ -113,6 +116,32 @@ const HeaderComponent = () => {
                                 }}
                             />
                         </div>
+                        <div className='settings-right-bar-calendar-color'>
+                            <label>Calls calendar color</label>
+                            <input
+                                type='color'
+                                value={settings.callColor}
+                                onChange={(e) => {
+                                    dispatch(updateCalendarSettingsOnServer({
+                                        ...settings,
+                                        callColor: e.target.value,
+                                    }));
+                                }}
+                            />
+                        </div>
+                        <div className='settings-right-bar-calendar-color'>
+                            <label>Events calendar color</label>
+                            <input
+                                type='color'
+                                value={settings.eventColor}
+                                onChange={(e) => {
+                                    dispatch(updateCalendarSettingsOnServer({
+                                        ...settings,
+                                        eventColor: e.target.value,
+                                    }));
+                                }}
+                            />
+                        </div>
                     </p>
                     <ICalSettings/>
                 </DrawerBody>
@@ -169,6 +198,20 @@ const HeaderComponent = () => {
                         }}
                         disabled={selectedView === 'dayGridMonth'}
                     >month</Button>
+                </div>
+                <div className='left-allign-header-toolbar-item'>
+                    <Button
+                        appearance='subtle'
+                        icon={<Call20Regular/>}
+                        onClick={() => dispatch(updateSelectedCalendarType('call'))}
+                        disabled={selectedCalendarType === 'call'}
+                    >Calls</Button>
+                    <Button
+                        appearance='subtle'
+                        icon={<PeopleCommunity20Regular/>}
+                        onClick={() => dispatch(updateSelectedCalendarType('event'))}
+                        disabled={selectedCalendarType === 'event'}
+                    >Events</Button>
                 </div>
                 <div className='left-allign-header-toolbar-item'>
                     <Button

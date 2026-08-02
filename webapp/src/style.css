@@ -749,6 +749,31 @@ table {
     padding-top: 20px;
 }
 
+.settings-right-bar-calendar-color {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+}
+
+.event-meeting-link-container {
+    display: flex;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.event-meeting-link-input-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-left: 12px;
+}
+
+.event-meeting-link-input {
+    flex: 1;
+}
+
 .event-until-container {
     margin-top: 7px;
 }

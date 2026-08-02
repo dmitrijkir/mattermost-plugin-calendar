@@ -19,7 +19,7 @@ import {addMonths, format} from 'date-fns';
 import {eventSelected, openEventModal} from 'actions';
 import {id as PluginId} from '../manifest';
 import {CalendarSettings} from '../types/settings';
-import {getCalendarSettings} from '../selectors';
+import {getCalendarSettings, getSelectedCalendarType} from '../selectors';
 
 import CalendarRef from './calendar';
 import getSiteURL from './utils';
@@ -68,6 +68,7 @@ const CalendarContent = () => {
     const dispatch = useDispatch();
     const user = useSelector(getCurrentUser);
     const settings = useSelector(getCalendarSettings);
+    const selectedCalendarType: string = useSelector(getSelectedCalendarType);
 
     const [contentHeight, setContentHeight] = useState<number>(window.innerHeight - 200);
 
@@ -139,8 +140,11 @@ const CalendarContent = () => {
     const eventSources = useMemo(() => [
         {
             url: getSiteURL() + `/plugins/${PluginId}/events`,
+            extraParams: {
+                type: selectedCalendarType,
+            },
         },
-    ], []);
+    ], [selectedCalendarType]);
 
     if (!user) {
         return (

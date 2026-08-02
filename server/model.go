@@ -8,6 +8,7 @@ import (
 
 type EventVisibility string
 type EventAlert string
+type EventType string
 
 const (
 	EventAlertNone            EventAlert = ""
@@ -23,6 +24,9 @@ const (
 	VisibilityPrivate EventVisibility = "private"
 	VisibilityChannel EventVisibility = "channel"
 	VisibilityTeam    EventVisibility = "team"
+
+	EventTypeCall    EventType = "call"
+	EventTypeMeeting EventType = "event"
 )
 
 var EventAlertDurationMap = map[EventAlert]time.Duration{
@@ -121,6 +125,42 @@ func (e *EventVisibility) Scan(value interface{}) error {
 	}
 }
 
+// UnmarshalJSON customizes the JSON unmarshaling of EventType.
+func (e *EventType) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	switch s {
+	case string(EventTypeCall), string(EventTypeMeeting):
+		*e = EventType(s)
+		return nil
+	default:
+		return fmt.Errorf("invalid EventType: %s", s)
+	}
+}
+
+func (e *EventType) Scan(value interface{}) error {
+	var strValue string
+
+	switch v := value.(type) {
+	case string:
+		strValue = v
+	case []byte:
+		strValue = string(v)
+	default:
+		return fmt.Errorf("EventType must be a string or []byte, got %T", value)
+	}
+
+	switch strValue {
+	case string(EventTypeCall), string(EventTypeMeeting):
+		*e = EventType(strValue)
+		return nil
+	default:
+		return fmt.Errorf("invalid EventType: %s", strValue)
+	}
+}
+
 type Event struct {
 	Id          string          `json:"id" db:"id"`
 	Title       string          `json:"title" db:"title"`
@@ -140,6 +180,8 @@ type Event struct {
 	Visibility  EventVisibility `json:"visibility" db:"visibility"`
 	Alert       EventAlert      `json:"alert" db:"alert"`
 	AlertTime   *time.Time      `json:"alertTime" db:"alert_time"`
+	Type        EventType       `json:"type" db:"type"`
+	MeetingLink *string         `json:"meetingLink" db:"meeting_link"`
 }
 
 type UserSettings struct {
@@ -149,4 +191,7 @@ type UserSettings struct {
 	FirstDayOfWeek        int    `json:"firstDayOfWeek" db:"first_day_of_week"`
 	BusinessDays          []int  `json:"businessDays"`
 	HideNonWorkingDays    bool   `json:"hideNonWorkingDays" db:"hide_non_working_days"`
+	CallColor             string `json:"callColor" db:"call_color"`
+	EventColor            string `json:"eventColor" db:"event_color"`
+	JitsiBaseURL          string `json:"jitsiBaseUrl"`
 }

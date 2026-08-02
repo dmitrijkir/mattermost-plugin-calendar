@@ -75,6 +75,7 @@ func (p *Plugin) GetUserEventsUTC(
 	userId string,
 	userLocation *time.Location,
 	start, end time.Time,
+	eventType string,
 ) ([]Event, *model.AppError) {
 	var events []Event
 
@@ -91,6 +92,10 @@ func (p *Plugin) GetUserEventsUTC(
 			},
 			sq.Eq{"ce.recurrent": true},
 		},
+	}
+
+	if eventType != "" {
+		conditions = append(conditions, sq.Eq{"ce.type": eventType})
 	}
 
 	// Create a new select builder
@@ -112,6 +117,8 @@ func (p *Plugin) GetUserEventsUTC(
 			"ce.visibility",
 			"ce.alert",
 			"ce.alert_time",
+			"ce.type",
+			"ce.meeting_link",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -368,6 +375,8 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 			"ce.team",
 			"ce.alert",
 			"ce.alert_time",
+			"ce.type",
+			"ce.meeting_link",
 			"cm.member",
 		).
 		From("calendar_events ce").
@@ -431,6 +440,8 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 		Visibility:  eventDb.Visibility,
 		Alert:       eventDb.Alert,
 		AlertTime:   eventDb.AlertTime,
+		Type:        eventDb.Type,
+		MeetingLink: eventDb.MeetingLink,
 	}
 
 	if !p.canViewEvent(user.Id, event, members) {
@@ -470,6 +481,7 @@ func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
 
 	start := query.Get("start")
 	end := query.Get("end")
+	eventType := query.Get("type")
 
 	if start == "" || end == "" {
 		errorResponse(w, InvalidRequestParams)
@@ -482,7 +494,7 @@ func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
 	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, end, userLoc)
 
 	events, eventsError := p.GetUserEventsUTC(
-		user.Id, userLoc, startEventLocal.In(time.UTC), EndEventLocal.In(time.UTC),
+		user.Id, userLoc, startEventLocal.In(time.UTC), EndEventLocal.In(time.UTC), eventType,
 	)
 	if eventsError != nil {
 		errorResponse(w, eventsError)
@@ -524,6 +536,10 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		p.API.LogError("Channel is required for channel visibility")
 		errorResponse(w, CantCreateEvent)
 		return
+	}
+
+	if event.Type == "" {
+		event.Type = EventTypeCall
 	}
 
 	event.Id = uuid.New().String()
@@ -593,6 +609,8 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			"team",
 			"alert",
 			"alert_time",
+			"type",
+			"meeting_link",
 		).
 		Values(
 			event.Id,
@@ -611,6 +629,8 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			event.Team,
 			event.Alert,
 			event.AlertTime,
+			event.Type,
+			event.MeetingLink,
 		).PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	// Prepare the SQL query
@@ -770,6 +790,10 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if event.Type == "" {
+		event.Type = EventTypeCall
+	}
+
 	existingOwner, existingAttendees, found, ownerErr := p.getEventOwnerAndAttendees(event.Id)
 	if ownerErr != nil {
 		errorResponse(w, ownerErr)
@@ -837,18 +861,20 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updateFields := map[string]interface{}{
-		"title":       event.Title,
-		"description": event.Description,
-		"dt_start":    event.Start,
-		"dt_end":      event.End,
-		"channel":     event.Channel,
-		"recurrence":  event.Recurrence,
-		"recurrent":   event.Recurrent,
-		"color":       event.Color,
-		"visibility":  event.Visibility,
-		"alert":       event.Alert,
-		"alert_time":  event.AlertTime,
-		"updated":     event.Updated,
+		"title":        event.Title,
+		"description":  event.Description,
+		"dt_start":     event.Start,
+		"dt_end":       event.End,
+		"channel":      event.Channel,
+		"recurrence":   event.Recurrence,
+		"recurrent":    event.Recurrent,
+		"color":        event.Color,
+		"visibility":   event.Visibility,
+		"alert":        event.Alert,
+		"alert_time":   event.AlertTime,
+		"updated":      event.Updated,
+		"type":         event.Type,
+		"meeting_link": event.MeetingLink,
 	}
 	updateQueryBuilder := sq.Update("calendar_events").
 		SetMap(updateFields).

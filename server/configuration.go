@@ -21,6 +21,7 @@ type configuration struct {
 	BusinessStartTime string
 	BusinessEndTime   string
 	BusinessDays      string
+	JitsiBaseURL      string
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if

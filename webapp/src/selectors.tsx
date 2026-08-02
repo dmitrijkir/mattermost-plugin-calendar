@@ -9,3 +9,4 @@ export const getCalendarSettings = (state: GlobalState) : CalendarSettings => st
 export const getEventNotification = (state: GlobalState) => state[`plugins-${PluginId}`].eventNotification;
 export const getMembersAddedInEvent = (state: GlobalState) => state[`plugins-${PluginId}`].membersAddedInEvent;
 export const getSelectedEventTime = (state: GlobalState) => state[`plugins-${PluginId}`].selectedEventTime;
+export const getSelectedCalendarType = (state: GlobalState): string => state[`plugins-${PluginId}`].selectedCalendarType;

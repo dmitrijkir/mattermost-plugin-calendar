@@ -33,9 +33,21 @@ const calendarSettings = (state = {
     businessEndTime: '18:00',
     businessDays: [1, 2, 3, 4, 5],
     hideNonWorkingDays: false,
+    callColor: '#B3E1F7',
+    eventColor: '#B6D9C7',
+    jitsiBaseUrl: 'https://meet.jit.si',
 }, action) => {
     switch (action.type) {
     case 'updateCalendarSettings':
+        return action.payload;
+    default:
+        return state;
+    }
+};
+
+const selectedCalendarType = (state = 'call', action) => {
+    switch (action.type) {
+    case 'updateSelectedCalendarType':
         return action.payload;
     default:
         return state;
@@ -76,6 +88,7 @@ const reducer = combineReducers({
     eventNotification,
     membersAddedInEvent,
     selectedEventTime,
+    selectedCalendarType,
 });
 
 export default reducer;

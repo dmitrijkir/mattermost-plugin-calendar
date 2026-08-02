@@ -239,6 +239,8 @@ func TestProcessEventWithChannel(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -274,9 +276,11 @@ func TestProcessEventWithChannel(t *testing.T) {
 		"team",
 		"alert",
 		"alert_time",
+		"type",
+		"meeting_link",
 	},
 	).AddRow("qwcw", "test event", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		sqlQueryTime, "owner_id", channelId, "user-Id", false, "", "team1", "", nil)
+		sqlQueryTime, "owner_id", channelId, "user-Id", false, "", "team1", "", nil, "call", nil)
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -427,6 +431,8 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -462,13 +468,15 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		"team",
 		"alert",
 		"alert_time",
+		"type",
+		"meeting_link",
 	},
 	).AddRow(
 		"rec-ev", "test event recevent", recurrentEventTimeStart,
 		recurrentEventTimeEnd, featureTime,
 		featureTime, "owner_id", channelId, "user-Id", true,
 		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
-		"team1", "", nil,
+		"team1", "", nil, "call", nil,
 	)
 
 	expectedQuery.WillReturnRows(eventsRow)
@@ -614,6 +622,8 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -649,13 +659,15 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		"team",
 		"alert",
 		"alert_time",
+		"type",
+		"meeting_link",
 	},
 	).AddRow(
 		"rec-ev", "test event recurrent", recurrentEventTimeStart,
 		recurrentEventTimeEnd, recurrentEventTimeStart,
 		recurrentEventTimeStart, "owner_id", channelId, "user-Id", true,
 		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
-		"team1", "", nil,
+		"team1", "", nil, "call", nil,
 	)
 
 	expectedQuery.WillReturnRows(eventsRow)
@@ -784,6 +796,8 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -826,9 +840,11 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		"team",
 		"alert",
 		"alert_time",
+		"type",
+		"meeting_link",
 	},
 	).AddRow("qwert-2", "tests event without channel", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		sqlQueryTime, "owner-id", nil, "user-id", false, "", "team1", "", nil)
+		sqlQueryTime, "owner-id", nil, "user-id", false, "", "team1", "", nil, "call", nil)
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -966,6 +982,8 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -1008,12 +1026,12 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		"recurrence",
 		"team",
 		"alert",
-		"alert_time"},
+		"alert_time", "type", "meeting_link"},
 	).AddRow(
 		"rec-ev", "test event recurrent",
 		recurrentEventTimeStart, recurrentEventTimeEnd, recurrentEventTimeStart,
 		recurrentEventTimeStart, "owner_id", channelId, "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,MO",
-		"team1", "", nil,
+		"team1", "", nil, "call", nil,
 	)
 
 	expectedQuery.WillReturnRows(eventsRow)

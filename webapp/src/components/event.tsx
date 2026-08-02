@@ -14,7 +14,6 @@ import { getProfilesInChannel } from 'mattermost-redux/actions/users';
 import {
     Eye24Regular,
     ChatMultiple24Regular,
-    Circle20Filled,
     Clock24Regular,
     Delete16Regular,
     Dismiss12Regular,
@@ -22,7 +21,8 @@ import {
     PersonAdd24Regular,
     Save16Regular,
     TextDescription24Regular,
-    PeopleTeam24Regular
+    PeopleTeam24Regular,
+    Video24Regular
 } from '@fluentui/react-icons';
 import {
     Button,
@@ -60,7 +60,7 @@ import roundToNearestMinutes from 'date-fns/roundToNearestMinutes';
 import { GlobalState } from 'mattermost-redux/types/store';
 
 import { closeEventModal, eventSelected, updateMembersAddedInEvent, updateSelectedEventTime } from 'actions';
-import { getMembersAddedInEvent, getSelectedEventTime, selectIsOpenEventModal, selectSelectedEvent } from 'selectors';
+import { getCalendarSettings, getMembersAddedInEvent, getSelectedEventTime, selectIsOpenEventModal, selectSelectedEvent } from 'selectors';
 import { ApiClient } from 'client';
 
 import RepeatEventCustom from './repeat-event';
@@ -70,6 +70,7 @@ import TimeSelector from './time-selector';
 import PlanningAssistant from './planning-assistant';
 import EventAlertSelect from "./alert-input";
 import VisibilitySelect from './visibility-input';
+import EventTypeSelect from './event-type-input';
 
 interface AddedUserComponentProps {
     user: UserProfile
@@ -117,6 +118,7 @@ const EventModalComponent = () => {
 
     const UserStatusSelector = useSelector(getUserStatuses);
     const selectedEventTime = useSelector(getSelectedEventTime);
+    const settings = useSelector(getCalendarSettings);
 
     const dispatch = useDispatch();
 
@@ -135,8 +137,8 @@ const EventModalComponent = () => {
     const [searchUsersInput, setSearchUsersInput] = useState('');
 
     const [selectedAlert, setSelectedAlert] = useState('');
-    const [selectedColor, setSelectedColor] = useState('#D0D0D0');
-    const [selectedColorStyle, setSelectedColorStyle] = useState('event-color-default');
+    const [selectedType, setSelectedType] = useState('call');
+    const [meetingLink, setMeetingLink] = useState('');
 
     const [channelsAutocomplete, setChannelsAutocomplete] = useState<Channel[]>([]);
     const [selectedChannel, setSelectedChannel] = useState({});
@@ -199,7 +201,8 @@ const EventModalComponent = () => {
 
         setSelectedChannel({});
         dispatch(updateMembersAddedInEvent([]));
-        setSelectedColor('#D0D0D0');
+        setSelectedType('call');
+        setMeetingLink('');
 
         setSelectedVisibility('private');
         setSelectedAlert('');
@@ -283,6 +286,7 @@ const EventModalComponent = () => {
         if (repeatOption === 'Custom') {
             repeat = repeatRule;
         }
+        const calendarColor = selectedType === 'call' ? settings.callColor : settings.eventColor;
         setIsSaving(true);
         try {
             if (selectedEvent?.event?.id == null) {
@@ -296,8 +300,10 @@ const EventModalComponent = () => {
                     selectedVisibility,
                     Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                     repeat,
-                    selectedColor,
+                    calendarColor,
                     selectedAlert,
+                    selectedType,
+                    meetingLink,
                 );
             } else {
                 await ApiClient.updateEvent(
@@ -311,8 +317,10 @@ const EventModalComponent = () => {
                     selectedVisibility,
                     Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                     repeat,
-                    selectedColor,
+                    calendarColor,
                     selectedAlert,
+                    selectedType,
+                    meetingLink,
                 );
             }
             CalendarRef.current?.getApi().getEventSources()[0].refetch();
@@ -339,19 +347,9 @@ const EventModalComponent = () => {
         }
     };
 
-    const colorsMap: {
-        [name: string]: string
-    } = {
-        '': 'event-color-default',
-        default: 'event-color-default',
-        '#F2B3B3': 'event-color-red',
-        '#FCECBE': 'event-color-yellow',
-        '#B6D9C7': 'event-color-green',
-        '#B3E1F7': 'event-color-blue',
-    };
-    const onSelectColor = (event: SelectionEvents, data: OptionOnSelectData) => {
-        setSelectedColor(data.optionValue!);
-        setSelectedColorStyle(colorsMap[data.optionValue!]);
+    const onGenerateMeetingLink = () => {
+        const roomSlug = `mm-calendar-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+        setMeetingLink(`${settings.jitsiBaseUrl}/${roomSlug}`);
     };
 
     useEffect(() => {
@@ -376,8 +374,8 @@ const EventModalComponent = () => {
                 }));
                 dispatch(updateMembersAddedInEvent(data.data.attendees));
 
-                setSelectedColor(data.data.color!);
-                setSelectedColorStyle(colorsMap[data.data.color!]);
+                setSelectedType(data.data.type || 'call');
+                setMeetingLink(data.data.meetingLink || '');
                 setSelectedVisibility(data.data.visibility);
                 setSelectedAlert(data.data.alert);
 
@@ -522,55 +520,6 @@ const EventModalComponent = () => {
                     <DialogBody className='event-modal'>
                         <DialogTitle className='event-modal-title' />
                         <DialogContent className='modal-container'>
-                            <div className='event-color-button'>
-                                <Combobox
-                                    onOptionSelect={onSelectColor}
-                                    className={`dropdown-color-button ${selectedColorStyle}`}
-                                    style={{ color: selectedColor, borderColor: 'unset' }}
-                                    defaultSelectedOptions={['default']}
-                                    expandIcon={<Circle20Filled className={selectedColorStyle} />}
-                                    width='50px'
-                                    listbox={{
-                                        className: 'dropdown-color-button-listbox',
-                                    }}
-                                >
-                                    <Option
-                                        key='default'
-                                        text='default'
-                                        className='event-color-items event-color-default'
-                                    >
-                                        <i className='icon fa fa-circle' />
-                                    </Option>
-                                    <Option
-                                        key='default'
-                                        text='#F2B3B3'
-                                        className='event-color-items event-color-red'
-                                    >
-                                        <i className='icon fa fa-circle' />
-                                    </Option>
-                                    <Option
-                                        key='default'
-                                        text='#FCECBE'
-                                        className='event-color-items event-color-yellow'
-                                    >
-                                        <i className='icon fa fa-circle' />
-                                    </Option>
-                                    <Option
-                                        key='default'
-                                        text='#B6D9C7'
-                                        className='event-color-items event-color-green'
-                                    >
-                                        <i className='icon fa fa-circle' />
-                                    </Option>
-                                    <Option
-                                        key='default'
-                                        text='#B3E1F7'
-                                        className='event-color-items event-color-blue'
-                                    >
-                                        <i className='icon fa fa-circle' />
-                                    </Option>
-                                </Combobox>
-                            </div>
                             <div className='title-toolbar'>
                                 <Toolbar aria-label='Default'>
                                     <ToolbarButton
@@ -718,6 +667,18 @@ const EventModalComponent = () => {
                                         <SkeletonItem />
                                     </Skeleton>
                                     :
+                                    <EventTypeSelect
+                                        selected={selectedType}
+                                        onSelected={(selected) => setSelectedType(selected)}
+                                    />
+                            }
+
+                            {
+                                isLoading ?
+                                    <Skeleton className='skeleton-dropdown'>
+                                        <SkeletonItem />
+                                    </Skeleton>
+                                    :
                                     <VisibilitySelect
                                         selected={selectedVisibility}
                                         onSelected={(selected) => setSelectedVisibility(selected)}
@@ -823,6 +784,29 @@ const EventModalComponent = () => {
                                         />}
                                 </div>
 
+                            </div>
+
+                            <div className='event-meeting-link-container'>
+                                <Video24Regular />
+                                <div className='event-meeting-link-input-container'>
+                                    {isLoading ? (<Skeleton className='skeleton-dropdown'><SkeletonItem /></Skeleton>) : (
+                                        <>
+                                            <Input
+                                                readOnly={true}
+                                                type='text'
+                                                className='event-meeting-link-input'
+                                                placeholder='No meeting link'
+                                                value={meetingLink}
+                                            />
+                                            <Button
+                                                appearance='subtle'
+                                                onClick={onGenerateMeetingLink}
+                                            >
+                                                {'Generate Jitsi link'}
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             <Toaster toasterId={toasterId} />
                         </DialogContent>
