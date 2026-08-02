@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 
 import {Button, Dropdown, Option, useId} from '@fluentui/react-components';
@@ -32,6 +32,33 @@ const HeaderComponent = () => {
     const selectedCalendarType: string = useSelector(getSelectedCalendarType);
     const [settingsPanelOpen, setSettingsPanelOpen] = useState<boolean>(false);
     const [selectedView, setSelectedView] = useState<string>('timeGridWeek');
+
+    // a color input fires onChange for every step of a drag, so the picked value
+    // is kept locally and only saved once the user is done with it
+    const [callColorDraft, setCallColorDraft] = useState<string>(settings.callColor);
+    const [eventColorDraft, setEventColorDraft] = useState<string>(settings.eventColor);
+
+    useEffect(() => {
+        setCallColorDraft(settings.callColor);
+    }, [settings.callColor]);
+
+    useEffect(() => {
+        setEventColorDraft(settings.eventColor);
+    }, [settings.eventColor]);
+
+    const saveCalendarColor = async (key: 'callColor' | 'eventColor', value: string) => {
+        if (value === settings[key]) {
+            return;
+        }
+        await dispatch(updateCalendarSettingsOnServer({
+            ...settings,
+            [key]: value,
+        }));
+
+        // colors are resolved server-side on read, so the grid has to be refetched
+        // for the new one to show up on events that already exist
+        CalendarRef.current?.getApi().getEventSources()[0].refetch();
+    };
 
     const dayDropdown = useId('dropdown-dayDropdown');
     const dropdownDaysOfWeek = [
@@ -120,26 +147,18 @@ const HeaderComponent = () => {
                             <label>Calls calendar color</label>
                             <input
                                 type='color'
-                                value={settings.callColor}
-                                onChange={(e) => {
-                                    dispatch(updateCalendarSettingsOnServer({
-                                        ...settings,
-                                        callColor: e.target.value,
-                                    }));
-                                }}
+                                value={callColorDraft}
+                                onChange={(e) => setCallColorDraft(e.target.value)}
+                                onBlur={(e) => saveCalendarColor('callColor', e.target.value)}
                             />
                         </div>
                         <div className='settings-right-bar-calendar-color'>
                             <label>Events calendar color</label>
                             <input
                                 type='color'
-                                value={settings.eventColor}
-                                onChange={(e) => {
-                                    dispatch(updateCalendarSettingsOnServer({
-                                        ...settings,
-                                        eventColor: e.target.value,
-                                    }));
-                                }}
+                                value={eventColorDraft}
+                                onChange={(e) => setEventColorDraft(e.target.value)}
+                                onBlur={(e) => saveCalendarColor('eventColor', e.target.value)}
                             />
                         </div>
                     </p>

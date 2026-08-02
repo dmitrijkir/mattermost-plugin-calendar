@@ -24,6 +24,13 @@ var (
 		Where:      PluginId,
 	}
 
+	NotEventOwner = &model.AppError{
+		Id:         "not_event_owner",
+		Message:    "Only the owner can remove this event",
+		StatusCode: 403,
+		Where:      PluginId,
+	}
+
 	InvalidRequestParams = &model.AppError{
 		Id:         "invalid_or_missing_request_params",
 		Message:    "Invalid or missing parameters in URL or request body",

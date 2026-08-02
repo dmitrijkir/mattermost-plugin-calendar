@@ -498,7 +498,18 @@ func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
 	)
 	if eventsError != nil {
 		errorResponse(w, eventsError)
+		return
 	}
+
+	callColor, meetingColor := p.GetUserCalendarColors(user.Id)
+	for i := range events {
+		color := callColor
+		if events[i].Type == EventTypeMeeting {
+			color = meetingColor
+		}
+		events[i].Color = &color
+	}
+
 	apiResponse(w, &events)
 	return
 }
@@ -725,8 +736,15 @@ func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 		errorResponse(w, EventNotFound)
 		return
 	}
+	// Deleting drops the event for everyone, including a whole recurring series,
+	// so it stays with the owner. Attendees who can see the event get a 403;
+	// everyone else can't tell it exists.
 	if !canModifyEvent(session.UserId, owner, attendees) {
 		errorResponse(w, EventNotFound)
+		return
+	}
+	if session.UserId != owner {
+		errorResponse(w, NotEventOwner)
 		return
 	}
 

@@ -6,7 +6,7 @@ import { Channel } from 'mattermost-redux/types/channels';
 import { useDispatch, useSelector } from 'react-redux';
 
 import { getCurrentTeamId, getCurrentTeam } from 'mattermost-redux/selectors/entities/teams';
-import { getUserStatuses, makeGetProfilesInChannel } from 'mattermost-redux/selectors/entities/users';
+import { getCurrentUserId, getUserStatuses, makeGetProfilesInChannel } from 'mattermost-redux/selectors/entities/users';
 import { getTeammateNameDisplaySetting } from 'mattermost-redux/selectors/entities/preferences';
 import { getProfilesInChannel } from 'mattermost-redux/actions/users';
 
@@ -60,7 +60,7 @@ import roundToNearestMinutes from 'date-fns/roundToNearestMinutes';
 import { GlobalState } from 'mattermost-redux/types/store';
 
 import { closeEventModal, eventSelected, updateMembersAddedInEvent, updateSelectedEventTime } from 'actions';
-import { getCalendarSettings, getMembersAddedInEvent, getSelectedEventTime, selectIsOpenEventModal, selectSelectedEvent } from 'selectors';
+import { getCalendarSettings, getMembersAddedInEvent, getSelectedCalendarType, getSelectedEventTime, selectIsOpenEventModal, selectSelectedEvent } from 'selectors';
 import { ApiClient } from 'client';
 
 import RepeatEventCustom from './repeat-event';
@@ -117,8 +117,10 @@ const EventModalComponent = () => {
     const CurrentTeam = useSelector(getCurrentTeam);
 
     const UserStatusSelector = useSelector(getUserStatuses);
+    const currentUserId = useSelector(getCurrentUserId);
     const selectedEventTime = useSelector(getSelectedEventTime);
     const settings = useSelector(getCalendarSettings);
+    const selectedCalendarType = useSelector(getSelectedCalendarType);
 
     const dispatch = useDispatch();
 
@@ -139,6 +141,7 @@ const EventModalComponent = () => {
     const [selectedAlert, setSelectedAlert] = useState('');
     const [selectedType, setSelectedType] = useState('call');
     const [meetingLink, setMeetingLink] = useState('');
+    const [eventOwner, setEventOwner] = useState('');
 
     const [channelsAutocomplete, setChannelsAutocomplete] = useState<Channel[]>([]);
     const [selectedChannel, setSelectedChannel] = useState({});
@@ -201,8 +204,12 @@ const EventModalComponent = () => {
 
         setSelectedChannel({});
         dispatch(updateMembersAddedInEvent([]));
-        setSelectedType('call');
+
+        // a new event belongs to the calendar the user is currently looking at,
+        // otherwise it would be saved out of view
+        setSelectedType(selectedCalendarType);
         setMeetingLink('');
+        setEventOwner('');
 
         setSelectedVisibility('private');
         setSelectedAlert('');
@@ -259,11 +266,19 @@ const EventModalComponent = () => {
         );
     };
 
-    // combines a date with an "HH:mm" time string into a real Date, so it can be
-    // converted to a correct UTC instant instead of a naive local-time string.
+    // combines a date with an "HH:mm" time string into a real Date, used only to
+    // compare start against end locally.
     const buildDateTime = (date: Date, time: string): Date => {
         const [hours, minutes] = time.split(':').map(Number);
         return set(date, { hours, minutes: minutes || 0, seconds: 0, milliseconds: 0 });
+    };
+
+    // The server re-reads the wall-clock fields of whatever timestamp it receives
+    // and interprets them in the user's Mattermost timezone, so the picked wall
+    // clock has to be sent as-is. Converting to a real UTC instant here would make
+    // the server apply the offset a second time.
+    const toServerDateTime = (date: Date, time: string): string => {
+        return format(date, 'yyyy-MM-dd') + 'T' + time + ':00Z';
     };
 
     const onSaveEvent = async () => {
@@ -286,21 +301,23 @@ const EventModalComponent = () => {
         if (repeatOption === 'Custom') {
             repeat = repeatRule;
         }
-        const calendarColor = selectedType === 'call' ? settings.callColor : settings.eventColor;
         setIsSaving(true);
         try {
             if (selectedEvent?.event?.id == null) {
                 await ApiClient.createEvent(
                     titleEvent,
-                    start.toISOString(),
-                    end.toISOString(),
+                    toServerDateTime(selectedEventTime.start, selectedEventTime.startTime),
+                    toServerDateTime(selectedEventTime.end, selectedEventTime.endTime),
                     members,
                     descriptionEvent,
                     CurrentTeamId,
                     selectedVisibility,
                     Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                     repeat,
-                    calendarColor,
+
+                    // the color comes from the calendar the event belongs to and is
+                    // resolved server-side on read, so nothing is stored per event
+                    undefined,
                     selectedAlert,
                     selectedType,
                     meetingLink,
@@ -309,15 +326,18 @@ const EventModalComponent = () => {
                 await ApiClient.updateEvent(
                     selectedEvent.event.id,
                     titleEvent,
-                    start.toISOString(),
-                    end.toISOString(),
+                    toServerDateTime(selectedEventTime.start, selectedEventTime.startTime),
+                    toServerDateTime(selectedEventTime.end, selectedEventTime.endTime),
                     members,
                     descriptionEvent,
                     CurrentTeamId,
                     selectedVisibility,
                     Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                     repeat,
-                    calendarColor,
+
+                    // the color comes from the calendar the event belongs to and is
+                    // resolved server-side on read, so nothing is stored per event
+                    undefined,
                     selectedAlert,
                     selectedType,
                     meetingLink,
@@ -353,6 +373,12 @@ const EventModalComponent = () => {
     };
 
     useEffect(() => {
+        if (isOpenEventModal && selectedEvent?.event?.id == null) {
+            setSelectedType(selectedCalendarType);
+        }
+    }, [isOpenEventModal]);
+
+    useEffect(() => {
         let cancelled = false;
 
         if (selectedEvent?.event?.id != null) {
@@ -376,6 +402,7 @@ const EventModalComponent = () => {
 
                 setSelectedType(data.data.type || 'call');
                 setMeetingLink(data.data.meetingLink || '');
+                setEventOwner(data.data.owner);
                 setSelectedVisibility(data.data.visibility);
                 setSelectedAlert(data.data.alert);
 
@@ -478,7 +505,9 @@ const EventModalComponent = () => {
     };
 
     const RemoveEventButton = () => {
-        if (selectedEvent?.event?.id != null) {
+        // removing drops the event for every attendee, so the server only lets
+        // the owner do it — don't offer the button to anyone else
+        if (selectedEvent?.event?.id != null && eventOwner === currentUserId) {
             return (<DialogActions position='star'>
                 <Button
                     appearance='outline'

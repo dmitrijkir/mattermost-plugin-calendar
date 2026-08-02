@@ -43,7 +43,13 @@ export default class Plugin {
 
         // Load calendar settings like playbooks
         const getCalendarSettings = async () => {
-            store.dispatch(updateCalendarSettings(await ApiClient.getCalendarSettings()));
+            try {
+                store.dispatch(updateCalendarSettings(await ApiClient.getCalendarSettings()));
+            } catch (e) {
+                // the reducer defaults keep the calendar usable without them
+                // eslint-disable-next-line no-console
+                console.error('calendar plugin: could not load settings', e);
+            }
         };
         getCalendarSettings();
 

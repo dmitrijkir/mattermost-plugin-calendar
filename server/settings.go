@@ -6,10 +6,13 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/pkg/errors"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
+
+var hexColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 	pluginContext := p.FromContext(r.Context())
@@ -112,6 +115,42 @@ func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// GetUserCalendarColors returns the per-calendar colors configured by the user,
+// falling back to the defaults when they have no settings row yet. Event colors
+// are resolved from these on read instead of being stored per event, so that
+// changing a calendar's color recolors everything already in it.
+func (p *Plugin) GetUserCalendarColors(userId string) (callColor string, eventColor string) {
+	var colors struct {
+		CallColor  string `db:"call_color"`
+		EventColor string `db:"event_color"`
+	}
+
+	queryBuilder := sq.Select().
+		Columns("call_color", "event_color").
+		From("calendar_settings").
+		Where(sq.Eq{"owner": userId}).
+		PlaceholderFormat(p.GetDBPlaceholderFormat())
+
+	querySql, argsSql, err := queryBuilder.ToSql()
+	if err != nil {
+		p.API.LogError(err.Error())
+		return DefaultCallColor, DefaultEventColor
+	}
+
+	if errSelect := p.DB.Get(&colors, querySql, argsSql...); errSelect != nil {
+		return DefaultCallColor, DefaultEventColor
+	}
+
+	if colors.CallColor == "" {
+		colors.CallColor = DefaultCallColor
+	}
+	if colors.EventColor == "" {
+		colors.EventColor = DefaultEventColor
+	}
+
+	return colors.CallColor, colors.EventColor
+}
+
 func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	pluginContext := p.FromContext(r.Context())
 	session, err := p.API.GetSession(pluginContext.SessionId)
@@ -157,7 +196,10 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	if requestUserSettings.EventColor == "" {
 		requestUserSettings.EventColor = DefaultEventColor
 	}
-	if !strings.HasPrefix(requestUserSettings.CallColor, "#") || !strings.HasPrefix(requestUserSettings.EventColor, "#") {
+	// the columns are VARCHAR(7), so anything longer would error on Postgres and
+	// get silently truncated on MySQL
+	if !hexColorPattern.MatchString(requestUserSettings.CallColor) ||
+		!hexColorPattern.MatchString(requestUserSettings.EventColor) {
 		errorResponse(w, InvalidRequestParams)
 		return
 	}

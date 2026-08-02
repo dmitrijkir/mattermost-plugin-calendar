@@ -135,6 +135,10 @@ func (e *EventType) UnmarshalJSON(b []byte) error {
 	case string(EventTypeCall), string(EventTypeMeeting):
 		*e = EventType(s)
 		return nil
+	case "":
+		// left for the handler to default, same as an omitted field
+		*e = EventType(s)
+		return nil
 	default:
 		return fmt.Errorf("invalid EventType: %s", s)
 	}
@@ -155,6 +159,10 @@ func (e *EventType) Scan(value interface{}) error {
 	switch strValue {
 	case string(EventTypeCall), string(EventTypeMeeting):
 		*e = EventType(strValue)
+		return nil
+	case "":
+		// rows written before the column had a default
+		*e = EventTypeCall
 		return nil
 	default:
 		return fmt.Errorf("invalid EventType: %s", strValue)

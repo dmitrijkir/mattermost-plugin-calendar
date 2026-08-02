@@ -730,6 +730,7 @@ func (b *CalDAVBackend) getEventByID(eventID string) (*Event, error) {
 		"id", "title", "description", "dt_start", "dt_end",
 		"created", "owner", "channel", "recurrent", "recurrence",
 		"color", "team", "visibility", "alert", "alert_time",
+		"type", "meeting_link",
 	).
 		From("calendar_events").
 		Where(sq.Eq{"id": eventID}).
@@ -764,6 +765,13 @@ func (b *CalDAVBackend) eventToICalendarString(event *Event, user *model.User) s
 
 	if event.Description != "" {
 		icsEvent.SetDescription(event.Description)
+	}
+
+	// LOCATION is what most calendar clients surface as the "join" target,
+	// URL keeps it available to the ones that prefer that property.
+	if event.MeetingLink != nil && *event.MeetingLink != "" {
+		icsEvent.SetLocation(*event.MeetingLink)
+		icsEvent.SetURL(*event.MeetingLink)
 	}
 
 	if user != nil && user.Email != "" {

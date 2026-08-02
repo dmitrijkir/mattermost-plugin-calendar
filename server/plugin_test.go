@@ -169,6 +169,19 @@ func TestGetEvents(t *testing.T) {
 
 	expectedQuery.WillReturnRows(eventsRow)
 
+	// event colors come from the user's per-calendar settings, not from the
+	// color stored on each event
+	colorsQueryBuilder := sq.Select().
+		Columns("call_color", "event_color").
+		From("calendar_settings").
+		Where(sq.Eq{"owner": session.UserId}).
+		PlaceholderFormat(sq.Dollar)
+	colorsQuerySql, _, _ := colorsQueryBuilder.ToSql()
+	dbMock.ExpectQuery(regexp.QuoteMeta(colorsQuerySql)).
+		WithArgs(session.UserId).
+		WillReturnRows(sqlmock.NewRows([]string{"call_color", "event_color"}).
+			AddRow("#111111", "#222222"))
+
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
 			API:    &api,
@@ -194,28 +207,28 @@ func TestGetEvents(t *testing.T) {
 						"start":"2023-02-27T00:00:00+03:00","end":"2023-03-06T00:00:00+03:00",
 						"attendees":null,"created":"2023-03-05T21:00:00Z","updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1",
-						"channel":"channel-id","recurrence":"","color":"#D0D0D0","visibility":"private","alert":"",
+						"channel":"channel-id","recurrence":"","color":"#111111","visibility":"private","alert":"",
 						"alertTime":null,"type":"call","meetingLink":null},{"id":"event-2","title":"test event 2","description":"",
 						"start":"2023-02-27T00:00:00+03:00","end":"2023-03-06T00:00:00+03:00","attendees":null,
 						"created":"2023-03-05T21:00:00Z","updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1","channel":"channel-id",
-						"recurrence":"","color":"#D0D0D0","visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null},
+						"recurrence":"","color":"#111111","visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null},
 						{"id":"event-3","title":"test event 3","description":"","start":"2023-02-27T00:00:00+03:00",
 						"end":"2023-03-06T00:00:00+03:00","attendees":null,"created":"2023-03-05T21:00:00Z",
 						"updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1","channel":"channel-id",
-						"recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#D0D0D0",
+						"recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#111111",
 						"visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null},{"id":"event-3","title":"test event 3",
 						"description":"","start":"2023-02-28T00:00:00+03:00","end":"2023-03-07T00:00:00+03:00",
 						"attendees":null,"created":"2023-03-05T21:00:00Z","updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1",
 						"channel":"channel-id","recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE",
-						"color":"#D0D0D0","visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null},{"id":"event-3",
+						"color":"#111111","visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null},{"id":"event-3",
 						"title":"test event 3","description":"","start":"2023-03-01T00:00:00+03:00",
 						"end":"2023-03-08T00:00:00+03:00","attendees":null,"created":"2023-03-05T21:00:00Z",
 						"updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1","channel":"channel-id",
-						"recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#D0D0D0",
+						"recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#111111",
 						"visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null}]}`
 	assert.JSONEq(string(bodyBytes), expectedResponse)
 	api.AssertExpectations(t)
