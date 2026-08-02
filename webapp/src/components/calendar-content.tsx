@@ -3,7 +3,7 @@ import enLocale from '@fullcalendar/core/locales/en-gb';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import dayGridPlugin from '@fullcalendar/daygrid';
 
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 
 import interactionPlugin from '@fullcalendar/interaction';
 import {useDispatch, useSelector} from 'react-redux';
@@ -30,6 +30,10 @@ const eventDataTransformation = (content, response) => {
     return content.data;
 };
 
+const DAY_HEADER_FORMAT = {day: 'numeric', weekday: 'short', omitCommas: true} as const;
+const LOCALES = [enLocale];
+const PLUGINS = [timeGridPlugin, interactionPlugin, dayGridPlugin];
+
 const LeftBarCalendar = () => {
     const [selectedDate, setSelectedDate] = useState<Date>();
     const dateRangeType = DateRangeType.Week;
@@ -40,7 +44,7 @@ const LeftBarCalendar = () => {
         setSelectedDate(date);
         // Format as YYYY-MM-DD to avoid timezone issues with gotoDate
         const dateString = format(date, 'yyyy-MM-dd');
-        CalendarRef.current.getApi().gotoDate(dateString);
+        CalendarRef.current?.getApi().gotoDate(dateString);
     }, []);
 
     if (settings.isOpenCalendarLeftBar) {
@@ -65,21 +69,35 @@ const CalendarContent = () => {
     const user = useSelector(getCurrentUser);
     const settings = useSelector(getCalendarSettings);
 
+    const [contentHeight, setContentHeight] = useState<number>(window.innerHeight - 200);
+
     const getUserTimeZoneString = () => {
+        if (!user) {
+            return 'local';
+        }
         if (user.timezone?.useAutomaticTimezone) {
             return user.timezone.automaticTimezone;
         }
-        return user.timezone?.manualTimezone;
+        return user.timezone?.manualTimezone || 'local';
     };
 
     useEffect(() => {
+        if (!user) {
+            return;
+        }
         const now: Date = new Date();
         const scrollTo: Date = new Date();
         scrollTo.setMinutes(scrollTo.getMinutes() - 30);
         if (now.getDate() === scrollTo.getDate()) {
-            CalendarRef.current.getApi().scrollToTime(format(scrollTo, 'HH:mm'));
+            CalendarRef.current?.getApi().scrollToTime(format(scrollTo, 'HH:mm'));
         }
     }, [user]);
+
+    useEffect(() => {
+        const onResize = () => setContentHeight(window.innerHeight - 200);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
     const onEventClicked = (eventInfo: EventClickArg) => {
         dispatch(eventSelected(eventInfo));
@@ -110,6 +128,28 @@ const CalendarContent = () => {
         dispatch(openEventModal());
     };
 
+    const businessHours = useMemo(() => ({
+        startTime: settings.businessStartTime,
+        endTime: settings.businessEndTime,
+        daysOfWeek: settings.businessDays,
+    }), [settings.businessStartTime, settings.businessEndTime, settings.businessDays]);
+
+    const hiddenDays = useMemo(calcHiddenDays, [settings.hideNonWorkingDays, settings.businessDays]);
+
+    const eventSources = useMemo(() => [
+        {
+            url: getSiteURL() + `/plugins/${PluginId}/events`,
+        },
+    ], []);
+
+    if (!user) {
+        return (
+            <div className='calendar-content'>
+                <div className='calendar-main-greed'/>
+            </div>
+        );
+    }
+
     return (
         <div className='calendar-content'>
             <div className='left-bar-calendar-content'>
@@ -117,17 +157,13 @@ const CalendarContent = () => {
             </div>
             <div className='calendar-main-greed'>
                 <FullCalendar
-                    plugins={[timeGridPlugin, interactionPlugin, dayGridPlugin]}
+                    plugins={PLUGINS}
                     initialView='timeGridWeek'
                     allDaySlot={false}
                     slotDuration='00:30:00'
                     selectable={true}
                     firstDay={settings.firstDayOfWeek}
-                    businessHours={{
-                        startTime: settings.businessStartTime,
-                        endTime: settings.businessEndTime,
-                        daysOfWeek: settings.businessDays,
-                    }}
+                    businessHours={businessHours}
                     timeZone={getUserTimeZoneString()}
                     handleWindowResize={true}
                     headerToolbar={{
@@ -135,13 +171,13 @@ const CalendarContent = () => {
                         center: 'title',
                         end: '',
                     }}
-                    hiddenDays={calcHiddenDays()}
+                    hiddenDays={hiddenDays}
                     nowIndicatorClassNames='now-indicator'
                     select={(info: DateSelectArg) => onDateTimeSelected(info)}
-                    dayHeaderFormat={{day: 'numeric', weekday: 'short', omitCommas: true}}
+                    dayHeaderFormat={DAY_HEADER_FORMAT}
                     nowIndicator={true}
-                    locales={[enLocale]}
-                    contentHeight={window.innerHeight - 200}
+                    locales={LOCALES}
+                    contentHeight={contentHeight}
                     eventClick={onEventClicked}
                     dayHeaderContent={(dayHeaderProps: DayHeaderContentArg) => {
                         function dayOfWeekAsString(dayIndex: number) {
@@ -160,11 +196,7 @@ const CalendarContent = () => {
                     dayCellClassNames='custom-day-cell'
                     ref={CalendarRef}
                     eventSourceSuccess={eventDataTransformation}
-                    eventSources={[
-                        {
-                            url: getSiteURL() + `/plugins/${PluginId}/events`,
-                        },
-                    ]}
+                    eventSources={eventSources}
                 />
             </div>
         </div>

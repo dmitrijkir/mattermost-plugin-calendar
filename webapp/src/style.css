@@ -832,3 +832,33 @@ table {
     display: flex;
     gap: 8px;
 }
+
+/* Responsive layout for narrow / mobile-browser viewports */
+@media (max-width: 768px) {
+    .calendar-header-container {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .calendar-header-toolbar {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+
+    .create-event-button-text {
+        display: none;
+    }
+
+    .calendar-content {
+        flex-direction: column;
+        padding-top: 6px;
+    }
+
+    .left-bar-calendar-content {
+        display: none;
+    }
+
+    .calendar-main-greed {
+        width: 100%;
+    }
+}

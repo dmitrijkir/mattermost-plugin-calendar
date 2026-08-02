@@ -564,6 +564,11 @@ func (b *CalDAVBackend) handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if event.Owner != b.userID {
+		http.Error(w, "Event not found", http.StatusNotFound)
+		return
+	}
+
 	user, _ := b.plugin.API.GetUser(b.userID)
 	icalData := b.eventToICalendarString(event, user)
 

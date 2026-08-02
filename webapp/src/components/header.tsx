@@ -146,10 +146,10 @@ const HeaderComponent = () => {
                         appearance='subtle'
                         icon={<CalendarDay20Regular/>}
                         onClick={() => {
-                            CalendarRef.current?.getApi().changeView('dayGridDay');
-                            setSelectedView('dayGridDay');
+                            CalendarRef.current?.getApi().changeView('timeGridDay');
+                            setSelectedView('timeGridDay');
                         }}
-                        disabled={selectedView === 'dayGridDay'}
+                        disabled={selectedView === 'timeGridDay'}
                     >Day</Button>
                     <Button
                         appearance='subtle'

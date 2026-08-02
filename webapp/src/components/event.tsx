@@ -246,16 +246,35 @@ const EventModalComponent = () => {
         }
     };
 
+    const showErrorToast = (message: string) => {
+        dispatchToast(
+            <Toast>
+                <ToastTitle></ToastTitle>
+                {message}
+            </Toast>,
+            { intent: 'error' }
+        );
+    };
+
+    // combines a date with an "HH:mm" time string into a real Date, so it can be
+    // converted to a correct UTC instant instead of a naive local-time string.
+    const buildDateTime = (date: Date, time: string): Date => {
+        const [hours, minutes] = time.split(':').map(Number);
+        return set(date, { hours, minutes: minutes || 0, seconds: 0, milliseconds: 0 });
+    };
+
     const onSaveEvent = async () => {
 
         if (selectedVisibility === "channel" && Object.keys(selectedChannel).length === 0) {
-            dispatchToast(
-                <Toast>
-                    <ToastTitle></ToastTitle>
-                    {'You selected channel visibility but you didn\'t select a channel'} 
-                </Toast>,
-                { intent: 'error' }
-            );
+            showErrorToast('You selected channel visibility but you didn\'t select a channel');
+            return;
+        }
+
+        const start = buildDateTime(selectedEventTime.start, selectedEventTime.startTime);
+        const end = buildDateTime(selectedEventTime.end, selectedEventTime.endTime);
+
+        if (end.getTime() <= start.getTime()) {
+            showErrorToast('End time must be after start time');
             return;
         }
 
@@ -265,50 +284,59 @@ const EventModalComponent = () => {
             repeat = repeatRule;
         }
         setIsSaving(true);
-        if (selectedEvent?.event?.id == null) {
-            const response = await ApiClient.createEvent(
-                titleEvent,
-                format(selectedEventTime.start, 'yyyy-MM-dd') + 'T' + selectedEventTime.startTime + ':00Z',
-                format(selectedEventTime.end, 'yyyy-MM-dd') + 'T' + selectedEventTime.endTime + ':00Z',
-                members,
-                descriptionEvent,
-                CurrentTeamId,
-                selectedVisibility,
-                Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
-                repeat,
-                selectedColor,
-                selectedAlert,
-            );
-            CalendarRef.current.getApi().getEventSources()[0].refetch();
+        try {
+            if (selectedEvent?.event?.id == null) {
+                await ApiClient.createEvent(
+                    titleEvent,
+                    start.toISOString(),
+                    end.toISOString(),
+                    members,
+                    descriptionEvent,
+                    CurrentTeamId,
+                    selectedVisibility,
+                    Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
+                    repeat,
+                    selectedColor,
+                    selectedAlert,
+                );
+            } else {
+                await ApiClient.updateEvent(
+                    selectedEvent.event.id,
+                    titleEvent,
+                    start.toISOString(),
+                    end.toISOString(),
+                    members,
+                    descriptionEvent,
+                    CurrentTeamId,
+                    selectedVisibility,
+                    Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
+                    repeat,
+                    selectedColor,
+                    selectedAlert,
+                );
+            }
+            CalendarRef.current?.getApi().getEventSources()[0].refetch();
             cleanState();
             viewEventModalHandleClose();
-        } else {
-            const response = await ApiClient.updateEvent(
-                selectedEvent.event.id,
-                titleEvent,
-                format(selectedEventTime.start, 'yyyy-MM-dd') + 'T' + selectedEventTime.startTime + ':00Z',
-                format(selectedEventTime.end, 'yyyy-MM-dd') + 'T' + selectedEventTime.endTime + ':00Z',
-                members,
-                descriptionEvent,
-                CurrentTeamId,
-                selectedVisibility,
-                Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
-                repeat,
-                selectedColor,
-                selectedAlert,
-            );
-            CalendarRef.current.getApi().getEventSources()[0].refetch();
-            cleanState();
-            viewEventModalHandleClose();
+        } catch (e) {
+            showErrorToast('Failed to save event, please try again');
+        } finally {
+            setIsSaving(false);
         }
-        setIsSaving(false);
     };
 
     const onRemoveEvent = async () => {
-        await ApiClient.removeEvent(selectedEvent.event.id);
-        CalendarRef.current.getApi().getEventSources()[0].refetch();
-        cleanState();
-        viewEventModalHandleClose();
+        if (repeatRule !== '' && !window.confirm('This is a recurring event. Removing it will remove the entire series. Continue?')) {
+            return;
+        }
+        try {
+            await ApiClient.removeEvent(selectedEvent.event.id);
+            CalendarRef.current?.getApi().getEventSources()[0].refetch();
+            cleanState();
+            viewEventModalHandleClose();
+        } catch (e) {
+            showErrorToast('Failed to remove event, please try again');
+        }
     };
 
     const colorsMap: {
@@ -327,10 +355,14 @@ const EventModalComponent = () => {
     };
 
     useEffect(() => {
-        let mounted = true;
-        if (mounted && selectedEvent?.event?.id != null) {
+        let cancelled = false;
+
+        if (selectedEvent?.event?.id != null) {
             setIsLoading(true);
             ApiClient.getEventById(selectedEvent.event.id).then((data) => {
+                if (cancelled) {
+                    return;
+                }
                 setTitleEvent(data.data.title);
                 setDescriptionEvent(data.data.description);
 
@@ -357,13 +389,20 @@ const EventModalComponent = () => {
 
                 if (data.data.channel != null) {
                     Client4.getChannel(data.data.channel).then((channel: Channel) => {
-                        setSelectedChannel(channel);
-                        setSelectedChannelText(channel.display_name);
+                        if (!cancelled) {
+                            setSelectedChannel(channel);
+                            setSelectedChannelText(channel.display_name);
+                        }
                     });
                 }
                 setIsLoading(false);
+            }).catch(() => {
+                if (!cancelled) {
+                    setIsLoading(false);
+                    showErrorToast('Failed to load event, please try again');
+                }
             });
-        } else if (mounted && selectedEvent?.event?.id == null && selectedEvent?.event?.start != null) {
+        } else if (selectedEvent?.event?.id == null && selectedEvent?.event?.start != null) {
             dispatch(updateSelectedEventTime({
                 start: selectedEvent?.event.start,
                 end: selectedEvent?.event.end,
@@ -371,7 +410,10 @@ const EventModalComponent = () => {
                 endTime: format(selectedEvent?.event.end, 'HH:mm'),
             }));
         }
-        mounted = false;
+
+        return () => {
+            cancelled = true;
+        };
     }, [selectedEvent]);
 
     const getDisplayUserName = (user: UserProfile) => {
@@ -471,7 +513,7 @@ const EventModalComponent = () => {
                     open={isPlanningAssistantOpen}
                     onOpenChange={(ev, data) => {
                         setIsPlanningAssistantOpen(data.open);
-                        inputEventTitleRef.current.focus();
+                        inputEventTitleRef.current?.focus();
                     }}
                 /> : null
             }
@@ -665,9 +707,9 @@ const EventModalComponent = () => {
                                         )}
                                     </div>
                                 </div>
-                                <div className="current-team-tag">
-                                <Tag icon={<PeopleTeam24Regular />}>{CurrentTeam.display_name}</Tag>
-                                </div>
+                                {CurrentTeam ? (<div className="current-team-tag">
+                                    <Tag icon={<PeopleTeam24Regular />}>{CurrentTeam.display_name}</Tag>
+                                </div>) : null}
                             </div>
 
                             {

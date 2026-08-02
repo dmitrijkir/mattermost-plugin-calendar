@@ -239,6 +239,75 @@ func (p *Plugin) GetUserEventsUTC(
 	return events, nil
 }
 
+// canViewEvent reports whether userId is allowed to read the given event:
+// the owner, an invited attendee, or (for channel/team visibility) a member
+// of that channel/team.
+func (p *Plugin) canViewEvent(userId string, event Event, attendees []string) bool {
+	if userId == event.Owner || contains[string](attendees, userId) {
+		return true
+	}
+
+	switch event.Visibility {
+	case VisibilityChannel:
+		if event.Channel == nil {
+			return false
+		}
+		userChannels, _ := p.GetUserChannels(userId)
+		return contains[string](userChannels, *event.Channel)
+	case VisibilityTeam:
+		userTeams, _ := p.GetUserTeams(userId)
+		return contains[string](userTeams, event.Team)
+	default:
+		return false
+	}
+}
+
+// canModifyEvent reports whether userId may update or delete an event:
+// only the owner or an invited attendee.
+func canModifyEvent(userId, owner string, attendees []string) bool {
+	return userId == owner || contains[string](attendees, userId)
+}
+
+// getEventOwnerAndAttendees loads just enough of an existing event to make
+// an authorization decision before mutating it.
+func (p *Plugin) getEventOwnerAndAttendees(eventId string) (owner string, attendees []string, found bool, appErr *model.AppError) {
+	queryBuilder := sq.Select().
+		Columns("ce.owner", "cm.member").
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.Eq{"ce.id": eventId}).
+		PlaceholderFormat(p.GetDBPlaceholderFormat())
+
+	querySql, args, err := queryBuilder.ToSql()
+	if err != nil {
+		p.API.LogError(err.Error())
+		return "", nil, false, SomethingWentWrong
+	}
+
+	rows, errSelect := p.DB.Queryx(querySql, args...)
+	if errSelect != nil {
+		p.API.LogError(errSelect.Error())
+		return "", nil, false, SomethingWentWrong
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var rowOwner string
+		var member *string
+		if errScan := rows.Scan(&rowOwner, &member); errScan != nil {
+			p.API.LogError(errScan.Error())
+			continue
+		}
+		owner = rowOwner
+		found = true
+		if member != nil {
+			attendees = append(attendees, *member)
+		}
+	}
+
+	return owner, attendees, found, nil
+}
+
 func (p *Plugin) GetUserLocation(user *model.User) *time.Location {
 	userTimeZone := ""
 
@@ -362,6 +431,11 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 		Visibility:  eventDb.Visibility,
 		Alert:       eventDb.Alert,
 		AlertTime:   eventDb.AlertTime,
+	}
+
+	if !p.canViewEvent(user.Id, event, members) {
+		errorResponse(w, EventNotFound)
+		return
 	}
 
 	userLoc := p.GetUserLocation(user)
@@ -547,9 +621,19 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	insertRows, errInsert := p.DB.Queryx(querySql, sqlArgs...)
+	tx, txError := p.DB.Beginx()
+	if txError != nil {
+		p.API.LogError(txError.Error())
+		errorResponse(w, CantCreateEvent)
+		return
+	}
+
+	insertRows, errInsert := tx.Queryx(querySql, sqlArgs...)
 	if errInsert != nil {
 		p.API.LogError(errInsert.Error())
+		if rollbackError := tx.Rollback(); rollbackError != nil {
+			p.API.LogError(rollbackError.Error())
+		}
 		errorResponse(w, CantCreateEvent)
 		return
 	}
@@ -565,18 +649,26 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		queryAttendees, queryAttArgs, errAttendees := builderAtt.PlaceholderFormat(p.GetDBPlaceholderFormat()).ToSql()
 		if errAttendees != nil {
 			p.API.LogError(errAttendees.Error())
+			if rollbackError := tx.Rollback(); rollbackError != nil {
+				p.API.LogError(rollbackError.Error())
+			}
 			errorResponse(w, CantCreateEvent)
 			return
 		}
-		attRows, errInsertAtt := p.DB.Queryx(queryAttendees, queryAttArgs...)
-		if errInsertAtt == nil {
-			attRows.Close()
+		attRows, errInsertAtt := tx.Queryx(queryAttendees, queryAttArgs...)
+		if errInsertAtt != nil {
+			p.API.LogError(errInsertAtt.Error())
+			if rollbackError := tx.Rollback(); rollbackError != nil {
+				p.API.LogError(rollbackError.Error())
+			}
+			errorResponse(w, CantCreateEvent)
+			return
 		}
-		errInsert = errInsertAtt
+		attRows.Close()
 	}
 
-	if errInsert != nil {
-		p.API.LogError(errInsert.Error())
+	if commitError := tx.Commit(); commitError != nil {
+		p.API.LogError(commitError.Error())
 		errorResponse(w, CantCreateEvent)
 		return
 	}
@@ -587,7 +679,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 	pluginContext := p.FromContext(r.Context())
-	_, err := p.API.GetSession(pluginContext.SessionId)
+	session, err := p.API.GetSession(pluginContext.SessionId)
 
 	if err != nil {
 		p.API.LogError("can't get session")
@@ -601,6 +693,20 @@ func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 
 	if eventId == "" {
 		errorResponse(w, InvalidRequestParams)
+		return
+	}
+
+	owner, attendees, found, ownerErr := p.getEventOwnerAndAttendees(eventId)
+	if ownerErr != nil {
+		errorResponse(w, ownerErr)
+		return
+	}
+	if !found {
+		errorResponse(w, EventNotFound)
+		return
+	}
+	if !canModifyEvent(session.UserId, owner, attendees) {
+		errorResponse(w, EventNotFound)
 		return
 	}
 
@@ -661,6 +767,20 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	if event.Visibility == VisibilityChannel && event.Channel == nil {
 		p.API.LogError("Channel is required for channel visibility")
 		errorResponse(w, CantUpdateEvent)
+		return
+	}
+
+	existingOwner, existingAttendees, found, ownerErr := p.getEventOwnerAndAttendees(event.Id)
+	if ownerErr != nil {
+		errorResponse(w, ownerErr)
+		return
+	}
+	if !found {
+		errorResponse(w, EventNotFound)
+		return
+	}
+	if !canModifyEvent(user.Id, existingOwner, existingAttendees) {
+		errorResponse(w, EventNotFound)
 		return
 	}
 
@@ -740,6 +860,9 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	rows, errUpdate := tx.Queryx(updateSql, updateArgs...)
 	if errUpdate != nil {
 		p.API.LogInfo("cant update calendar event: " + errUpdate.Error())
+		if rollbackError := tx.Rollback(); rollbackError != nil {
+			p.API.LogError(rollbackError.Error())
+		}
 		errorResponse(w, CantUpdateEvent)
 		return
 	}
@@ -751,6 +874,9 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	deleteSql, deleteArgs, deleteErr := deleteBuilder.PlaceholderFormat(p.GetDBPlaceholderFormat()).ToSql()
 	if deleteErr != nil {
 		p.API.LogError(deleteErr.Error())
+		if rollbackError := tx.Rollback(); rollbackError != nil {
+			p.API.LogError(rollbackError.Error())
+		}
 		errorResponse(w, CantUpdateEvent)
 		return
 	}
