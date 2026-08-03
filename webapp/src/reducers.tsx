@@ -1,5 +1,7 @@
 import {combineReducers} from 'redux';
 
+import {getDefaultCalendarView} from './components/utils';
+
 const selectEventModal = (state = {}, action) => {
     switch (action.type) {
     case 'eventSelected':
@@ -38,8 +40,11 @@ const calendarSettings = (state = {
     jitsiBaseUrl: 'https://meet.jit.si',
 }, action) => {
     switch (action.type) {
+
+    // merged rather than replaced so a server that doesn't know about a newer
+    // setting can't drop it and leave the UI reading undefined
     case 'updateCalendarSettings':
-        return action.payload;
+        return {...state, ...action.payload};
     default:
         return state;
     }
@@ -48,6 +53,17 @@ const calendarSettings = (state = {
 const selectedCalendarType = (state = 'call', action) => {
     switch (action.type) {
     case 'updateSelectedCalendarType':
+        return action.payload;
+    default:
+        return state;
+    }
+};
+
+// the header buttons and the grid live in sibling components, so the active
+// view is kept here instead of in local state
+const selectedCalendarView = (state = getDefaultCalendarView(), action) => {
+    switch (action.type) {
+    case 'updateSelectedCalendarView':
         return action.payload;
     default:
         return state;
@@ -89,6 +105,7 @@ const reducer = combineReducers({
     membersAddedInEvent,
     selectedEventTime,
     selectedCalendarType,
+    selectedCalendarView,
 });
 
 export default reducer;

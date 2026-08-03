@@ -64,6 +64,13 @@ export const updateSelectedCalendarType = (calendarType: string) => {
     };
 };
 
+export const updateSelectedCalendarView = (view: string) => {
+    return {
+        type: 'updateSelectedCalendarView',
+        payload: view,
+    };
+};
+
 export const updateSelectedEventTime = (event: SelectedEventTime) => {
     if (event.startTime && event.start) {
         const startT = event.startTime.split(':');

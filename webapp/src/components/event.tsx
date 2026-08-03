@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Client4 } from 'mattermost-redux/client';
 import { UserProfile } from 'mattermost-redux/types/users';
 import { Channel } from 'mattermost-redux/types/channels';
+import { Team } from 'mattermost-redux/types/teams';
 
 import { useDispatch, useSelector } from 'react-redux';
 
-import { getCurrentTeamId, getCurrentTeam } from 'mattermost-redux/selectors/entities/teams';
+import { getCurrentTeamId, getCurrentTeam, getMyTeams } from 'mattermost-redux/selectors/entities/teams';
+import { getMyTeams as fetchMyTeams } from 'mattermost-redux/actions/teams';
 import { getCurrentUserId, getUserStatuses, makeGetProfilesInChannel } from 'mattermost-redux/selectors/entities/users';
 import { getTeammateNameDisplaySetting } from 'mattermost-redux/selectors/entities/preferences';
 import { getProfilesInChannel } from 'mattermost-redux/actions/users';
@@ -65,7 +67,7 @@ import { ApiClient } from 'client';
 
 import RepeatEventCustom from './repeat-event';
 
-import CalendarRef from './calendar';
+import { refetchCalendarEvents } from './calendar';
 import TimeSelector from './time-selector';
 import PlanningAssistant from './planning-assistant';
 import EventAlertSelect from "./alert-input";
@@ -91,6 +93,13 @@ declare type OptionOnSelectData = {
     selectedOptions: string[];
 };
 
+// new events are visible to the whole team unless the user narrows it down
+const DEFAULT_VISIBILITY = 'team';
+
+// the "call" calendar is the one that gets a video meeting link; a meeting
+// event is a plain calendar entry
+const EVENT_TYPE_CALL = 'call';
+
 const initialStartTime = (): string => {
     return format(roundToNearestMinutes(new Date(), {
         nearestTo: 30,
@@ -113,8 +122,9 @@ const EventModalComponent = () => {
 
     const displayNameSettings = useSelector(getTeammateNameDisplaySetting);
 
-    const CurrentTeamId = useSelector(getCurrentTeamId);
-    const CurrentTeam = useSelector(getCurrentTeam);
+    const currentTeamId = useSelector(getCurrentTeamId);
+    const currentTeam = useSelector(getCurrentTeam);
+    const myTeams: Team[] = useSelector(getMyTeams);
 
     const UserStatusSelector = useSelector(getUserStatuses);
     const currentUserId = useSelector(getCurrentUserId);
@@ -123,6 +133,24 @@ const EventModalComponent = () => {
     const selectedCalendarType = useSelector(getSelectedCalendarType);
 
     const dispatch = useDispatch();
+
+    // The calendar is registered as a product and lives on its own route, so
+    // Mattermost's "current team" is empty until the user has opened a team at
+    // least once in this session. With an empty team id channel autocomplete
+    // hits /api/v4/teams//channels/autocomplete and 404s, and saved events end
+    // up with no team, which hides every team-visible event afterwards. Falling
+    // back to a team the user actually belongs to keeps both working.
+    const teamsRequested = useRef(false);
+
+    useEffect(() => {
+        if (!currentTeamId && myTeams.length === 0 && !teamsRequested.current) {
+            teamsRequested.current = true;
+            dispatch(fetchMyTeams());
+        }
+    }, [currentTeamId, myTeams.length]);
+
+    const resolvedTeam: Team | undefined = currentTeam || myTeams[0];
+    const teamId: string = currentTeamId || resolvedTeam?.id || '';
 
     const initialDate = new Date();
 
@@ -139,7 +167,7 @@ const EventModalComponent = () => {
     const [searchUsersInput, setSearchUsersInput] = useState('');
 
     const [selectedAlert, setSelectedAlert] = useState('');
-    const [selectedType, setSelectedType] = useState('call');
+    const [selectedType, setSelectedType] = useState(EVENT_TYPE_CALL);
     const [meetingLink, setMeetingLink] = useState('');
     const [eventOwner, setEventOwner] = useState('');
 
@@ -147,12 +175,14 @@ const EventModalComponent = () => {
     const [selectedChannel, setSelectedChannel] = useState({});
     const [selectedChannelText, setSelectedChannelText] = useState('');
 
-    const [selectedVisibility, setSelectedVisibility] = useState('private')
+    const [selectedVisibility, setSelectedVisibility] = useState(DEFAULT_VISIBILITY)
 
     const [isPlanningAssistantOpen, setIsPlanningAssistantOpen] = useState(false);
     const inputEventTitleRef = React.useRef<HTMLInputElement>(null);
 
-    const getProfilesInChannelSelector = makeGetProfilesInChannel();
+    // the selector has to survive re-renders, a fresh one each time throws its
+    // memoisation away and hands back a new array on every store update
+    const getProfilesInChannelSelector = React.useMemo(makeGetProfilesInChannel, []);
     const profilesInCurrentChannelSelector = (state: GlobalState) => getProfilesInChannelSelector(state, selectedChannel?.id);
     const profilesInChannel = useSelector(profilesInCurrentChannelSelector);
 
@@ -211,7 +241,7 @@ const EventModalComponent = () => {
         setMeetingLink('');
         setEventOwner('');
 
-        setSelectedVisibility('private');
+        setSelectedVisibility(DEFAULT_VISIBILITY);
         setSelectedAlert('');
     };
 
@@ -247,12 +277,23 @@ const EventModalComponent = () => {
 
     const onInputChannelAction = async (event: React.ChangeEvent<HTMLInputElement>) => {
         setSelectedChannelText(event.target.value);
-        if (event.target.value !== '') {
-            const resp = await Client4.autocompleteChannels(CurrentTeamId, event.target.value);
-            setChannelsAutocomplete(resp);
-        } else {
+        if (event.target.value === '') {
             // if channel input empty, remove selected channel
             setSelectedChannel({});
+            setChannelsAutocomplete([]);
+            return;
+        }
+        if (!teamId) {
+            // without a team the autocomplete endpoint 404s, and the rejected
+            // promise used to surface as an uncaught error in the console
+            setChannelsAutocomplete([]);
+            return;
+        }
+        try {
+            const resp = await Client4.autocompleteChannels(teamId, event.target.value);
+            setChannelsAutocomplete(resp);
+        } catch (e) {
+            setChannelsAutocomplete([]);
         }
     };
 
@@ -296,7 +337,14 @@ const EventModalComponent = () => {
             return;
         }
 
+        if (selectedVisibility === 'team' && !teamId) {
+            showErrorToast('You are not a member of any team, pick another visibility');
+            return;
+        }
+
         const members: string[] = usersAddedInEvent.map((user: UserProfile) => user.id);
+        // a meeting event isn't a call, so it never carries a video link
+        const linkToSave = selectedType === EVENT_TYPE_CALL ? meetingLink : '';
         let repeat = '';
         if (repeatOption === 'Custom') {
             repeat = repeatRule;
@@ -310,7 +358,7 @@ const EventModalComponent = () => {
                     toServerDateTime(selectedEventTime.end, selectedEventTime.endTime),
                     members,
                     descriptionEvent,
-                    CurrentTeamId,
+                    teamId,
                     selectedVisibility,
                     Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                     repeat,
@@ -320,7 +368,7 @@ const EventModalComponent = () => {
                     undefined,
                     selectedAlert,
                     selectedType,
-                    meetingLink,
+                    linkToSave,
                 );
             } else {
                 await ApiClient.updateEvent(
@@ -330,7 +378,7 @@ const EventModalComponent = () => {
                     toServerDateTime(selectedEventTime.end, selectedEventTime.endTime),
                     members,
                     descriptionEvent,
-                    CurrentTeamId,
+                    teamId,
                     selectedVisibility,
                     Object.keys(selectedChannel).length !== 0 ? selectedChannel.id : null,
                     repeat,
@@ -340,10 +388,10 @@ const EventModalComponent = () => {
                     undefined,
                     selectedAlert,
                     selectedType,
-                    meetingLink,
+                    linkToSave,
                 );
             }
-            CalendarRef.current?.getApi().getEventSources()[0].refetch();
+            refetchCalendarEvents();
             cleanState();
             viewEventModalHandleClose();
         } catch (e) {
@@ -359,7 +407,7 @@ const EventModalComponent = () => {
         }
         try {
             await ApiClient.removeEvent(selectedEvent.event.id);
-            CalendarRef.current?.getApi().getEventSources()[0].refetch();
+            refetchCalendarEvents();
             cleanState();
             viewEventModalHandleClose();
         } catch (e) {
@@ -400,10 +448,10 @@ const EventModalComponent = () => {
                 }));
                 dispatch(updateMembersAddedInEvent(data.data.attendees));
 
-                setSelectedType(data.data.type || 'call');
+                setSelectedType(data.data.type || EVENT_TYPE_CALL);
                 setMeetingLink(data.data.meetingLink || '');
                 setEventOwner(data.data.owner);
-                setSelectedVisibility(data.data.visibility);
+                setSelectedVisibility(data.data.visibility || DEFAULT_VISIBILITY);
                 setSelectedAlert(data.data.alert);
 
                 if (data.data.recurrence.length !== 0) {
@@ -685,8 +733,8 @@ const EventModalComponent = () => {
                                         )}
                                     </div>
                                 </div>
-                                {CurrentTeam ? (<div className="current-team-tag">
-                                    <Tag icon={<PeopleTeam24Regular />}>{CurrentTeam.display_name}</Tag>
+                                {resolvedTeam ? (<div className="current-team-tag">
+                                    <Tag icon={<PeopleTeam24Regular />}>{resolvedTeam.display_name}</Tag>
                                 </div>) : null}
                             </div>
 
@@ -815,28 +863,31 @@ const EventModalComponent = () => {
 
                             </div>
 
-                            <div className='event-meeting-link-container'>
-                                <Video24Regular />
-                                <div className='event-meeting-link-input-container'>
-                                    {isLoading ? (<Skeleton className='skeleton-dropdown'><SkeletonItem /></Skeleton>) : (
-                                        <>
-                                            <Input
-                                                readOnly={true}
-                                                type='text'
-                                                className='event-meeting-link-input'
-                                                placeholder='No meeting link'
-                                                value={meetingLink}
-                                            />
-                                            <Button
-                                                appearance='subtle'
-                                                onClick={onGenerateMeetingLink}
-                                            >
-                                                {'Generate Jitsi link'}
-                                            </Button>
-                                        </>
-                                    )}
+                            {selectedType === EVENT_TYPE_CALL ? (
+                                <div className='event-meeting-link-container'>
+                                    <Video24Regular />
+                                    <div className='event-meeting-link-input-container'>
+                                        {isLoading ? (<Skeleton className='skeleton-dropdown'><SkeletonItem /></Skeleton>) : (
+                                            <>
+                                                <Input
+                                                    readOnly={true}
+                                                    type='text'
+                                                    className='event-meeting-link-input'
+                                                    placeholder='No meeting link'
+                                                    value={meetingLink}
+                                                />
+                                                <Button
+                                                    appearance='subtle'
+                                                    className='event-meeting-link-button'
+                                                    onClick={onGenerateMeetingLink}
+                                                >
+                                                    {'Generate Jitsi link'}
+                                                </Button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            ) : null}
                             <Toaster toasterId={toasterId} />
                         </DialogContent>
                         <RemoveEventButton />

@@ -94,7 +94,9 @@ func (p *Plugin) GetUserEventsUTC(
 		},
 	}
 
-	if eventType != "" {
+	// only filter on a type we actually know about, an unknown value would
+	// silently return an empty calendar
+	if eventType == string(EventTypeCall) || eventType == string(EventTypeMeeting) {
 		conditions = append(conditions, sq.Eq{"ce.type": eventType})
 	}
 
@@ -276,10 +278,11 @@ func canModifyEvent(userId, owner string, attendees []string) bool {
 }
 
 // getEventOwnerAndAttendees loads just enough of an existing event to make
-// an authorization decision before mutating it.
-func (p *Plugin) getEventOwnerAndAttendees(eventId string) (owner string, attendees []string, found bool, appErr *model.AppError) {
+// an authorization decision before mutating it. The team comes along so an
+// update can keep the event where it already lives.
+func (p *Plugin) getEventOwnerAndAttendees(eventId string) (owner string, team string, attendees []string, found bool, appErr *model.AppError) {
 	queryBuilder := sq.Select().
-		Columns("ce.owner", "cm.member").
+		Columns("ce.owner", "ce.team", "cm.member").
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.Eq{"ce.id": eventId}).
@@ -288,31 +291,33 @@ func (p *Plugin) getEventOwnerAndAttendees(eventId string) (owner string, attend
 	querySql, args, err := queryBuilder.ToSql()
 	if err != nil {
 		p.API.LogError(err.Error())
-		return "", nil, false, SomethingWentWrong
+		return "", "", nil, false, SomethingWentWrong
 	}
 
 	rows, errSelect := p.DB.Queryx(querySql, args...)
 	if errSelect != nil {
 		p.API.LogError(errSelect.Error())
-		return "", nil, false, SomethingWentWrong
+		return "", "", nil, false, SomethingWentWrong
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var rowOwner string
+		var rowTeam string
 		var member *string
-		if errScan := rows.Scan(&rowOwner, &member); errScan != nil {
+		if errScan := rows.Scan(&rowOwner, &rowTeam, &member); errScan != nil {
 			p.API.LogError(errScan.Error())
 			continue
 		}
 		owner = rowOwner
+		team = rowTeam
 		found = true
 		if member != nil {
 			attendees = append(attendees, *member)
 		}
 	}
 
-	return owner, attendees, found, nil
+	return owner, team, attendees, found, nil
 }
 
 func (p *Plugin) GetUserLocation(user *model.User) *time.Location {
@@ -510,8 +515,33 @@ func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
 		events[i].Color = &color
 	}
 
+	// a nil slice marshals to `null`, and FullCalendar throws while iterating it.
+	// That exception escapes its task queue and leaves the whole grid frozen, so
+	// an empty calendar has to come back as an empty array.
+	if events == nil {
+		events = []Event{}
+	}
+
 	apiResponse(w, &events)
 	return
+}
+
+// resolveEventTeam fills in the team an event belongs to. The webapp runs as a
+// product outside of any team route, so it can't always tell us which team is
+// current; falling back to the user's own team keeps team-visible events from
+// being written with an empty team and then filtered out of every calendar.
+func (p *Plugin) resolveEventTeam(userId string, event *Event) bool {
+	if event.Team != "" {
+		return true
+	}
+
+	teams, teamsErr := p.GetUserTeams(userId)
+	if teamsErr != nil || len(teams) == 0 {
+		return false
+	}
+
+	event.Team = teams[0]
+	return true
 }
 
 func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
@@ -551,6 +581,12 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 
 	if event.Type == "" {
 		event.Type = EventTypeCall
+	}
+
+	if !p.resolveEventTeam(user.Id, &event) && event.Visibility == VisibilityTeam {
+		p.API.LogError("Team is required for team visibility")
+		errorResponse(w, TeamRequired)
+		return
 	}
 
 	event.Id = uuid.New().String()
@@ -727,7 +763,7 @@ func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	owner, attendees, found, ownerErr := p.getEventOwnerAndAttendees(eventId)
+	owner, _, attendees, found, ownerErr := p.getEventOwnerAndAttendees(eventId)
 	if ownerErr != nil {
 		errorResponse(w, ownerErr)
 		return
@@ -812,7 +848,7 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		event.Type = EventTypeCall
 	}
 
-	existingOwner, existingAttendees, found, ownerErr := p.getEventOwnerAndAttendees(event.Id)
+	existingOwner, existingTeam, existingAttendees, found, ownerErr := p.getEventOwnerAndAttendees(event.Id)
 	if ownerErr != nil {
 		errorResponse(w, ownerErr)
 		return
@@ -823,6 +859,18 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	if !canModifyEvent(user.Id, existingOwner, existingAttendees) {
 		errorResponse(w, EventNotFound)
+		return
+	}
+
+	// an update that doesn't say which team it belongs to must not move the
+	// event to a different one
+	if event.Team == "" {
+		event.Team = existingTeam
+	}
+
+	if !p.resolveEventTeam(user.Id, &event) && event.Visibility == VisibilityTeam {
+		p.API.LogError("Team is required for team visibility")
+		errorResponse(w, TeamRequired)
 		return
 	}
 
@@ -888,6 +936,7 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		"recurrent":    event.Recurrent,
 		"color":        event.Color,
 		"visibility":   event.Visibility,
+		"team":         event.Team,
 		"alert":        event.Alert,
 		"alert_time":   event.AlertTime,
 		"updated":      event.Updated,

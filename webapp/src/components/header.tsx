@@ -18,20 +18,30 @@ import {
     Dismiss24Regular,
 } from '@fluentui/react-icons';
 
-import {openEventModal, updateCalendarSettingsOnServer, updateSelectedCalendarType} from 'actions';
+import {
+    openEventModal,
+    updateCalendarSettingsOnServer,
+    updateSelectedCalendarType,
+    updateSelectedCalendarView,
+} from 'actions';
 
-import {getCalendarSettings, getSelectedCalendarType} from '../selectors';
+import {getCalendarSettings, getSelectedCalendarType, getSelectedCalendarView} from '../selectors';
 import {CalendarSettings} from '../types/settings';
 
-import CalendarRef from './calendar';
+import CalendarRef, {refetchCalendarEvents} from './calendar';
 import ICalSettings from './ical-settings';
 
 const HeaderComponent = () => {
     const dispatch = useDispatch();
     const settings: CalendarSettings = useSelector(getCalendarSettings);
     const selectedCalendarType: string = useSelector(getSelectedCalendarType);
+    const selectedView: string = useSelector(getSelectedCalendarView);
     const [settingsPanelOpen, setSettingsPanelOpen] = useState<boolean>(false);
-    const [selectedView, setSelectedView] = useState<string>('timeGridWeek');
+
+    const changeView = (view: string) => {
+        dispatch(updateSelectedCalendarView(view));
+        CalendarRef.current?.getApi().changeView(view);
+    };
 
     // a color input fires onChange for every step of a drag, so the picked value
     // is kept locally and only saved once the user is done with it
@@ -57,7 +67,7 @@ const HeaderComponent = () => {
 
         // colors are resolved server-side on read, so the grid has to be refetched
         // for the new one to show up on events that already exist
-        CalendarRef.current?.getApi().getEventSources()[0].refetch();
+        refetchCalendarEvents();
     };
 
     const dayDropdown = useId('dropdown-dayDropdown');
@@ -105,7 +115,9 @@ const HeaderComponent = () => {
                 </DrawerHeader>
 
                 <DrawerBody>
-                    <p className='settings-right-bar-content'>
+                    {/* a div, not a p: the rows below are block elements and the
+                        browser would close the paragraph early, breaking the layout */}
+                    <div className='settings-right-bar-content'>
                         <label id={dayDropdown}>First day of week</label>
                         <Dropdown
                             onOptionSelect={(event, item) => {
@@ -161,15 +173,19 @@ const HeaderComponent = () => {
                                 onBlur={(e) => saveCalendarColor('eventColor', e.target.value)}
                             />
                         </div>
-                    </p>
+                    </div>
                     <ICalSettings/>
                 </DrawerBody>
             </DrawerOverlay>
 
             <div className='calendar-header-toolbar'>
                 <div className='left-allign-header-toolbar-item'>
+                    {/* the mini calendar has no room on a phone and is hidden
+                        there, so the button that toggles it is hidden too */}
                     <Button
+                        className='toggle-left-bar-button'
                         appearance='subtle'
+                        aria-label='Toggle mini calendar'
                         icon={<LineHorizontal3Regular/>}
                         onClick={
                             () => {
@@ -177,7 +193,6 @@ const HeaderComponent = () => {
                                     ...settings,
                                     isOpenCalendarLeftBar: !settings.isOpenCalendarLeftBar,
                                 }));
-                                CalendarRef.current?.getApi().changeView(selectedView);
                             }
                         }
 
@@ -193,30 +208,21 @@ const HeaderComponent = () => {
                     <Button
                         appearance='subtle'
                         icon={<CalendarDay20Regular/>}
-                        onClick={() => {
-                            CalendarRef.current?.getApi().changeView('timeGridDay');
-                            setSelectedView('timeGridDay');
-                        }}
+                        onClick={() => changeView('timeGridDay')}
                         disabled={selectedView === 'timeGridDay'}
                     >Day</Button>
                     <Button
                         appearance='subtle'
                         icon={<Calendar3Day20Regular/>}
-                        onClick={() => {
-                            CalendarRef.current?.getApi().changeView('timeGridWeek');
-                            setSelectedView('timeGridWeek');
-                        }}
+                        onClick={() => changeView('timeGridWeek')}
                         disabled={selectedView === 'timeGridWeek'}
-                    >week</Button>
+                    >Week</Button>
                     <Button
                         appearance='subtle'
                         icon={<CalendarLtr20Regular/>}
-                        onClick={() => {
-                            CalendarRef.current?.getApi().changeView('dayGridMonth');
-                            setSelectedView('dayGridMonth');
-                        }}
+                        onClick={() => changeView('dayGridMonth')}
                         disabled={selectedView === 'dayGridMonth'}
-                    >month</Button>
+                    >Month</Button>
                 </div>
                 <div className='left-allign-header-toolbar-item'>
                     <Button
@@ -235,6 +241,7 @@ const HeaderComponent = () => {
                 <div className='left-allign-header-toolbar-item'>
                     <Button
                         appearance='subtle'
+                        aria-label='Settings'
                         icon={<Settings20Regular/>}
                         onClick={() => {
                             setSettingsPanelOpen(true);

@@ -37,4 +37,17 @@ function getSiteURL(): string {
     return getSiteURLFromWindowObject(window);
 }
 
+// kept in sync with the @media query in style.css
+export const MOBILE_BREAKPOINT = 768;
+
+export const isMobileViewport = (): boolean => {
+    return typeof window !== 'undefined' && window.innerWidth <= MOBILE_BREAKPOINT;
+};
+
+// a seven column week grid is unreadable on a phone, so narrow viewports start
+// on the single day view instead
+export const getDefaultCalendarView = (): string => {
+    return isMobileViewport() ? 'timeGridDay' : 'timeGridWeek';
+};
+
 export default getSiteURL;

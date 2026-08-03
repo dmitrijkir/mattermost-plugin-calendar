@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/DATA-DOG/go-sqlmock"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jmoiron/sqlx"
@@ -356,7 +357,7 @@ func TestRemoveEventOnlyByOwner(t *testing.T) {
 	dbx := sqlx.NewDb(db, "sqlmock")
 
 	ownerQueryBuilder := sq.Select().
-		Columns("ce.owner", "cm.member").
+		Columns("ce.owner", "ce.team", "cm.member").
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.Eq{"ce.id": "event-1"}).
@@ -366,8 +367,8 @@ func TestRemoveEventOnlyByOwner(t *testing.T) {
 	// the requesting user is an attendee of someone else's event
 	dbMock.ExpectQuery(regexp.QuoteMeta(ownerQuerySql)).
 		WithArgs("event-1").
-		WillReturnRows(sqlmock.NewRows([]string{"owner", "member"}).
-			AddRow("owner-id", "attendee-id"))
+		WillReturnRows(sqlmock.NewRows([]string{"owner", "team", "member"}).
+			AddRow("owner-id", "team-1", "attendee-id"))
 
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
@@ -435,4 +436,63 @@ func TestGetUserCalendarColors(t *testing.T) {
 	callColor, eventColor = calPlugin.GetUserCalendarColors("test-user")
 	assertChecker.Equal(DefaultCallColor, callColor)
 	assertChecker.Equal(DefaultEventColor, eventColor)
+}
+
+// An empty calendar has to serialise as `data: []`. A nil slice would come out
+// as `data: null`, and FullCalendar throws while iterating that; the exception
+// escapes its internal task queue and leaves it permanently stuck, so every
+// later action (refetch, prev/next, changing the view) is silently dropped.
+func TestGetEventsReturnsEmptyArrayWhenNoEvents(t *testing.T) {
+	ctx := &plugin.Context{SessionId: "session-id"}
+
+	api := plugintest.API{}
+	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/events", "user-agent", "").Return()
+
+	session := &model.Session{UserId: "test-user"}
+	api.On("GetSession", ctx.SessionId).Return(session, nil)
+	api.On("GetUser", session.UserId).Return(&model.User{
+		Id:       session.UserId,
+		Timezone: map[string]string{"useAutomaticTimezone": "false", "manualTimezone": "UTC"},
+	}, nil)
+	api.On("GetTeamsForUser", session.UserId).Return([]*model.Team{}, nil)
+
+	db, dbMock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	// the three lookups run concurrently
+	dbMock.MatchExpectationsInOrder(false)
+	dbMock.ExpectQuery("SELECT ce.id").WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	dbMock.ExpectQuery("SELECT ChannelId").WillReturnRows(sqlmock.NewRows([]string{"ChannelId"}))
+	dbMock.ExpectQuery("SELECT call_color").WillReturnRows(sqlmock.NewRows([]string{"call_color", "event_color"}))
+
+	calPlugin := Plugin{
+		MattermostPlugin: plugin.MattermostPlugin{API: &api, Driver: nil},
+		DB:               dbx,
+	}
+	calPlugin.router = calPlugin.InitAPI()
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(
+		http.MethodGet,
+		"/events?start=2023-02-27T00:00:00&end=2023-03-05T23:00:00&type=call",
+		nil,
+	)
+
+	calPlugin.ServeHTTP(ctx, w, r)
+
+	assertChecker := assert.New(t)
+	assertChecker.Equal(http.StatusOK, w.Result().StatusCode)
+
+	var body struct {
+		Data []Event `json:"data"`
+	}
+	assertChecker.NoError(json.Unmarshal(w.Body.Bytes(), &body))
+	assertChecker.NotNil(body.Data)
+	assertChecker.Len(body.Data, 0)
+	assertChecker.Contains(w.Body.String(), `"data":[]`)
 }

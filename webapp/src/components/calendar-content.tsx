@@ -11,28 +11,42 @@ import {useDispatch, useSelector} from 'react-redux';
 import {DayHeaderContentArg} from '@fullcalendar/core';
 import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 
-import {DateSelectArg, EventClickArg} from '@fullcalendar/common';
-import {Calendar, DateRangeType, DayOfWeek, initializeIcons} from '@fluentui/react';
+import {DateSelectArg, DatesSetArg, EventClickArg} from '@fullcalendar/common';
+import {Calendar, DateRangeType, initializeIcons} from '@fluentui/react';
 
-import {addMonths, format} from 'date-fns';
+import {format} from 'date-fns';
 
-import {eventSelected, openEventModal} from 'actions';
+import {eventSelected, openEventModal, updateSelectedCalendarView} from 'actions';
 import {id as PluginId} from '../manifest';
 import {CalendarSettings} from '../types/settings';
-import {getCalendarSettings, getSelectedCalendarType} from '../selectors';
+import {getCalendarSettings, getSelectedCalendarType, getSelectedCalendarView} from '../selectors';
 
 import CalendarRef from './calendar';
-import getSiteURL from './utils';
+import getSiteURL, {isMobileViewport} from './utils';
 
 initializeIcons();
 
-const eventDataTransformation = (content, response) => {
-    return content.data;
+// FullCalendar iterates whatever comes out of here. Anything that isn't an
+// array (an empty calendar serialises as `data: null`, an error body has no
+// `data` at all) throws inside its task queue, and that exception leaves the
+// queue permanently stuck: every later action — refetch, prev/next, changeView —
+// is then silently dropped and the whole calendar looks dead.
+const eventDataTransformation = (content) => {
+    return Array.isArray(content?.data) ? content.data : [];
+};
+
+const onEventSourceFailure = (error) => {
+    // eslint-disable-next-line no-console
+    console.error('calendar plugin: could not load events', error);
 };
 
 const DAY_HEADER_FORMAT = {day: 'numeric', weekday: 'short', omitCommas: true} as const;
 const LOCALES = [enLocale];
 const PLUGINS = [timeGridPlugin, interactionPlugin, dayGridPlugin];
+
+const contentHeightForViewport = (): number => {
+    return Math.max(320, window.innerHeight - (isMobileViewport() ? 170 : 200));
+};
 
 const LeftBarCalendar = () => {
     const [selectedDate, setSelectedDate] = useState<Date>();
@@ -69,8 +83,12 @@ const CalendarContent = () => {
     const user = useSelector(getCurrentUser);
     const settings = useSelector(getCalendarSettings);
     const selectedCalendarType: string = useSelector(getSelectedCalendarType);
+    const selectedCalendarView: string = useSelector(getSelectedCalendarView);
 
-    const [contentHeight, setContentHeight] = useState<number>(window.innerHeight - 200);
+    // FullCalendar only reads initialView once, so it has to stay stable even
+    // when the header switches views afterwards
+    const [initialView] = useState<string>(selectedCalendarView);
+    const [contentHeight, setContentHeight] = useState<number>(contentHeightForViewport);
 
     const getUserTimeZoneString = () => {
         if (!user) {
@@ -95,10 +113,27 @@ const CalendarContent = () => {
     }, [user]);
 
     useEffect(() => {
-        const onResize = () => setContentHeight(window.innerHeight - 200);
+        const onResize = () => setContentHeight(contentHeightForViewport());
         window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
+        window.addEventListener('orientationchange', onResize);
+        return () => {
+            window.removeEventListener('resize', onResize);
+            window.removeEventListener('orientationchange', onResize);
+        };
     }, []);
+
+    // showing or hiding the mini calendar changes how much room the grid has,
+    // and nothing else tells FullCalendar to re-measure
+    useEffect(() => {
+        CalendarRef.current?.getApi().updateSize();
+    }, [settings.isOpenCalendarLeftBar]);
+
+    // keeps the header buttons in step with views changed from the grid itself
+    const onDatesSet = (arg: DatesSetArg) => {
+        if (arg.view.type !== selectedCalendarView) {
+            dispatch(updateSelectedCalendarView(arg.view.type));
+        }
+    };
 
     const onEventClicked = (eventInfo: EventClickArg) => {
         dispatch(eventSelected(eventInfo));
@@ -106,7 +141,7 @@ const CalendarContent = () => {
     };
 
     const calcHiddenDays = (): number[] => {
-        if (!settings.hideNonWorkingDays) {
+        if (!settings.hideNonWorkingDays || !Array.isArray(settings.businessDays)) {
             return [];
         }
         const noneWorkingDays: number[] = [];
@@ -162,7 +197,7 @@ const CalendarContent = () => {
             <div className='calendar-main-greed'>
                 <FullCalendar
                     plugins={PLUGINS}
-                    initialView='timeGridWeek'
+                    initialView={initialView}
                     allDaySlot={false}
                     slotDuration='00:30:00'
                     selectable={true}
@@ -187,7 +222,7 @@ const CalendarContent = () => {
                         function dayOfWeekAsString(dayIndex: number) {
                             return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex] || '';
                         }
-                        const showDay = CalendarRef.current?.getApi().view.type !== 'dayGridMonth';
+                        const showDay = dayHeaderProps.view.type !== 'dayGridMonth';
                         return (<>
                             <div className={`custom-day-header  ${dayHeaderProps.isToday ? 'custom-day-today' : ''}`}>
                                 {showDay ? <div className='custom-day-header-day'>{dayHeaderProps.date.getDate()}</div> : ''}
@@ -199,7 +234,9 @@ const CalendarContent = () => {
                     }}
                     dayCellClassNames='custom-day-cell'
                     ref={CalendarRef}
+                    datesSet={onDatesSet}
                     eventSourceSuccess={eventDataTransformation}
+                    eventSourceFailure={onEventSourceFailure}
                     eventSources={eventSources}
                 />
             </div>

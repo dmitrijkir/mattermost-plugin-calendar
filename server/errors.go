@@ -38,6 +38,13 @@ var (
 		Where:      PluginId,
 	}
 
+	TeamRequired = &model.AppError{
+		Id:         "team_required",
+		Message:    "A team is required for a team visible event",
+		StatusCode: 400,
+		Where:      PluginId,
+	}
+
 	CantCreateEvent = &model.AppError{
 		Id:         "cant_create_event",
 		Message:    "Can't create new event",
