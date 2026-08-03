@@ -132,6 +132,7 @@ func TestGetEvents(t *testing.T) {
 			"ce.type",
 			"ce.meeting_link",
 			"ce.all_day",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -161,13 +162,14 @@ func TestGetEvents(t *testing.T) {
 		"type",
 		"meeting_link",
 		"all_day",
+		"mention",
 	},
 	).AddRow("event-1", "test event 1", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		sqlTimeEnd, "owner_id", "channel-id", false, "", nil, "team1", "private", "", nil, "call", nil, false).AddRow("event-2", "test event 2", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		sqlTimeEnd, "owner_id", "channel-id", false, "", "#D0D0D0", "team1", "private", "", nil, "call", nil, false).AddRow("event-3", "test event 3", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		sqlTimeEnd, "owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0", "team1", "private", "", nil, "call", nil, false).AddRow("event-3", "test event 3 another user", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		sqlTimeEnd, "owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0", "team1", "private", "", nil, "call", nil, false).AddRow("event-3", "test event 3 another user", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
-		sqlTimeEnd, "owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0", "team1", "private", "", nil, "call", nil, false)
+		sqlTimeEnd, "owner_id", "channel-id", false, "", nil, "team1", "private", "", nil, "call", nil, false, "").AddRow("event-2", "test event 2", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		sqlTimeEnd, "owner_id", "channel-id", false, "", "#D0D0D0", "team1", "private", "", nil, "call", nil, false, "").AddRow("event-3", "test event 3", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		sqlTimeEnd, "owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0", "team1", "private", "", nil, "call", nil, false, "").AddRow("event-3", "test event 3 another user", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		sqlTimeEnd, "owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0", "team1", "private", "", nil, "call", nil, false, "").AddRow("event-3", "test event 3 another user", "", sqlTimeStart, sqlTimeEnd, sqlTimeEnd,
+		sqlTimeEnd, "owner_id", "channel-id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE", "#D0D0D0", "team1", "private", "", nil, "call", nil, false, "")
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -210,28 +212,28 @@ func TestGetEvents(t *testing.T) {
 						"attendees":null,"created":"2023-03-05T21:00:00Z","updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1",
 						"channel":"channel-id","recurrence":"","color":"#111111","visibility":"private","alert":"",
-						"alertTime":null,"type":"call","meetingLink":null,"allDay":false},{"id":"event-2","title":"test event 2","description":"",
+						"alertTime":null,"type":"call","meetingLink":null,"allDay":false,"mention":""},{"id":"event-2","title":"test event 2","description":"",
 						"start":"2023-02-27T00:00:00+03:00","end":"2023-03-06T00:00:00+03:00","attendees":null,
 						"created":"2023-03-05T21:00:00Z","updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1","channel":"channel-id",
-						"recurrence":"","color":"#111111","visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null,"allDay":false},
+						"recurrence":"","color":"#111111","visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null,"allDay":false,"mention":""},
 						{"id":"event-3","title":"test event 3","description":"","start":"2023-02-27T00:00:00+03:00",
 						"end":"2023-03-06T00:00:00+03:00","attendees":null,"created":"2023-03-05T21:00:00Z",
 						"updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1","channel":"channel-id",
 						"recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#111111",
-						"visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null,"allDay":false},{"id":"event-3","title":"test event 3",
+						"visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null,"allDay":false,"mention":""},{"id":"event-3","title":"test event 3",
 						"description":"","start":"2023-02-28T00:00:00+03:00","end":"2023-03-07T00:00:00+03:00",
 						"attendees":null,"created":"2023-03-05T21:00:00Z","updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1",
 						"channel":"channel-id","recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE",
-						"color":"#111111","visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null,"allDay":false},{"id":"event-3",
+						"color":"#111111","visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null,"allDay":false,"mention":""},{"id":"event-3",
 						"title":"test event 3","description":"","start":"2023-03-01T00:00:00+03:00",
 						"end":"2023-03-08T00:00:00+03:00","attendees":null,"created":"2023-03-05T21:00:00Z",
 						"updated":"2023-03-05T21:00:00Z",
 						"owner":"owner_id","team":"team1","channel":"channel-id",
 						"recurrence":"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE","color":"#111111",
-						"visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null,"allDay":false}]}`
+						"visibility":"private","alert":"","alertTime":null,"type":"call","meetingLink":null,"allDay":false,"mention":""}]}`
 	assert.JSONEq(string(bodyBytes), expectedResponse)
 	api.AssertExpectations(t)
 }

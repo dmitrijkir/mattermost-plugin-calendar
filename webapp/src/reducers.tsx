@@ -1,6 +1,6 @@
 import {combineReducers} from 'redux';
 
-import {getDefaultCalendarView} from './components/utils';
+import {getInitialCalendarType, getInitialCalendarView} from './components/utils';
 
 const selectEventModal = (state = {}, action) => {
     switch (action.type) {
@@ -50,7 +50,7 @@ const calendarSettings = (state = {
     }
 };
 
-const selectedCalendarType = (state = 'call', action) => {
+const selectedCalendarType = (state = getInitialCalendarType(), action) => {
     switch (action.type) {
     case 'updateSelectedCalendarType':
         return action.payload;
@@ -61,7 +61,7 @@ const selectedCalendarType = (state = 'call', action) => {
 
 // the header buttons and the grid live in sibling components, so the active
 // view is kept here instead of in local state
-const selectedCalendarView = (state = getDefaultCalendarView(), action) => {
+const selectedCalendarView = (state = getInitialCalendarView(), action) => {
     switch (action.type) {
     case 'updateSelectedCalendarView':
         return action.payload;

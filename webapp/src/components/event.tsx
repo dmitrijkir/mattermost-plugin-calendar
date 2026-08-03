@@ -8,9 +8,9 @@ import { useDispatch, useSelector } from 'react-redux';
 
 import { getCurrentTeamId, getCurrentTeam, getMyTeams } from 'mattermost-redux/selectors/entities/teams';
 import { getMyTeams as fetchMyTeams } from 'mattermost-redux/actions/teams';
-import { getCurrentUserId, getUserStatuses, makeGetProfilesInChannel } from 'mattermost-redux/selectors/entities/users';
+import { getCurrentUserId, getUser, getUserStatuses, makeGetProfilesInChannel } from 'mattermost-redux/selectors/entities/users';
 import { getTeammateNameDisplaySetting } from 'mattermost-redux/selectors/entities/preferences';
-import { getProfilesInChannel } from 'mattermost-redux/actions/users';
+import { getMissingProfilesByIds, getProfilesInChannel } from 'mattermost-redux/actions/users';
 
 // importing the editor and the plugin from their full paths
 import {
@@ -78,6 +78,7 @@ import EventAlertSelect from "./alert-input";
 // needed again
 // import VisibilitySelect from './visibility-input';
 import EventTypeSelect from './event-type-input';
+import MentionSelect from './mention-input';
 
 interface AddedUserComponentProps {
     user: UserProfile
@@ -104,6 +105,10 @@ const DEFAULT_VISIBILITY = 'team';
 // the "call" calendar is the one that gets a video meeting link; a meeting
 // event is a plain calendar entry
 const EVENT_TYPE_CALL = 'call';
+
+// New events ping the whole channel by default; events created before this
+// setting existed carry no mention and stay silent.
+const DEFAULT_MENTION = 'channel';
 
 // default alert for a new call: ping right when it starts. Meeting events and
 // all-day events default to no alert at all.
@@ -178,8 +183,22 @@ const EventModalComponent = () => {
     const [selectedAlert, setSelectedAlert] = useState('');
     const [selectedType, setSelectedType] = useState(EVENT_TYPE_CALL);
     const [selectedAllDay, setSelectedAllDay] = useState(false);
+    const [selectedMention, setSelectedMention] = useState(DEFAULT_MENTION);
     const [meetingLink, setMeetingLink] = useState('');
     const [eventOwner, setEventOwner] = useState('');
+
+    // The event only carries the owner's id, so the profile comes from the
+    // store. getMissingProfilesByIds skips anyone already loaded, so opening
+    // events by the same person doesn't refetch them.
+    const eventOwnerProfile: UserProfile | undefined = useSelector(
+        (state: GlobalState) => (eventOwner ? getUser(state, eventOwner) : undefined),
+    );
+
+    useEffect(() => {
+        if (eventOwner && !eventOwnerProfile) {
+            dispatch(getMissingProfilesByIds([eventOwner]));
+        }
+    }, [eventOwner, eventOwnerProfile]);
 
     // once the user has explicitly picked an alert, the smart type/all-day
     // defaults below stop overwriting their choice
@@ -204,6 +223,9 @@ const EventModalComponent = () => {
 
     const [titleEvent, setTitleEvent] = useState('');
     const [descriptionEvent, setDescriptionEvent] = useState('');
+
+    // whitespace-only is not a title
+    const hasTitle = titleEvent.trim() !== '';
 
     const [repeatRule, setRepeatRule] = useState<string>('');
     const [showCustomRepeat, setShowCustomRepeat] = useState(false);
@@ -255,6 +277,7 @@ const EventModalComponent = () => {
         setMeetingLink('');
         setEventOwner('');
         setSelectedAllDay(false);
+        setSelectedMention(DEFAULT_MENTION);
 
         setSelectedVisibility(DEFAULT_VISIBILITY);
         alertTouchedRef.current = false;
@@ -356,6 +379,12 @@ const EventModalComponent = () => {
 
     const onSaveEvent = async () => {
 
+        // the Save button is disabled without a title, this is just a guard
+        if (!hasTitle) {
+            showErrorToast('Add a title first');
+            return;
+        }
+
         if (selectedVisibility === "channel" && Object.keys(selectedChannel).length === 0) {
             showErrorToast('You selected channel visibility but you didn\'t select a channel');
             return;
@@ -376,6 +405,9 @@ const EventModalComponent = () => {
         const members: string[] = usersAddedInEvent.map((user: UserProfile) => user.id);
         // a meeting event isn't a call, so it never carries a video link
         const linkToSave = selectedType === EVENT_TYPE_CALL ? meetingLink : '';
+        // the mention only ever lands in a channel post, so an event without a
+        // channel must not keep a stale one around
+        const mentionToSave = Object.keys(selectedChannel).length !== 0 ? selectedMention : '';
         let repeat = '';
         if (repeatOption === 'Custom') {
             repeat = repeatRule;
@@ -401,6 +433,7 @@ const EventModalComponent = () => {
                     selectedType,
                     linkToSave,
                     selectedAllDay,
+                    mentionToSave,
                 );
             } else {
                 await ApiClient.updateEvent(
@@ -422,6 +455,7 @@ const EventModalComponent = () => {
                     selectedType,
                     linkToSave,
                     selectedAllDay,
+                    mentionToSave,
                 );
             }
             refetchCalendarEvents();
@@ -511,6 +545,7 @@ const EventModalComponent = () => {
                 // not the smart default — don't let a later type change stomp it
                 alertTouchedRef.current = true;
                 setSelectedAlert(data.data.alert);
+                setSelectedMention(data.data.mention ?? '');
 
                 if (data.data.recurrence.length !== 0) {
                     setRepeatRule(data.data.recurrence);
@@ -548,8 +583,10 @@ const EventModalComponent = () => {
     }, [selectedEvent]);
 
     const getDisplayUserName = (user: UserProfile) => {
+        const fullName = `${user.first_name} ${user.last_name}`.trim();
+
         if (displayNameSettings === 'full_name') {
-            return user.first_name + ' ' + user.last_name;
+            return fullName || user.username;
         }
         if (displayNameSettings === 'username') {
             return user.username;
@@ -559,8 +596,12 @@ const EventModalComponent = () => {
             if (user.nickname !== '') {
                 return user.nickname;
             }
-            return user.first_name + ' ' + user.last_name;
+            return fullName || user.username;
         }
+
+        // any other display setting (or none at all) used to fall through and
+        // return undefined, rendering blank names
+        return user.username;
     };
 
     const repeatOnSelect = (event: SelectionEvents, data: OptionOnSelectData) => {
@@ -684,6 +725,17 @@ const EventModalComponent = () => {
 
                                 </div>
                             </div>
+
+                            {/* only an existing event has an author worth
+                                showing; a new one is always yours */}
+                            {!isLoading && selectedEvent?.event?.id != null && eventOwner ? (
+                                <div className='event-owner-caption'>
+                                    {eventOwner === currentUserId ?
+                                        'Created by you' :
+                                        `Created by ${eventOwnerProfile ? getDisplayUserName(eventOwnerProfile) : '…'}`}
+                                </div>
+                            ) : null}
+
                             <div className='datetime-container'>
                                 <Clock24Regular />
                                 <div className='event-input-container-datetime event-input-container'>
@@ -800,6 +852,15 @@ const EventModalComponent = () => {
                                     <Tag icon={<PeopleTeam24Regular />}>{resolvedTeam.display_name}</Tag>
                                 </div>) : null}
                             </div>
+
+                            {/* the mention only takes effect in a channel post,
+                                so it's pointless without a channel */}
+                            {!isLoading && Object.keys(selectedChannel).length !== 0 ? (
+                                <MentionSelect
+                                    selected={selectedMention}
+                                    onSelected={(selected) => setSelectedMention(selected)}
+                                />
+                            ) : null}
 
                             {
                                 isLoading ?
@@ -930,7 +991,7 @@ const EventModalComponent = () => {
                                         <Textarea
                                             placeholder='Add description'
                                             className='event-description-input-textarea'
-                                            resize='vertical'
+                                            resize='none'
                                             value={descriptionEvent}
                                             onChange={(event, data) => setDescriptionEvent(data.value)}
                                         />}
@@ -944,12 +1005,16 @@ const EventModalComponent = () => {
                                     <div className='event-meeting-link-input-container'>
                                         {isLoading ? (<Skeleton className='skeleton-dropdown'><SkeletonItem /></Skeleton>) : (
                                             <>
+                                                {/* editable so a link from any
+                                                    provider can be pasted in,
+                                                    not just a generated Jitsi one */}
                                                 <Input
-                                                    readOnly={true}
                                                     type='text'
+                                                    inputMode='url'
                                                     className='event-meeting-link-input'
-                                                    placeholder='No meeting link'
+                                                    placeholder='Paste a meeting link or generate one'
                                                     value={meetingLink}
+                                                    onChange={(event, data) => setMeetingLink(data.value)}
                                                 />
                                                 <Button
                                                     appearance='subtle'
@@ -980,7 +1045,8 @@ const EventModalComponent = () => {
                                 appearance='primary'
                                 onClick={onSaveEvent}
                                 icon={isSaving ? (<Spinner size='tiny' />) : (<Save16Regular />)}
-                                disabled={isSaving}
+                                disabled={isSaving || !hasTitle}
+                                title={hasTitle ? undefined : 'Add a title first'}
                             >
                                 {'Save'}
                             </Button>

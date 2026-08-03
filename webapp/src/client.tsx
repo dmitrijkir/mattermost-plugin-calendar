@@ -32,6 +32,7 @@ export declare type GetEventResponse = {
     type: string
     meetingLink?: string
     allDay?: boolean
+    mention?: string
 }
 
 export declare type GetEventsResponse = {
@@ -165,6 +166,7 @@ export class ApiClient implements ApiClientInterface {
         type?: string,
         meetingLink?: string,
         allDay?: boolean,
+        mention?: string,
     ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
@@ -188,6 +190,7 @@ export class ApiClient implements ApiClientInterface {
                     type,
                     meetingLink,
                     allDay,
+                    mention,
                 }),
             }),
         );
@@ -212,6 +215,7 @@ export class ApiClient implements ApiClientInterface {
         type?: string,
         meetingLink?: string,
         allDay?: boolean,
+        mention?: string,
     ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
@@ -236,6 +240,7 @@ export class ApiClient implements ApiClientInterface {
                     type,
                     meetingLink,
                     allDay,
+                    mention,
                 }),
             }),
         );

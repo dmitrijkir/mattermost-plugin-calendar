@@ -9,6 +9,7 @@ import (
 type EventVisibility string
 type EventAlert string
 type EventType string
+type EventMention string
 
 const (
 	EventAlertNone            EventAlert = ""
@@ -28,6 +29,13 @@ const (
 
 	EventTypeCall    EventType = "call"
 	EventTypeMeeting EventType = "event"
+
+	// Stored without the leading "@" so the DB holds a plain token, the same
+	// way alerts store "5_minutes_before" rather than display text.
+	MentionNone    EventMention = ""
+	MentionHere    EventMention = "here"
+	MentionChannel EventMention = "channel"
+	MentionAll     EventMention = "all"
 )
 
 var EventAlertDurationMap = map[EventAlert]time.Duration{
@@ -172,6 +180,57 @@ func (e *EventType) Scan(value interface{}) error {
 	}
 }
 
+// UnmarshalJSON customizes the JSON unmarshaling of EventMention.
+func (e *EventMention) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+	switch s {
+	case string(MentionNone), string(MentionHere), string(MentionChannel), string(MentionAll):
+		*e = EventMention(s)
+		return nil
+	default:
+		return fmt.Errorf("invalid EventMention: %s", s)
+	}
+}
+
+func (e *EventMention) Scan(value interface{}) error {
+	// rows written before the column existed come back as NULL
+	if value == nil {
+		*e = MentionNone
+		return nil
+	}
+
+	var strValue string
+
+	switch v := value.(type) {
+	case string:
+		strValue = v
+	case []byte:
+		strValue = string(v)
+	default:
+		return fmt.Errorf("EventMention must be a string or []byte, got %T", value)
+	}
+
+	switch strValue {
+	case string(MentionNone), string(MentionHere), string(MentionChannel), string(MentionAll):
+		*e = EventMention(strValue)
+		return nil
+	default:
+		return fmt.Errorf("invalid EventMention: %s", strValue)
+	}
+}
+
+// AsText renders the mention the way it has to appear in a post to actually
+// notify people; an empty mention renders as an empty string.
+func (e EventMention) AsText() string {
+	if e == MentionNone {
+		return ""
+	}
+	return "@" + string(e)
+}
+
 type Event struct {
 	Id          string          `json:"id" db:"id"`
 	Title       string          `json:"title" db:"title"`
@@ -193,6 +252,10 @@ type Event struct {
 	AlertTime   *time.Time      `json:"alertTime" db:"alert_time"`
 	Type        EventType       `json:"type" db:"type"`
 	MeetingLink *string         `json:"meetingLink" db:"meeting_link"`
+
+	// Which channel-wide mention to put in the reminder post. Only has an
+	// effect for events that post to a channel.
+	Mention EventMention `json:"mention" db:"mention"`
 
 	// Start/End store an exclusive range for all-day events (End is midnight
 	// of the day after the last day), matching FullCalendar's own convention

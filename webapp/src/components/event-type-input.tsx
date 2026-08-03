@@ -1,4 +1,6 @@
-import {CalendarLtr20Regular} from '@fluentui/react-icons';
+// 24px to match every other row icon in the event form; a 20px one shifts the
+// field next to it by 4px
+import {CalendarLtr24Regular} from '@fluentui/react-icons';
 import {Combobox, Option} from '@fluentui/react-components';
 import React from 'react';
 
@@ -27,7 +29,7 @@ const EventTypeSelect = (props: EventTypeSelectProps) => {
 
     return (
         <div className='event-visibility-container'>
-            <CalendarLtr20Regular/>
+            <CalendarLtr24Regular/>
             <div className='event-visibility-input-container'>
                 <div className='event-input-visibility-wrapper'>
                     <Combobox

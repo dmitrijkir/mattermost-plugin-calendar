@@ -1,3 +1,23 @@
+/* The plugin's own layout containers combine `width: 100%` with horizontal
+   padding. Without border-box the padding is added on top of the 100%, which
+   pushed the grid 8px past the viewport on a phone and left the whole page
+   scrolling sideways. Scoped to the containers this stylesheet owns rather
+   than applied to every descendant, so Fluent and FullCalendar keep their own
+   box model. */
+.calendar-full-content,
+.calendar-full-content-provider,
+.calendar-content,
+.calendar-main-greed,
+.calendar-header-container,
+.calendar-header-toolbar,
+.event-input-container,
+.event-description-input-container,
+.event-channel-input-container,
+.event-visibility-input-container,
+.event-meeting-link-input-container {
+    box-sizing: border-box;
+}
+
 .dropdown-menu {
     color: rgb(63, 67, 80);
 }
@@ -56,6 +76,15 @@
 .event-title-container {
     display: flex;
     align-items: center;
+}
+
+/* 54px lines the caption up with the title field above it: a 24px row icon
+   plus the 30px indent every field in the form uses */
+.event-owner-caption {
+    padding-left: 54px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--colorNeutralForeground3);
 }
 
 .event-add-users-container {
@@ -378,9 +407,11 @@ header {
     text-decoration: none;
 }
 
-table {
-    height: -webkit-fill-available !important;
-}
+/* NOTE: there used to be a global `table { height: -webkit-fill-available
+   !important }` here. It made the month grid collapse to its natural height
+   (372px inside a 659px viewport) because it overrode the height FullCalendar
+   computes for the day rows, and it did nothing for the time grid views, which
+   size their own tables. Removing it is what makes the month view fill. */
 
 .fc-event-title-container {
     color: #3C4043;
@@ -838,6 +869,37 @@ table {
         height: 2em !important;
     }
 
+    /* Seven columns on a 375px screen leave ~45px each. The day header lays
+       the date and the weekday out side by side, which needs ~50px, so the
+       columns used to bleed into each other ("3 Mon4 Tue5 Wed"). Stacking
+       them and dropping the font size fits the column. */
+    .custom-day-header {
+        flex-direction: column;
+        align-items: center;
+        padding-top: 6px;
+    }
+
+    .custom-day-header-day {
+        font-size: 15px;
+        line-height: 1.1;
+        margin-right: 0;
+    }
+
+    .custom-day-header-weekday {
+        font-size: 11px;
+        line-height: 1.1;
+    }
+
+    /* the time gutter was eating 53px of the 375px available */
+    .fc .fc-timegrid-axis-cushion,
+    .fc .fc-timegrid-slot-label-cushion {
+        font-size: 11px;
+    }
+
+    .fc .fc-timegrid-axis-frame {
+        justify-content: center;
+    }
+
     /* event modal. Fluent injects its own single class rules, so these need
        !important to win regardless of stylesheet order */
     .fui-DialogSurface {
@@ -889,6 +951,11 @@ table {
 
     .repeat-container {
         padding-left: 12px;
+    }
+
+    /* fields drop to a 12px indent on mobile, so the caption follows */
+    .event-owner-caption {
+        padding-left: 36px;
     }
 
     .added-users-list {

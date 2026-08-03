@@ -179,6 +179,7 @@ func (b *Background) process(t time.Time) {
 			"ce.team",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -310,6 +311,7 @@ func (b *Background) process(t time.Time) {
 				AlertTime:   eventDb.AlertTime,
 				Type:        eventDb.Type,
 				MeetingLink: eventDb.MeetingLink,
+				Mention:     eventDb.Mention,
 			}
 
 		}
@@ -324,12 +326,10 @@ func (b *Background) process(t time.Time) {
 				UserId:    b.plugin.BotId,
 			}
 
-			// with nobody specifically invited, nobody would otherwise notice
-			// the post; a real @channel mention (not just attachment text)
-			// pings everyone in it
-			if len(value.Attendees) == 0 {
-				postModel.Message = "@channel"
-			}
+			// The mention has to be real post text, not attachment text, for
+			// Mattermost to actually notify anyone. Events created before this
+			// setting existed carry MentionNone and stay silent.
+			postModel.Message = value.Mention.AsText()
 
 			postModel.SetProps(b.getMessageProps(value, tickWithZone))
 			_, postErr := b.plugin.API.CreatePost(postModel)

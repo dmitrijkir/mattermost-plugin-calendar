@@ -78,6 +78,7 @@ func TestGetUTCEvents(t *testing.T) {
 			"ce.type",
 			"ce.meeting_link",
 			"ce.all_day",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -108,6 +109,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"type",
 		"meeting_link",
 		"all_day",
+		"mention",
 	})
 
 	//	add events to sqlEventsRow
@@ -132,6 +134,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"call",
 		nil,
 		false,
+		"",
 	)
 	// recurrent event, every monday, tuesday, wednesday
 	sqlEventsRow.AddRow(
@@ -154,6 +157,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"call",
 		nil,
 		false,
+		"",
 	)
 
 	// 2 events with multiple members, should be mapped to 1 event
@@ -177,6 +181,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"call",
 		nil,
 		false,
+		"",
 	)
 	sqlEventsRow.AddRow(
 		"event-3",
@@ -198,6 +203,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"call",
 		nil,
 		false,
+		"",
 	)
 
 	// recurrent event, every second monday, event must start 2 week earlier
@@ -221,6 +227,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"call",
 		nil,
 		false,
+		"",
 	)
 
 	// recurrent event, corner case, start 00:00, and repeat every current week day
@@ -244,6 +251,7 @@ func TestGetUTCEvents(t *testing.T) {
 		"call",
 		nil,
 		false,
+		"",
 	)
 	//
 

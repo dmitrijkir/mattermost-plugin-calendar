@@ -239,6 +239,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 			"ce.team",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -276,9 +277,10 @@ func TestProcessEventWithChannel(t *testing.T) {
 		"alert_time",
 		"type",
 		"meeting_link",
+		"mention",
 	},
 	).AddRow("qwcw", "test event", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		sqlQueryTime, "owner_id", channelId, "user-Id", false, "", "team1", "", nil, "call", nil)
+		sqlQueryTime, "owner_id", channelId, "user-Id", false, "", "team1", "", nil, "call", nil, "")
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -300,9 +302,9 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 }
 
-// a channel post for an event with nobody specifically invited must mention
-// @channel, otherwise nobody would notice it
-func TestProcessEventWithChannelNoAttendeesMentionsChannel(t *testing.T) {
+// the mention picked on the event has to end up as real post text, otherwise
+// Mattermost doesn't notify anyone
+func TestProcessEventWithChannelUsesSelectedMention(t *testing.T) {
 	botId := "bot-id"
 	channelId := "channel-id"
 	api := plugintest.API{}
@@ -341,7 +343,7 @@ func TestProcessEventWithChannelNoAttendeesMentionsChannel(t *testing.T) {
 	postForSendChannel := &model.Post{
 		UserId:    botId,
 		ChannelId: channelId,
-		Message:   "@channel",
+		Message:   "@all",
 	}
 
 	api.On("CreatePost", postForSendChannel).Return(nil, nil)
@@ -391,6 +393,7 @@ func TestProcessEventWithChannelNoAttendeesMentionsChannel(t *testing.T) {
 			"ce.team",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -428,9 +431,10 @@ func TestProcessEventWithChannelNoAttendeesMentionsChannel(t *testing.T) {
 		"alert_time",
 		"type",
 		"meeting_link",
+		"mention",
 	},
 	).AddRow("qw-no-att", "test event no attendees", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		sqlQueryTime, "owner_id", channelId, nil, false, "", "team1", "", nil, "call", nil)
+		sqlQueryTime, "owner_id", channelId, nil, false, "", "team1", "", nil, "call", nil, "all")
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -579,6 +583,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 			"ce.team",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -616,13 +621,14 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		"alert_time",
 		"type",
 		"meeting_link",
+		"mention",
 	},
 	).AddRow(
 		"rec-ev", "test event recevent", recurrentEventTimeStart,
 		recurrentEventTimeEnd, featureTime,
 		featureTime, "owner_id", channelId, "user-Id", true,
 		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
-		"team1", "", nil, "call", nil,
+		"team1", "", nil, "call", nil, "",
 	)
 
 	expectedQuery.WillReturnRows(eventsRow)
@@ -767,6 +773,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 			"ce.team",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -804,13 +811,14 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		"alert_time",
 		"type",
 		"meeting_link",
+		"mention",
 	},
 	).AddRow(
 		"rec-ev", "test event recurrent", recurrentEventTimeStart,
 		recurrentEventTimeEnd, recurrentEventTimeStart,
 		recurrentEventTimeStart, "owner_id", channelId, "user-Id", true,
 		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
-		"team1", "", nil, "call", nil,
+		"team1", "", nil, "call", nil, "",
 	)
 
 	expectedQuery.WillReturnRows(eventsRow)
@@ -938,6 +946,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 			"ce.team",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -981,9 +990,10 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		"alert_time",
 		"type",
 		"meeting_link",
+		"mention",
 	},
 	).AddRow("qwert-2", "tests event without channel", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		sqlQueryTime, "owner-id", nil, "user-id", false, "", "team1", "", nil, "call", nil)
+		sqlQueryTime, "owner-id", nil, "user-id", false, "", "team1", "", nil, "call", nil, "")
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -1120,6 +1130,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 			"ce.team",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -1161,12 +1172,12 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		"recurrence",
 		"team",
 		"alert",
-		"alert_time", "type", "meeting_link"},
+		"alert_time", "type", "meeting_link", "mention"},
 	).AddRow(
 		"rec-ev", "test event recurrent",
 		recurrentEventTimeStart, recurrentEventTimeEnd, recurrentEventTimeStart,
 		recurrentEventTimeStart, "owner_id", channelId, "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,MO",
-		"team1", "", nil, "call", nil,
+		"team1", "", nil, "call", nil, "",
 	)
 
 	expectedQuery.WillReturnRows(eventsRow)
@@ -1227,6 +1238,23 @@ func TestWSSendNotification(t *testing.T) {
 
 // "At start time" is a plain ping, not a "heads-up N before" message, so it
 // must not carry an alarm-clock title like the other alerts do.
+// Events created before the mention setting existed carry MentionNone, and
+// must stay silent rather than suddenly pinging whole channels.
+func TestEventMentionAsText(t *testing.T) {
+	cases := map[EventMention]string{
+		MentionNone:    "",
+		MentionHere:    "@here",
+		MentionChannel: "@channel",
+		MentionAll:     "@all",
+	}
+
+	for mention, want := range cases {
+		if got := mention.AsText(); got != want {
+			t.Errorf("mention %q: expected %q, got %q", string(mention), want, got)
+		}
+	}
+}
+
 func TestGetMessageFromEventAtStartTimeHasNoAlertTitle(t *testing.T) {
 	now := time.Now()
 	testEvent := &Event{
