@@ -121,6 +121,7 @@ func (p *Plugin) GetUserEventsUTC(
 			"ce.alert_time",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.all_day",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -382,6 +383,7 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 			"ce.alert_time",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.all_day",
 			"cm.member",
 		).
 		From("calendar_events ce").
@@ -447,6 +449,7 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 		AlertTime:   eventDb.AlertTime,
 		Type:        eventDb.Type,
 		MeetingLink: eventDb.MeetingLink,
+		AllDay:      eventDb.AllDay,
 	}
 
 	if !p.canViewEvent(user.Id, event, members) {
@@ -658,6 +661,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			"alert_time",
 			"type",
 			"meeting_link",
+			"all_day",
 		).
 		Values(
 			event.Id,
@@ -678,6 +682,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 			event.AlertTime,
 			event.Type,
 			event.MeetingLink,
+			event.AllDay,
 		).PlaceholderFormat(p.GetDBPlaceholderFormat())
 
 	// Prepare the SQL query
@@ -942,6 +947,7 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		"updated":      event.Updated,
 		"type":         event.Type,
 		"meeting_link": event.MeetingLink,
+		"all_day":      event.AllDay,
 	}
 	updateQueryBuilder := sq.Update("calendar_events").
 		SetMap(updateFields).

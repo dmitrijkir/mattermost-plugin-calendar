@@ -1,0 +1,1 @@
+ALTER TABLE calendar_events ADD all_day BOOLEAN DEFAULT FALSE NOT NULL;

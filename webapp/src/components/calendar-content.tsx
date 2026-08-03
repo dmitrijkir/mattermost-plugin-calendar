@@ -12,13 +12,12 @@ import {DayHeaderContentArg} from '@fullcalendar/core';
 import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 
 import {DateSelectArg, DatesSetArg, EventClickArg} from '@fullcalendar/common';
-import {Calendar, DateRangeType, initializeIcons} from '@fluentui/react';
+import {initializeIcons} from '@fluentui/react';
 
 import {format} from 'date-fns';
 
 import {eventSelected, openEventModal, updateSelectedCalendarView} from 'actions';
 import {id as PluginId} from '../manifest';
-import {CalendarSettings} from '../types/settings';
 import {getCalendarSettings, getSelectedCalendarType, getSelectedCalendarView} from '../selectors';
 
 import CalendarRef from './calendar';
@@ -46,36 +45,6 @@ const PLUGINS = [timeGridPlugin, interactionPlugin, dayGridPlugin];
 
 const contentHeightForViewport = (): number => {
     return Math.max(320, window.innerHeight - (isMobileViewport() ? 170 : 200));
-};
-
-const LeftBarCalendar = () => {
-    const [selectedDate, setSelectedDate] = useState<Date>();
-    const dateRangeType = DateRangeType.Week;
-
-    const settings: CalendarSettings = useSelector(getCalendarSettings);
-
-    const onSelectDate = React.useCallback((date: Date, dateRangeArray: Date[]): void => {
-        setSelectedDate(date);
-        // Format as YYYY-MM-DD to avoid timezone issues with gotoDate
-        const dateString = format(date, 'yyyy-MM-dd');
-        CalendarRef.current?.getApi().gotoDate(dateString);
-    }, []);
-
-    if (settings.isOpenCalendarLeftBar) {
-        return (
-            <Calendar
-                showMonthPickerAsOverlay={true}
-                dateRangeType={dateRangeType}
-                highlightSelectedMonth={true}
-                showGoToToday={true}
-                onSelectDate={onSelectDate}
-                value={selectedDate}
-                firstDayOfWeek={settings.firstDayOfWeek}
-            />
-        );
-    }
-
-    return <div className='hided-left-bar-calendar'/>;
 };
 
 const CalendarContent = () => {
@@ -121,12 +90,6 @@ const CalendarContent = () => {
             window.removeEventListener('orientationchange', onResize);
         };
     }, []);
-
-    // showing or hiding the mini calendar changes how much room the grid has,
-    // and nothing else tells FullCalendar to re-measure
-    useEffect(() => {
-        CalendarRef.current?.getApi().updateSize();
-    }, [settings.isOpenCalendarLeftBar]);
 
     // keeps the header buttons in step with views changed from the grid itself
     const onDatesSet = (arg: DatesSetArg) => {
@@ -176,7 +139,8 @@ const CalendarContent = () => {
         {
             url: getSiteURL() + `/plugins/${PluginId}/events`,
             extraParams: {
-                type: selectedCalendarType,
+                // "all" shows both calendars together, so no type filter is sent
+                type: selectedCalendarType === 'all' ? '' : selectedCalendarType,
             },
         },
     ], [selectedCalendarType]);
@@ -191,14 +155,11 @@ const CalendarContent = () => {
 
     return (
         <div className='calendar-content'>
-            <div className='left-bar-calendar-content'>
-                <LeftBarCalendar/>
-            </div>
             <div className='calendar-main-greed'>
                 <FullCalendar
                     plugins={PLUGINS}
                     initialView={initialView}
-                    allDaySlot={false}
+                    allDaySlot={true}
                     slotDuration='00:30:00'
                     selectable={true}
                     firstDay={settings.firstDayOfWeek}

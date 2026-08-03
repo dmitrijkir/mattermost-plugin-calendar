@@ -35,11 +35,12 @@ func (b *Background) Stop() {
 func (b *Background) getMessageFromEvent(event *Event, processTime time.Time) string {
 	message := ""
 
-	if event.AlertTime != nil && processTime.Equal(*event.AlertTime) {
-		alertTitle, ok := EventAlertTitleMap[event.Alert]
-		if !ok {
-			alertTitle = ""
-		}
+	// "At start time" is a plain "it's starting" ping; every other alert gets
+	// the alarm-clock heads-up with how far ahead it fired. This function is
+	// only reached for events the query matched on alert_time, so an alert of
+	// "None" (alert_time stays NULL) never gets here at all.
+	if event.Alert != EventAlertAtStartTime && event.AlertTime != nil && processTime.Equal(*event.AlertTime) {
+		alertTitle := EventAlertTitleMap[event.Alert]
 		message += fmt.Sprintf(":alarm_clock: **%s** *%s* :alarm_clock:\n", alertTitle, event.Title)
 	} else {
 		message += fmt.Sprintf(":dart: *%s* :dart:\n", event.Title)
@@ -135,32 +136,26 @@ func (b *Background) process(t time.Time) {
 		time.UTC,
 	)
 
+	// Notifications only fire off alert_time, never off dt_start directly: an
+	// alert of "None" leaves alert_time NULL (see CreateEvent/UpdateEvent), so
+	// it naturally never matches a tick and no notification is sent for it.
 	// different queries for different databases because of different time format
 	var recurrentTimeQuery sq.And
 	switch b.plugin.DB.DriverName() {
 	case POSTGRES:
 		recurrentTimeQuery = sq.And{
 			sq.Eq{"ce.recurrent": true},
-			sq.Or{
-				sq.Eq{"ce.dt_start::time": tickWithZone},
-				sq.Eq{"ce.alert_time::time": tickWithZone},
-			},
+			sq.Eq{"ce.alert_time::time": tickWithZone},
 		}
 	case MYSQL:
 		recurrentTimeQuery = sq.And{
 			sq.Eq{"ce.recurrent": true},
-			sq.Or{
-				sq.Eq{"TIME(ce.dt_start)": tickWithZone},
-				sq.Eq{"TIME(ce.alert_time)": tickWithZone},
-			},
+			sq.Eq{"TIME(ce.alert_time)": tickWithZone},
 		}
 	default:
 		recurrentTimeQuery = sq.And{
 			sq.Eq{"ce.recurrent": true},
-			sq.Or{
-				sq.Eq{"ce.dt_start::time": tickWithZone},
-				sq.Eq{"ce.alert_time::time": tickWithZone},
-			},
+			sq.Eq{"ce.alert_time::time": tickWithZone},
 		}
 	}
 
@@ -188,8 +183,9 @@ func (b *Background) process(t time.Time) {
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.And{
+			// all-day events have no meaningful "moment" to alert at
+			sq.Eq{"ce.all_day": false},
 			sq.Or{
-				sq.Eq{"ce.dt_start": tickWithZone},
 				sq.Eq{"ce.alert_time": tickWithZone},
 				recurrentTimeQuery,
 			},
@@ -326,6 +322,13 @@ func (b *Background) process(t time.Time) {
 			postModel := &model.Post{
 				ChannelId: *value.Channel,
 				UserId:    b.plugin.BotId,
+			}
+
+			// with nobody specifically invited, nobody would otherwise notice
+			// the post; a real @channel mention (not just attachment text)
+			// pings everyone in it
+			if len(value.Attendees) == 0 {
+				postModel.Message = "@channel"
 			}
 
 			postModel.SetProps(b.getMessageProps(value, tickWithZone))

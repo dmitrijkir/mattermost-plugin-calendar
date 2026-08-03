@@ -53,18 +53,9 @@
 
 }
 
-.datetime-container>i {
-    color: var(--sidebar-teambar-bg);
-    width: 20px;
-}
-
 .event-title-container {
     display: flex;
     align-items: center;
-}
-
-.event-title-container>i {
-    width: 20px;
 }
 
 .event-add-users-container {
@@ -79,15 +70,25 @@
     margin-top: 15px;
 }
 
-.event-add-users-container>i {
-    color: var(--sidebar-teambar-bg);
-    width: 20px;
-}
-
 .event-input-container {
     width: 100%;
     display: flex;
     padding-left: 30px
+}
+
+/* every row icon (Fluent SVGs, not the old <i> font icons these selectors
+   used to target) gets the same muted tint and a touch of top margin so it
+   lines up with the first line of its field instead of the field's center */
+.event-title-container>svg,
+.datetime-container>svg,
+.event-add-users-container>svg,
+.event-description-container>svg,
+.event-channel-container>svg,
+.event-visibility-container>svg,
+.event-meeting-link-container>svg {
+    color: var(--sidebar-teambar-bg);
+    flex-shrink: 0;
+    margin-top: 2px;
 }
 
 .event-description-input-container {
@@ -520,93 +521,9 @@ table {
     align-items: center;
 }
 
-.event-color-container {
-    display: flex;
-    margin-top: 15px;
-}
-
-.event-color-container>i {
-    color: var(--sidebar-teambar-bg);
-    width: 20px;
-}
-
-.event-color-button {
-    border: unset;
-    position: absolute;
-    left: 8px;
-    top: 5px;
-}
-
 .title-toolbar {
     position: absolute;
     top: 0;
-}
-
-.dropdown-menu-color {
-    width: 40px;
-    min-width: 40px !important;
-}
-
-.event-color-items {}
-
-.event-color-red {
-    color: #D50000;
-}
-
-.event-color-red>i {
-    color: #D50000;
-}
-
-.event-color-green {
-    color: #0B8043;
-}
-
-.event-color-green>i {
-    color: #0B8043;
-}
-
-.event-color-blue {
-    color: #039BE5;
-}
-
-.event-color-blue>i {
-    color: #039BE5;
-}
-
-.event-color-yellow {
-    color: #F6BF26;
-}
-
-.event-color-yellow>i {
-    color: #F6BF26;
-}
-
-.event-color-default {
-    color: #616161;
-}
-
-.event-color-default>i {
-    color: #616161;
-}
-
-.dropdown-color-button {
-    min-width: 18px !important;
-    width: 16px !important;
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: flex-end !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: unset !important;
-}
-
-.dropdown-color-button>input {
-    visibility: hidden;
-}
-
-.dropdown-color-button-listbox {
-    min-width: 60px !important;
-    left: 0 !important;
 }
 
 .fui-DrawerHeader {
@@ -688,6 +605,15 @@ table {
 
 .datetime-group {
     display: flex;
+    align-items: center;
+}
+
+.event-all-day-toggle {
+    margin-top: 6px;
+}
+
+.event-all-day-toggle .ms-Toggle-label {
+    font-weight: 400;
 }
 
 .datetime-group-end {
@@ -741,18 +667,6 @@ table {
 .calendar-content {
     display: flex;
     padding-top: 10px;
-}
-
-.left-bar-calendar-content {
-    padding-top: 10px;
-}
-
-.left-bar-calendar-content .rdp {
-    --rdp-cell-size: 25px !important;
-}
-
-.hided-left-bar-calendar {
-    padding-left: 20px;
 }
 
 .settings-right-bar-content {
@@ -892,19 +806,9 @@ table {
         display: none;
     }
 
-    /* the mini calendar is hidden on phones, so is the button toggling it */
-    .toggle-left-bar-button {
-        display: none !important;
-    }
-
     .calendar-content {
         flex-direction: column;
         padding-top: 6px;
-    }
-
-    .left-bar-calendar-content,
-    .hided-left-bar-calendar {
-        display: none;
     }
 
     .calendar-main-greed {

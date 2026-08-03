@@ -54,8 +54,9 @@ import {
     useToastController,
     Toaster
 } from '@fluentui/react-components';
-import { format, parse, set } from 'date-fns';
+import { format, parse, set, startOfDay, addDays, subDays } from 'date-fns';
 import { InputOnChangeData } from '@fluentui/react-input';
+import { Toggle } from '@fluentui/react/lib/Toggle';
 
 import roundToNearestMinutes from 'date-fns/roundToNearestMinutes';
 
@@ -71,7 +72,11 @@ import { refetchCalendarEvents } from './calendar';
 import TimeSelector from './time-selector';
 import PlanningAssistant from './planning-assistant';
 import EventAlertSelect from "./alert-input";
-import VisibilitySelect from './visibility-input';
+
+// visibility is pinned to "team" for now (see DEFAULT_VISIBILITY below); the
+// picker is kept around, just not wired into the form, for whenever it's
+// needed again
+// import VisibilitySelect from './visibility-input';
 import EventTypeSelect from './event-type-input';
 
 interface AddedUserComponentProps {
@@ -99,6 +104,10 @@ const DEFAULT_VISIBILITY = 'team';
 // the "call" calendar is the one that gets a video meeting link; a meeting
 // event is a plain calendar entry
 const EVENT_TYPE_CALL = 'call';
+
+// default alert for a new call: ping right when it starts. Meeting events and
+// all-day events default to no alert at all.
+const EVENT_ALERT_AT_START_TIME = 'at_start_time';
 
 const initialStartTime = (): string => {
     return format(roundToNearestMinutes(new Date(), {
@@ -168,8 +177,13 @@ const EventModalComponent = () => {
 
     const [selectedAlert, setSelectedAlert] = useState('');
     const [selectedType, setSelectedType] = useState(EVENT_TYPE_CALL);
+    const [selectedAllDay, setSelectedAllDay] = useState(false);
     const [meetingLink, setMeetingLink] = useState('');
     const [eventOwner, setEventOwner] = useState('');
+
+    // once the user has explicitly picked an alert, the smart type/all-day
+    // defaults below stop overwriting their choice
+    const alertTouchedRef = useRef(false);
 
     const [channelsAutocomplete, setChannelsAutocomplete] = useState<Channel[]>([]);
     const [selectedChannel, setSelectedChannel] = useState({});
@@ -240,9 +254,11 @@ const EventModalComponent = () => {
         setSelectedType(selectedCalendarType);
         setMeetingLink('');
         setEventOwner('');
+        setSelectedAllDay(false);
 
         setSelectedVisibility(DEFAULT_VISIBILITY);
-        setSelectedAlert('');
+        alertTouchedRef.current = false;
+        setSelectedAlert(selectedCalendarType === EVENT_TYPE_CALL ? EVENT_ALERT_AT_START_TIME : '');
     };
 
     const onTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -318,8 +334,24 @@ const EventModalComponent = () => {
     // and interprets them in the user's Mattermost timezone, so the picked wall
     // clock has to be sent as-is. Converting to a real UTC instant here would make
     // the server apply the offset a second time.
-    const toServerDateTime = (date: Date, time: string): string => {
-        return format(date, 'yyyy-MM-dd') + 'T' + time + ':00Z';
+    const toServerDateTime = (date: Date): string => {
+        return format(date, 'yyyy-MM-dd') + 'T' + format(date, 'HH:mm') + ':00Z';
+    };
+
+    // All-day events are stored as an exclusive day range (end is midnight of
+    // the day *after* the last day) — the same convention FullCalendar and
+    // iCal's VALUE=DATE use, so the feeds need no special-casing on read.
+    const buildEventRange = (): { start: Date; end: Date } => {
+        if (selectedAllDay) {
+            return {
+                start: startOfDay(selectedEventTime.start),
+                end: addDays(startOfDay(selectedEventTime.end), 1),
+            };
+        }
+        return {
+            start: buildDateTime(selectedEventTime.start, selectedEventTime.startTime),
+            end: buildDateTime(selectedEventTime.end, selectedEventTime.endTime),
+        };
     };
 
     const onSaveEvent = async () => {
@@ -329,11 +361,10 @@ const EventModalComponent = () => {
             return;
         }
 
-        const start = buildDateTime(selectedEventTime.start, selectedEventTime.startTime);
-        const end = buildDateTime(selectedEventTime.end, selectedEventTime.endTime);
+        const { start, end } = buildEventRange();
 
         if (end.getTime() <= start.getTime()) {
-            showErrorToast('End time must be after start time');
+            showErrorToast(selectedAllDay ? 'End date must not be before start date' : 'End time must be after start time');
             return;
         }
 
@@ -354,8 +385,8 @@ const EventModalComponent = () => {
             if (selectedEvent?.event?.id == null) {
                 await ApiClient.createEvent(
                     titleEvent,
-                    toServerDateTime(selectedEventTime.start, selectedEventTime.startTime),
-                    toServerDateTime(selectedEventTime.end, selectedEventTime.endTime),
+                    toServerDateTime(start),
+                    toServerDateTime(end),
                     members,
                     descriptionEvent,
                     teamId,
@@ -369,13 +400,14 @@ const EventModalComponent = () => {
                     selectedAlert,
                     selectedType,
                     linkToSave,
+                    selectedAllDay,
                 );
             } else {
                 await ApiClient.updateEvent(
                     selectedEvent.event.id,
                     titleEvent,
-                    toServerDateTime(selectedEventTime.start, selectedEventTime.startTime),
-                    toServerDateTime(selectedEventTime.end, selectedEventTime.endTime),
+                    toServerDateTime(start),
+                    toServerDateTime(end),
                     members,
                     descriptionEvent,
                     teamId,
@@ -389,6 +421,7 @@ const EventModalComponent = () => {
                     selectedAlert,
                     selectedType,
                     linkToSave,
+                    selectedAllDay,
                 );
             }
             refetchCalendarEvents();
@@ -420,9 +453,24 @@ const EventModalComponent = () => {
         setMeetingLink(`${settings.jitsiBaseUrl}/${roomSlug}`);
     };
 
+    // all-day events have no meaningful "moment" to alert at, so switching it
+    // on clears whatever alert was picked; switching back off restores the
+    // type's smart default as long as the user hasn't picked one themselves
+    const onAllDayToggle = (checked: boolean) => {
+        setSelectedAllDay(checked);
+        if (checked) {
+            setSelectedAlert('');
+        } else if (!alertTouchedRef.current) {
+            setSelectedAlert(selectedType === EVENT_TYPE_CALL ? EVENT_ALERT_AT_START_TIME : '');
+        }
+    };
+
     useEffect(() => {
         if (isOpenEventModal && selectedEvent?.event?.id == null) {
             setSelectedType(selectedCalendarType);
+            if (!alertTouchedRef.current && !selectedAllDay) {
+                setSelectedAlert(selectedCalendarType === EVENT_TYPE_CALL ? EVENT_ALERT_AT_START_TIME : '');
+            }
         }
     }, [isOpenEventModal]);
 
@@ -440,11 +488,18 @@ const EventModalComponent = () => {
 
                 const startEventResp: Date = parse(data.data.start, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
                 const endEventResp: Date = parse(data.data.end, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
+                const isAllDay = Boolean(data.data.allDay);
+
+                // the server stores an exclusive end (midnight of the day
+                // after the last day); the End field shows the last actual day
+                const displayEnd = isAllDay ? subDays(endEventResp, 1) : endEventResp;
+
+                setSelectedAllDay(isAllDay);
                 dispatch(updateSelectedEventTime({
                     start: startEventResp,
-                    end: endEventResp,
+                    end: displayEnd,
                     startTime: format(startEventResp, 'HH:mm'),
-                    endTime: format(endEventResp, 'HH:mm'),
+                    endTime: format(displayEnd, 'HH:mm'),
                 }));
                 dispatch(updateMembersAddedInEvent(data.data.attendees));
 
@@ -452,6 +507,9 @@ const EventModalComponent = () => {
                 setMeetingLink(data.data.meetingLink || '');
                 setEventOwner(data.data.owner);
                 setSelectedVisibility(data.data.visibility || DEFAULT_VISIBILITY);
+                // an existing event's alert was already an intentional choice,
+                // not the smart default — don't let a later type change stomp it
+                alertTouchedRef.current = true;
                 setSelectedAlert(data.data.alert);
 
                 if (data.data.recurrence.length !== 0) {
@@ -639,9 +697,7 @@ const EventModalComponent = () => {
                                             onChange={onStartDateChange}
                                         />)}
 
-                                        {isLoading ? (<Skeleton className='start-date-input'>
-                                            <SkeletonItem />
-                                        </Skeleton>) : (<TimeSelector
+                                        {!isLoading && !selectedAllDay && (<TimeSelector
                                             selected={selectedEventTime.startTime}
                                             onSelect={(value) => dispatch(updateSelectedEventTime({ startTime: value }))}
                                         />)}
@@ -659,15 +715,22 @@ const EventModalComponent = () => {
                                                 value={format(selectedEventTime?.end, 'yyyy-MM-dd')}
                                                 onChange={onEndDateChange}
                                             />)}
-                                        {isLoading ? (<Skeleton className='end-date-input'>
-                                            <SkeletonItem />
-                                        </Skeleton>) : (<TimeSelector
+                                        {!isLoading && !selectedAllDay && (<TimeSelector
                                             selected={selectedEventTime.endTime}
                                             onSelect={(value) => dispatch(updateSelectedEventTime({ endTime: value }))}
                                         />)}
 
                                     </div>
 
+                                    {isLoading ? null : (
+                                        <Toggle
+                                            className='event-all-day-toggle'
+                                            label='All day'
+                                            inlineLabel={true}
+                                            checked={selectedAllDay}
+                                            onChange={(ev, checked) => onAllDayToggle(Boolean(checked))}
+                                        />
+                                    )}
                                 </div>
                             </div>
                             <div className='repeat-container'>
@@ -746,10 +809,18 @@ const EventModalComponent = () => {
                                     :
                                     <EventTypeSelect
                                         selected={selectedType}
-                                        onSelected={(selected) => setSelectedType(selected)}
+                                        onSelected={(selected) => {
+                                            setSelectedType(selected);
+                                            const isNewEvent = selectedEvent?.event?.id == null;
+                                            if (isNewEvent && !alertTouchedRef.current && !selectedAllDay) {
+                                                setSelectedAlert(selected === EVENT_TYPE_CALL ? EVENT_ALERT_AT_START_TIME : '');
+                                            }
+                                        }}
                                     />
                             }
 
+                            {/* visibility is pinned to "team" for now (DEFAULT_VISIBILITY);
+                                uncomment to let users pick private/channel/team again
                             {
                                 isLoading ?
                                     <Skeleton className='skeleton-dropdown'>
@@ -761,20 +832,24 @@ const EventModalComponent = () => {
                                         onSelected={(selected) => setSelectedVisibility(selected)}
                                     />
                             }
+                            */}
 
                             {
-                                isLoading ?
-                                    <Skeleton className='skeleton-dropdown'>
-                                        <SkeletonItem />
-                                    </Skeleton>
-                                    :
-                                    <EventAlertSelect
-                                        selected={selectedAlert}
-                                        onSelected={(selected) => setSelectedAlert(selected)}
-                                    />
+                                selectedAllDay ? null : (
+                                    isLoading ?
+                                        <Skeleton className='skeleton-dropdown'>
+                                            <SkeletonItem />
+                                        </Skeleton>
+                                        :
+                                        <EventAlertSelect
+                                            selected={selectedAlert}
+                                            onSelected={(selected) => {
+                                                alertTouchedRef.current = true;
+                                                setSelectedAlert(selected);
+                                            }}
+                                        />
+                                )
                             }
-
-
 
                             <div className='event-add-users-container'>
                                 <PersonAdd24Regular />

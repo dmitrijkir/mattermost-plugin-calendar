@@ -12,6 +12,7 @@ type EventType string
 
 const (
 	EventAlertNone            EventAlert = ""
+	EventAlertAtStartTime     EventAlert = "at_start_time"
 	EventAlert5MinutesBefore  EventAlert = "5_minutes_before"
 	EventAlert15MinutesBefore EventAlert = "15_minutes_before"
 	EventAlert30MinutesBefore EventAlert = "30_minutes_before"
@@ -31,6 +32,7 @@ const (
 
 var EventAlertDurationMap = map[EventAlert]time.Duration{
 	EventAlertNone:            time.Duration(0),
+	EventAlertAtStartTime:     time.Duration(0),
 	EventAlert5MinutesBefore:  5 * time.Minute,
 	EventAlert15MinutesBefore: 15 * time.Minute,
 	EventAlert30MinutesBefore: 30 * time.Minute,
@@ -43,6 +45,7 @@ var EventAlertDurationMap = map[EventAlert]time.Duration{
 
 var EventAlertTitleMap = map[EventAlert]string{
 	EventAlertNone:            "None",
+	EventAlertAtStartTime:     "At start time",
 	EventAlert5MinutesBefore:  "5 minutes before",
 	EventAlert15MinutesBefore: "15 minutes before",
 	EventAlert30MinutesBefore: "30 minutes before",
@@ -60,7 +63,7 @@ func (e *EventAlert) UnmarshalJSON(b []byte) error {
 		return err
 	}
 	switch s {
-	case string(EventAlertNone), string(EventAlert5MinutesBefore), string(EventAlert15MinutesBefore), string(EventAlert30MinutesBefore), string(EventAlert1HourBefore), string(EventAlert2HoursBefore), string(EventAlert1DayBefore), string(EventAlert2DaysBefore), string(EventAlert1WeekBefore):
+	case string(EventAlertNone), string(EventAlertAtStartTime), string(EventAlert5MinutesBefore), string(EventAlert15MinutesBefore), string(EventAlert30MinutesBefore), string(EventAlert1HourBefore), string(EventAlert2HoursBefore), string(EventAlert1DayBefore), string(EventAlert2DaysBefore), string(EventAlert1WeekBefore):
 		*e = EventAlert(s)
 		return nil
 	default:
@@ -81,7 +84,7 @@ func (e *EventAlert) Scan(value interface{}) error {
 	}
 
 	switch strValue {
-	case string(EventAlertNone), string(EventAlert5MinutesBefore), string(EventAlert15MinutesBefore), string(EventAlert30MinutesBefore), string(EventAlert1HourBefore), string(EventAlert2HoursBefore), string(EventAlert1DayBefore), string(EventAlert2DaysBefore), string(EventAlert1WeekBefore):
+	case string(EventAlertNone), string(EventAlertAtStartTime), string(EventAlert5MinutesBefore), string(EventAlert15MinutesBefore), string(EventAlert30MinutesBefore), string(EventAlert1HourBefore), string(EventAlert2HoursBefore), string(EventAlert1DayBefore), string(EventAlert2DaysBefore), string(EventAlert1WeekBefore):
 		*e = EventAlert(strValue)
 		return nil
 	default:
@@ -190,6 +193,12 @@ type Event struct {
 	AlertTime   *time.Time      `json:"alertTime" db:"alert_time"`
 	Type        EventType       `json:"type" db:"type"`
 	MeetingLink *string         `json:"meetingLink" db:"meeting_link"`
+
+	// Start/End store an exclusive range for all-day events (End is midnight
+	// of the day after the last day), matching FullCalendar's own convention
+	// and RFC 5545's VALUE=DATE semantics, so iCal/CalDAV export needs no
+	// special-casing beyond picking the all-day property setters.
+	AllDay bool `json:"allDay" db:"all_day"`
 }
 
 type UserSettings struct {

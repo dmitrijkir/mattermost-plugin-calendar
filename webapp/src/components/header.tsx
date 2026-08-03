@@ -7,13 +7,13 @@ import {Toggle} from '@fluentui/react/lib/Toggle';
 import {DrawerHeader, DrawerHeaderTitle, DrawerOverlay, DrawerBody} from '@fluentui/react-components/unstable';
 
 import {
+    Apps20Regular,
     Calendar3Day20Regular,
     CalendarDay20Regular,
     CalendarEmpty16Filled,
     CalendarLtr20Regular,
     Call20Regular,
     PeopleCommunity20Regular,
-    LineHorizontal3Regular,
     Settings20Regular,
     Dismiss24Regular,
 } from '@fluentui/react-icons';
@@ -180,23 +180,6 @@ const HeaderComponent = () => {
 
             <div className='calendar-header-toolbar'>
                 <div className='left-allign-header-toolbar-item'>
-                    {/* the mini calendar has no room on a phone and is hidden
-                        there, so the button that toggles it is hidden too */}
-                    <Button
-                        className='toggle-left-bar-button'
-                        appearance='subtle'
-                        aria-label='Toggle mini calendar'
-                        icon={<LineHorizontal3Regular/>}
-                        onClick={
-                            () => {
-                                dispatch(updateCalendarSettingsOnServer({
-                                    ...settings,
-                                    isOpenCalendarLeftBar: !settings.isOpenCalendarLeftBar,
-                                }));
-                            }
-                        }
-
-                    />
                     <Button
                         appearance='primary'
                         size='medium'
@@ -237,6 +220,12 @@ const HeaderComponent = () => {
                         onClick={() => dispatch(updateSelectedCalendarType('event'))}
                         disabled={selectedCalendarType === 'event'}
                     >Events</Button>
+                    <Button
+                        appearance='subtle'
+                        icon={<Apps20Regular/>}
+                        onClick={() => dispatch(updateSelectedCalendarType('all'))}
+                        disabled={selectedCalendarType === 'all'}
+                    >All</Button>
                 </div>
                 <div className='left-allign-header-toolbar-item'>
                     <Button

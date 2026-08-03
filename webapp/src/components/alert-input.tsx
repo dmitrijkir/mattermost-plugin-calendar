@@ -14,6 +14,7 @@ interface SelectOptionOnChangeData {
 const EventAlertSelect = (props: EventAlertSelectProps) => {
     const alertMapping: Record<string, string> = {
         '': 'Not set',
+        'at_start_time': 'At start time',
         '5_minutes_before': '5 minutes before',
         '15_minutes_before': '15 minutes before',
         '30_minutes_before': '30 minutes before',

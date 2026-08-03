@@ -328,6 +328,7 @@ func (p *Plugin) GetUserEventsForICalUTC(
 			"ce.alert_time",
 			"ce.type",
 			"ce.meeting_link",
+			"ce.all_day",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -398,8 +399,15 @@ func (p *Plugin) generateICalendar(events []Event, user *model.User) string {
 		icsEvent.SetDtStampTime(event.Created)
 		icsEvent.SetCreatedTime(event.Created)
 		icsEvent.SetModifiedAt(event.Created)
-		icsEvent.SetStartAt(event.Start)
-		icsEvent.SetEndAt(event.End)
+		if event.AllDay {
+			// Start/End are already stored as an exclusive day range, matching
+			// what VALUE=DATE expects
+			icsEvent.SetAllDayStartAt(event.Start)
+			icsEvent.SetAllDayEndAt(event.End)
+		} else {
+			icsEvent.SetStartAt(event.Start)
+			icsEvent.SetEndAt(event.End)
+		}
 		icsEvent.SetSummary(event.Title)
 
 		if event.Description != "" {

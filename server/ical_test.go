@@ -508,6 +508,34 @@ func TestGenerateICalendar(t *testing.T) {
 	assert.Equal(2, eventCount)
 }
 
+func TestGenerateICalendar_AllDay(t *testing.T) {
+	assert := assert.New(t)
+
+	api := plugintest.API{}
+	calPlugin := Plugin{
+		MattermostPlugin: plugin.MattermostPlugin{
+			API: &api,
+		},
+	}
+
+	events := []Event{
+		{
+			Id:      "event-allday",
+			Title:   "All Day Event",
+			Start:   time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC),
+			End:     time.Date(2024, 1, 16, 0, 0, 0, 0, time.UTC),
+			Created: time.Now().UTC(),
+			AllDay:  true,
+		},
+	}
+
+	icalContent := calPlugin.generateICalendar(events, nil)
+
+	assert.Contains(icalContent, "DTSTART;VALUE=DATE:20240115")
+	assert.Contains(icalContent, "DTEND;VALUE=DATE:20240116")
+	assert.NotContains(icalContent, "DTSTART:20240115T")
+}
+
 func TestGetICalToken_NotAuthorized(t *testing.T) {
 	assert := assert.New(t)
 
