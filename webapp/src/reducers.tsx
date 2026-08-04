@@ -28,6 +28,17 @@ const toggleEventModal = (state = {isOpen: false}, action) => {
     }
 };
 
+// the header owns the drawer, the calendar toolbar owns the button that opens
+// it — they are siblings, so the flag lives here
+const settingsPanel = (state = {isOpen: false}, action) => {
+    switch (action.type) {
+    case 'setSettingsPanelOpen':
+        return {...state, isOpen: action.payload};
+    default:
+        return state;
+    }
+};
+
 const calendarSettings = (state = {
     isOpenCalendarLeftBar: true,
     firstDayOfWeek: 1,
@@ -101,6 +112,7 @@ const reducer = combineReducers({
     selectEventModal,
     toggleEventModal,
     calendarSettings,
+    settingsPanel,
     eventNotification,
     membersAddedInEvent,
     selectedEventTime,

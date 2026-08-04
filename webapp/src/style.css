@@ -134,6 +134,32 @@
 .event-input-title {
     padding-left: 0px !important;
     width: 95%;
+    flex: 1 1 auto;
+    min-width: 0;
+
+    /* the underline appearance is the whole point of this field: no box, just
+       a rule under the text */
+    border-top: none;
+    border-right: none;
+    border-left: none;
+    border-radius: 0;
+}
+
+/* Fluent pads the inner <input> as well, so zeroing the wrapper alone still
+   leaves the text off the left edge */
+.event-input-title>input {
+    padding-left: 0 !important;
+}
+
+/* the title has no label to hang a required marker off, so it sits next to the
+   field itself */
+.event-required-mark {
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: 4px;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--colorPaletteRedForeground1);
 }
 
 .event-input-container>i {
@@ -150,15 +176,25 @@
 
 .calendar-header-toolbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 8px;
     padding: 5px;
     width: 100%;
     border-radius: 4px;
     background-color: var(--colorNeutralBackground1);
     box-shadow: 0 2px 4px rgba(0, 0, 0, .14);
+}
+
+/* holds the view group and the calendar group so that a narrow viewport breaks
+   between them instead of in the middle of one */
+.header-toolbar-groups {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
 }
 
 .left-allign-header-toolbar-item {
@@ -319,6 +355,9 @@
 
     /* now indicator */
     --fc-now-indicator-color: var(--colorBrandBackground) !important;
+
+    /* gear for the settings button in the toolbar below */
+    --calendar-settings-gear: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.48.48 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z'/%3E%3C/svg%3E");
 }
 
 /* calendar toolbar */
@@ -330,6 +369,34 @@
 
 .fc-toolbar-chunk {
     margin-right: 20px;
+}
+
+/* the settings button is the last chunk and belongs on the far right, while
+   the navigation and the title stay packed to the left */
+.fc .fc-toolbar>.fc-toolbar-chunk:last-child {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+/* FullCalendar custom buttons only take a text label, so the gear is masked in
+   over the button's own foreground colour and the label is hidden */
+.fc .fc-calendarSettings-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0;
+    line-height: 0;
+    padding: 8px;
+}
+
+.fc .fc-calendarSettings-button::before {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 20px;
+    background-color: currentColor;
+    -webkit-mask: var(--calendar-settings-gear) no-repeat center / contain;
+    mask: var(--calendar-settings-gear) no-repeat center / contain;
 }
 
 /* end calrndar toolbar */
@@ -500,10 +567,6 @@ header {
     display: flex;
 }
 
-.current-team-tag {
-    margin-left: 5px;
-}
-
 .event-visibility-input-container {
     padding-left: 30px;
     /* width: 100%; */
@@ -566,11 +629,6 @@ header {
     color: #6c757d;
 }
 
-.time-selector {
-    margin-left: 5px;
-}
-
-
 /* repeat */
 
 .repeat-container {
@@ -626,12 +684,13 @@ header {
     width: 100%;
 }
 
-.start-date-input {
-    min-width: 100px;
-}
-
+/* the gap between the date and the time sits on the date rather than on the
+   time selector: when the row wraps on a phone the time drops to its own line
+   and a leading margin there would push it out of line with everything else */
+.start-date-input,
 .end-date-input {
     min-width: 100px;
+    margin-right: 5px;
 }
 
 .datetime-group {
@@ -837,6 +896,18 @@ header {
         display: none;
     }
 
+    /* with the label gone the button is icon-only, so Fluent's 96px min-width
+       and default padding just waste a chunk of the row */
+    .create-event-button {
+        min-width: 0 !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+
+    .header-toolbar-groups {
+        gap: 6px;
+    }
+
     .calendar-content {
         flex-direction: column;
         padding-top: 6px;
@@ -933,13 +1004,6 @@ header {
         width: 100%;
     }
 
-    /* the team tag would otherwise squeeze the channel picker to nothing */
-    .current-team-tag {
-        margin-left: 0;
-        margin-top: 6px;
-        flex-basis: 100%;
-    }
-
     .event-channel-container {
         flex-wrap: wrap;
     }
@@ -949,8 +1013,10 @@ header {
         gap: 4px;
     }
 
+    /* the repeat select has no row icon of its own, so it needs the 24px the
+       icons take plus the 12px indent to line up with every other field */
     .repeat-container {
-        padding-left: 12px;
+        padding-left: 36px;
     }
 
     /* fields drop to a 12px indent on mobile, so the caption follows */

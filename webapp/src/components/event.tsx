@@ -23,7 +23,6 @@ import {
     PersonAdd24Regular,
     Save16Regular,
     TextDescription24Regular,
-    PeopleTeam24Regular,
     Video24Regular
 } from '@fluentui/react-icons';
 import {
@@ -46,7 +45,6 @@ import {
     Textarea,
     Toolbar,
     ToolbarButton,
-    Tag,
     useId,
     Toast,
     ToastIntent,
@@ -105,14 +103,24 @@ const DEFAULT_VISIBILITY = 'team';
 // the "call" calendar is the one that gets a video meeting link; a meeting
 // event is a plain calendar entry
 const EVENT_TYPE_CALL = 'call';
+const EVENT_TYPE_EVENT = 'event';
 
-// New events ping the whole channel by default; events created before this
-// setting existed carry no mention and stay silent.
-const DEFAULT_MENTION = 'channel';
+// Nobody gets pinged unless the user asks for it.
+const DEFAULT_MENTION = '';
 
 // default alert for a new call: ping right when it starts. Meeting events and
 // all-day events default to no alert at all.
 const EVENT_ALERT_AT_START_TIME = 'at_start_time';
+
+// "all" is a combined view, not a real calendar, so an event created from it
+// falls back to the meeting-event defaults.
+const defaultTypeForCalendar = (calendarType: string): string => {
+    return calendarType === EVENT_TYPE_CALL ? EVENT_TYPE_CALL : EVENT_TYPE_EVENT;
+};
+
+// a meeting event spans whole days by default and stays silent; a call is a
+// timed slot that pings when it starts
+const isCallType = (type: string): boolean => type === EVENT_TYPE_CALL;
 
 const initialStartTime = (): string => {
     return format(roundToNearestMinutes(new Date(), {
@@ -200,9 +208,23 @@ const EventModalComponent = () => {
         }
     }, [eventOwner, eventOwnerProfile]);
 
-    // once the user has explicitly picked an alert, the smart type/all-day
-    // defaults below stop overwriting their choice
+    // once the user has explicitly picked an alert or flipped the all-day
+    // toggle, the smart type defaults below stop overwriting their choice
     const alertTouchedRef = useRef(false);
+    const allDayTouchedRef = useRef(false);
+
+    // all-day and alert follow the event type until the user overrides either
+    // of them by hand
+    const applyTypeDefaults = (type: string) => {
+        const isCall = isCallType(type);
+        const allDay = allDayTouchedRef.current ? selectedAllDay : !isCall;
+        if (!allDayTouchedRef.current) {
+            setSelectedAllDay(allDay);
+        }
+        if (!alertTouchedRef.current) {
+            setSelectedAlert(isCall && !allDay ? EVENT_ALERT_AT_START_TIME : '');
+        }
+    };
 
     const [channelsAutocomplete, setChannelsAutocomplete] = useState<Channel[]>([]);
     const [selectedChannel, setSelectedChannel] = useState({});
@@ -271,17 +293,19 @@ const EventModalComponent = () => {
         setSelectedChannel({});
         dispatch(updateMembersAddedInEvent([]));
 
-        // a new event belongs to the calendar the user is currently looking at,
-        // otherwise it would be saved out of view
-        setSelectedType(selectedCalendarType);
         setMeetingLink('');
         setEventOwner('');
-        setSelectedAllDay(false);
         setSelectedMention(DEFAULT_MENTION);
 
         setSelectedVisibility(DEFAULT_VISIBILITY);
         alertTouchedRef.current = false;
-        setSelectedAlert(selectedCalendarType === EVENT_TYPE_CALL ? EVENT_ALERT_AT_START_TIME : '');
+        allDayTouchedRef.current = false;
+
+        // a new event belongs to the calendar the user is currently looking at,
+        // otherwise it would be saved out of view
+        const defaultType = defaultTypeForCalendar(selectedCalendarType);
+        setSelectedType(defaultType);
+        applyTypeDefaults(defaultType);
     };
 
     const onTitleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -405,9 +429,11 @@ const EventModalComponent = () => {
         const members: string[] = usersAddedInEvent.map((user: UserProfile) => user.id);
         // a meeting event isn't a call, so it never carries a video link
         const linkToSave = selectedType === EVENT_TYPE_CALL ? meetingLink : '';
-        // the mention only ever lands in a channel post, so an event without a
-        // channel must not keep a stale one around
-        const mentionToSave = Object.keys(selectedChannel).length !== 0 ? selectedMention : '';
+        // the mention only ever lands in a channel post, so an event that
+        // doesn't produce one (no channel, or all-day) must not keep a stale
+        // mention around
+        const postsToChannel = !selectedAllDay && Object.keys(selectedChannel).length !== 0;
+        const mentionToSave = postsToChannel ? selectedMention : '';
         let repeat = '';
         if (repeatOption === 'Custom') {
             repeat = repeatRule;
@@ -491,20 +517,25 @@ const EventModalComponent = () => {
     // on clears whatever alert was picked; switching back off restores the
     // type's smart default as long as the user hasn't picked one themselves
     const onAllDayToggle = (checked: boolean) => {
+        allDayTouchedRef.current = true;
         setSelectedAllDay(checked);
         if (checked) {
             setSelectedAlert('');
         } else if (!alertTouchedRef.current) {
-            setSelectedAlert(selectedType === EVENT_TYPE_CALL ? EVENT_ALERT_AT_START_TIME : '');
+            setSelectedAlert(isCallType(selectedType) ? EVENT_ALERT_AT_START_TIME : '');
         }
     };
 
     useEffect(() => {
         if (isOpenEventModal && selectedEvent?.event?.id == null) {
-            setSelectedType(selectedCalendarType);
-            if (!alertTouchedRef.current && !selectedAllDay) {
-                setSelectedAlert(selectedCalendarType === EVENT_TYPE_CALL ? EVENT_ALERT_AT_START_TIME : '');
+            // a range dragged out on the grid is an explicit choice of times,
+            // so the type default must not flatten it into an all-day event
+            if (selectedEvent?.event?.start != null) {
+                allDayTouchedRef.current = true;
             }
+            const defaultType = defaultTypeForCalendar(selectedCalendarType);
+            setSelectedType(defaultType);
+            applyTypeDefaults(defaultType);
         }
     }, [isOpenEventModal]);
 
@@ -541,9 +572,11 @@ const EventModalComponent = () => {
                 setMeetingLink(data.data.meetingLink || '');
                 setEventOwner(data.data.owner);
                 setSelectedVisibility(data.data.visibility || DEFAULT_VISIBILITY);
-                // an existing event's alert was already an intentional choice,
-                // not the smart default — don't let a later type change stomp it
+                // an existing event's alert and all-day flag were already an
+                // intentional choice, not the smart default — don't let a later
+                // type change stomp them
                 alertTouchedRef.current = true;
+                allDayTouchedRef.current = true;
                 setSelectedAlert(data.data.alert);
                 setSelectedMention(data.data.mention ?? '');
 
@@ -712,16 +745,27 @@ const EventModalComponent = () => {
                                 <div className='event-input-container'>
                                     {isLoading ? (<Skeleton className='event-input-title'>
                                         <SkeletonItem />
-                                    </Skeleton>) : (<Input
-                                        ref={inputEventTitleRef}
-                                        type='text'
-                                        className='event-input-title'
-                                        size='large'
-                                        appearance='underline'
-                                        placeholder='Add a title'
-                                        value={titleEvent}
-                                        onChange={onTitleChange}
-                                    />)}
+                                    </Skeleton>) : (<>
+                                        <Input
+                                            ref={inputEventTitleRef}
+                                            type='text'
+                                            className='event-input-title'
+                                            size='large'
+                                            appearance='underline'
+                                            placeholder='Add a title'
+                                            value={titleEvent}
+                                            onChange={onTitleChange}
+                                            required={true}
+                                            aria-required={true}
+                                        />
+                                        {/* the title has no label of its own to
+                                            hang the required marker off */}
+                                        <span
+                                            className='event-required-mark'
+                                            aria-hidden='true'
+                                            title='Required'
+                                        >{'*'}</span>
+                                    </>)}
 
                                 </div>
                             </div>
@@ -848,14 +892,12 @@ const EventModalComponent = () => {
                                         )}
                                     </div>
                                 </div>
-                                {resolvedTeam ? (<div className="current-team-tag">
-                                    <Tag icon={<PeopleTeam24Regular />}>{resolvedTeam.display_name}</Tag>
-                                </div>) : null}
                             </div>
 
                             {/* the mention only takes effect in a channel post,
-                                so it's pointless without a channel */}
-                            {!isLoading && Object.keys(selectedChannel).length !== 0 ? (
+                                so it's pointless without a channel — and an
+                                all-day event never posts one at all */}
+                            {!isLoading && !selectedAllDay && Object.keys(selectedChannel).length !== 0 ? (
                                 <MentionSelect
                                     selected={selectedMention}
                                     onSelected={(selected) => setSelectedMention(selected)}
@@ -872,9 +914,8 @@ const EventModalComponent = () => {
                                         selected={selectedType}
                                         onSelected={(selected) => {
                                             setSelectedType(selected);
-                                            const isNewEvent = selectedEvent?.event?.id == null;
-                                            if (isNewEvent && !alertTouchedRef.current && !selectedAllDay) {
-                                                setSelectedAlert(selected === EVENT_TYPE_CALL ? EVENT_ALERT_AT_START_TIME : '');
+                                            if (selectedEvent?.event?.id == null) {
+                                                applyTypeDefaults(selected);
                                             }
                                         }}
                                     />

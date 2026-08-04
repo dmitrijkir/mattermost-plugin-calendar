@@ -14,18 +14,23 @@ import {
     CalendarLtr20Regular,
     Call20Regular,
     PeopleCommunity20Regular,
-    Settings20Regular,
     Dismiss24Regular,
 } from '@fluentui/react-icons';
 
 import {
     openEventModal,
+    setSettingsPanelOpen,
     updateCalendarSettingsOnServer,
     updateSelectedCalendarType,
     updateSelectedCalendarView,
 } from 'actions';
 
-import {getCalendarSettings, getSelectedCalendarType, getSelectedCalendarView} from '../selectors';
+import {
+    getCalendarSettings,
+    getSelectedCalendarType,
+    getSelectedCalendarView,
+    selectIsSettingsPanelOpen,
+} from '../selectors';
 import {CalendarSettings} from '../types/settings';
 
 import CalendarRef, {refetchCalendarEvents} from './calendar';
@@ -36,7 +41,9 @@ const HeaderComponent = () => {
     const settings: CalendarSettings = useSelector(getCalendarSettings);
     const selectedCalendarType: string = useSelector(getSelectedCalendarType);
     const selectedView: string = useSelector(getSelectedCalendarView);
-    const [settingsPanelOpen, setSettingsPanelOpen] = useState<boolean>(false);
+
+    // opened from the settings button that lives in the calendar's own toolbar
+    const settingsPanelOpen: boolean = useSelector(selectIsSettingsPanelOpen);
 
     const changeView = (view: string) => {
         dispatch(updateSelectedCalendarView(view));
@@ -97,7 +104,7 @@ const HeaderComponent = () => {
                 open={settingsPanelOpen}
                 position='end'
                 modalType='non-modal'
-                onOpenChange={(_, {open}) => setSettingsPanelOpen(open)}
+                onOpenChange={(_, {open}) => dispatch(setSettingsPanelOpen(open))}
             >
                 <DrawerHeader>
                     <DrawerHeaderTitle
@@ -106,7 +113,7 @@ const HeaderComponent = () => {
                                 appearance='subtle'
                                 aria-label='Close'
                                 icon={<Dismiss24Regular/>}
-                                onClick={() => setSettingsPanelOpen(false)}
+                                onClick={() => dispatch(setSettingsPanelOpen(false))}
                             />
                         }
                     >
@@ -179,63 +186,59 @@ const HeaderComponent = () => {
             </DrawerOverlay>
 
             <div className='calendar-header-toolbar'>
-                <div className='left-allign-header-toolbar-item'>
-                    <Button
-                        appearance='primary'
-                        size='medium'
-                        onClick={() => dispatch(openEventModal())}
-                        icon={<CalendarEmpty16Filled/>}
-                    >
-                        <div className='create-event-button-text'>New event</div>
-                    </Button>
-                    <Button
-                        appearance='subtle'
-                        icon={<CalendarDay20Regular/>}
-                        onClick={() => changeView('timeGridDay')}
-                        disabled={selectedView === 'timeGridDay'}
-                    >Day</Button>
-                    <Button
-                        appearance='subtle'
-                        icon={<Calendar3Day20Regular/>}
-                        onClick={() => changeView('timeGridWeek')}
-                        disabled={selectedView === 'timeGridWeek'}
-                    >Week</Button>
-                    <Button
-                        appearance='subtle'
-                        icon={<CalendarLtr20Regular/>}
-                        onClick={() => changeView('dayGridMonth')}
-                        disabled={selectedView === 'dayGridMonth'}
-                    >Month</Button>
-                </div>
-                <div className='left-allign-header-toolbar-item'>
-                    <Button
-                        appearance='subtle'
-                        icon={<Call20Regular/>}
-                        onClick={() => dispatch(updateSelectedCalendarType('call'))}
-                        disabled={selectedCalendarType === 'call'}
-                    >Calls</Button>
-                    <Button
-                        appearance='subtle'
-                        icon={<PeopleCommunity20Regular/>}
-                        onClick={() => dispatch(updateSelectedCalendarType('event'))}
-                        disabled={selectedCalendarType === 'event'}
-                    >Events</Button>
-                    <Button
-                        appearance='subtle'
-                        icon={<Apps20Regular/>}
-                        onClick={() => dispatch(updateSelectedCalendarType('all'))}
-                        disabled={selectedCalendarType === 'all'}
-                    >All</Button>
-                </div>
-                <div className='left-allign-header-toolbar-item'>
-                    <Button
-                        appearance='subtle'
-                        aria-label='Settings'
-                        icon={<Settings20Regular/>}
-                        onClick={() => {
-                            setSettingsPanelOpen(true);
-                        }}
-                    />
+                <Button
+                    appearance='primary'
+                    size='medium'
+                    className='create-event-button'
+                    onClick={() => dispatch(openEventModal())}
+                    icon={<CalendarEmpty16Filled/>}
+                >
+                    <div className='create-event-button-text'>New event</div>
+                </Button>
+
+                {/* both groups share a wrapper so they wrap as whole rows on a
+                    phone instead of splitting mid-group */}
+                <div className='header-toolbar-groups'>
+                    <div className='left-allign-header-toolbar-item'>
+                        <Button
+                            appearance='subtle'
+                            icon={<CalendarDay20Regular/>}
+                            onClick={() => changeView('timeGridDay')}
+                            disabled={selectedView === 'timeGridDay'}
+                        >Day</Button>
+                        <Button
+                            appearance='subtle'
+                            icon={<Calendar3Day20Regular/>}
+                            onClick={() => changeView('timeGridWeek')}
+                            disabled={selectedView === 'timeGridWeek'}
+                        >Week</Button>
+                        <Button
+                            appearance='subtle'
+                            icon={<CalendarLtr20Regular/>}
+                            onClick={() => changeView('dayGridMonth')}
+                            disabled={selectedView === 'dayGridMonth'}
+                        >Month</Button>
+                    </div>
+                    <div className='left-allign-header-toolbar-item'>
+                        <Button
+                            appearance='subtle'
+                            icon={<Call20Regular/>}
+                            onClick={() => dispatch(updateSelectedCalendarType('call'))}
+                            disabled={selectedCalendarType === 'call'}
+                        >Calls</Button>
+                        <Button
+                            appearance='subtle'
+                            icon={<PeopleCommunity20Regular/>}
+                            onClick={() => dispatch(updateSelectedCalendarType('event'))}
+                            disabled={selectedCalendarType === 'event'}
+                        >Events</Button>
+                        <Button
+                            appearance='subtle'
+                            icon={<Apps20Regular/>}
+                            onClick={() => dispatch(updateSelectedCalendarType('all'))}
+                            disabled={selectedCalendarType === 'all'}
+                        >All</Button>
+                    </div>
                 </div>
             </div>
 

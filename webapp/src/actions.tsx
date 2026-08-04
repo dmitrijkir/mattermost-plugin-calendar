@@ -34,6 +34,15 @@ export const closeEventModal = () => {
     };
 };
 
+// the drawer is rendered by the header, but the button that opens it now lives
+// in FullCalendar's own toolbar, so the open state has to be shared
+export const setSettingsPanelOpen = (open: boolean) => {
+    return {
+        type: 'setSettingsPanelOpen',
+        payload: open,
+    };
+};
+
 export const updateCalendarSettings = (settings: CalendarSettings) => {
     return {
         type: 'updateCalendarSettings',

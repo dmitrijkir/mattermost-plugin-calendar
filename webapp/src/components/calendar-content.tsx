@@ -16,7 +16,7 @@ import {initializeIcons} from '@fluentui/react';
 
 import {format} from 'date-fns';
 
-import {eventSelected, openEventModal, updateSelectedCalendarView} from 'actions';
+import {eventSelected, openEventModal, setSettingsPanelOpen, updateSelectedCalendarView} from 'actions';
 import {id as PluginId} from '../manifest';
 import {getCalendarSettings, getSelectedCalendarType, getSelectedCalendarView} from '../selectors';
 
@@ -42,6 +42,15 @@ const onEventSourceFailure = (error) => {
 const DAY_HEADER_FORMAT = {day: 'numeric', weekday: 'short', omitCommas: true} as const;
 const LOCALES = [enLocale];
 const PLUGINS = [timeGridPlugin, interactionPlugin, dayGridPlugin];
+
+// the settings button sits in the calendar's own toolbar next to the month
+// title. FullCalendar renders custom buttons itself and only takes a text
+// label, so the gear is painted on in CSS (.fc-calendarSettings-button).
+const HEADER_TOOLBAR = {
+    start: 'today,prev,next',
+    center: 'title',
+    end: 'calendarSettings',
+} as const;
 
 const contentHeightForViewport = (): number => {
     return Math.max(320, window.innerHeight - (isMobileViewport() ? 170 : 200));
@@ -135,6 +144,14 @@ const CalendarContent = () => {
 
     const hiddenDays = useMemo(calcHiddenDays, [settings.hideNonWorkingDays, settings.businessDays]);
 
+    const customButtons = useMemo(() => ({
+        calendarSettings: {
+            text: 'Settings',
+            hint: 'Settings',
+            click: () => dispatch(setSettingsPanelOpen(true)),
+        },
+    }), []);
+
     const eventSources = useMemo(() => [
         {
             url: getSiteURL() + `/plugins/${PluginId}/events`,
@@ -166,11 +183,8 @@ const CalendarContent = () => {
                     businessHours={businessHours}
                     timeZone={getUserTimeZoneString()}
                     handleWindowResize={true}
-                    headerToolbar={{
-                        start: 'today,prev,next',
-                        center: 'title',
-                        end: '',
-                    }}
+                    headerToolbar={HEADER_TOOLBAR}
+                    customButtons={customButtons}
                     hiddenDays={hiddenDays}
                     nowIndicatorClassNames='now-indicator'
                     select={(info: DateSelectArg) => onDateTimeSelected(info)}
