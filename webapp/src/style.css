@@ -1,3 +1,23 @@
+/* The plugin's own layout containers combine `width: 100%` with horizontal
+   padding. Without border-box the padding is added on top of the 100%, which
+   pushed the grid 8px past the viewport on a phone and left the whole page
+   scrolling sideways. Scoped to the containers this stylesheet owns rather
+   than applied to every descendant, so Fluent and FullCalendar keep their own
+   box model. */
+.calendar-full-content,
+.calendar-full-content-provider,
+.calendar-content,
+.calendar-main-greed,
+.calendar-header-container,
+.calendar-header-toolbar,
+.event-input-container,
+.event-description-input-container,
+.event-channel-input-container,
+.event-visibility-input-container,
+.event-meeting-link-input-container {
+    box-sizing: border-box;
+}
+
 .dropdown-menu {
     color: rgb(63, 67, 80);
 }
@@ -53,18 +73,18 @@
 
 }
 
-.datetime-container>i {
-    color: var(--sidebar-teambar-bg);
-    width: 20px;
-}
-
 .event-title-container {
     display: flex;
     align-items: center;
 }
 
-.event-title-container>i {
-    width: 20px;
+/* 54px lines the caption up with the title field above it: a 24px row icon
+   plus the 30px indent every field in the form uses */
+.event-owner-caption {
+    padding-left: 54px;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--colorNeutralForeground3);
 }
 
 .event-add-users-container {
@@ -79,15 +99,25 @@
     margin-top: 15px;
 }
 
-.event-add-users-container>i {
-    color: var(--sidebar-teambar-bg);
-    width: 20px;
-}
-
 .event-input-container {
     width: 100%;
     display: flex;
     padding-left: 30px
+}
+
+/* every row icon (Fluent SVGs, not the old <i> font icons these selectors
+   used to target) gets the same muted tint and a touch of top margin so it
+   lines up with the first line of its field instead of the field's center */
+.event-title-container>svg,
+.datetime-container>svg,
+.event-add-users-container>svg,
+.event-description-container>svg,
+.event-channel-container>svg,
+.event-visibility-container>svg,
+.event-meeting-link-container>svg {
+    color: var(--sidebar-teambar-bg);
+    flex-shrink: 0;
+    margin-top: 2px;
 }
 
 .event-description-input-container {
@@ -104,6 +134,32 @@
 .event-input-title {
     padding-left: 0px !important;
     width: 95%;
+    flex: 1 1 auto;
+    min-width: 0;
+
+    /* the underline appearance is the whole point of this field: no box, just
+       a rule under the text */
+    border-top: none;
+    border-right: none;
+    border-left: none;
+    border-radius: 0;
+}
+
+/* Fluent pads the inner <input> as well, so zeroing the wrapper alone still
+   leaves the text off the left edge */
+.event-input-title>input {
+    padding-left: 0 !important;
+}
+
+/* the title has no label to hang a required marker off, so it sits next to the
+   field itself */
+.event-required-mark {
+    flex-shrink: 0;
+    align-self: center;
+    margin-left: 4px;
+    font-size: 18px;
+    line-height: 1;
+    color: var(--colorPaletteRedForeground1);
 }
 
 .event-input-container>i {
@@ -120,12 +176,32 @@
 
 .calendar-header-toolbar {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
     padding: 5px;
     width: 100%;
     border-radius: 4px;
     background-color: var(--colorNeutralBackground1);
     box-shadow: 0 2px 4px rgba(0, 0, 0, .14);
+}
+
+/* holds the view group and the calendar group so that a narrow viewport breaks
+   between them instead of in the middle of one */
+.header-toolbar-groups {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+}
+
+.left-allign-header-toolbar-item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px;
 }
 
 .dayCell-110 {
@@ -279,6 +355,9 @@
 
     /* now indicator */
     --fc-now-indicator-color: var(--colorBrandBackground) !important;
+
+    /* gear for the settings button in the toolbar below */
+    --calendar-settings-gear: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.48.48 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z'/%3E%3C/svg%3E");
 }
 
 /* calendar toolbar */
@@ -290,6 +369,34 @@
 
 .fc-toolbar-chunk {
     margin-right: 20px;
+}
+
+/* the settings button is the last chunk and belongs on the far right, while
+   the navigation and the title stay packed to the left */
+.fc .fc-toolbar>.fc-toolbar-chunk:last-child {
+    margin-left: auto;
+    margin-right: 0;
+}
+
+/* FullCalendar custom buttons only take a text label, so the gear is masked in
+   over the button's own foreground colour and the label is hidden */
+.fc .fc-calendarSettings-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0;
+    line-height: 0;
+    padding: 8px;
+}
+
+.fc .fc-calendarSettings-button::before {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 20px;
+    background-color: currentColor;
+    -webkit-mask: var(--calendar-settings-gear) no-repeat center / contain;
+    mask: var(--calendar-settings-gear) no-repeat center / contain;
 }
 
 /* end calrndar toolbar */
@@ -367,9 +474,11 @@ header {
     text-decoration: none;
 }
 
-table {
-    height: -webkit-fill-available !important;
-}
+/* NOTE: there used to be a global `table { height: -webkit-fill-available
+   !important }` here. It made the month grid collapse to its natural height
+   (372px inside a 659px viewport) because it overrode the height FullCalendar
+   computes for the day rows, and it did nothing for the time grid views, which
+   size their own tables. Removing it is what makes the month view fill. */
 
 .fc-event-title-container {
     color: #3C4043;
@@ -458,10 +567,6 @@ table {
     display: flex;
 }
 
-.current-team-tag {
-    margin-left: 5px;
-}
-
 .event-visibility-input-container {
     padding-left: 30px;
     /* width: 100%; */
@@ -510,93 +615,9 @@ table {
     align-items: center;
 }
 
-.event-color-container {
-    display: flex;
-    margin-top: 15px;
-}
-
-.event-color-container>i {
-    color: var(--sidebar-teambar-bg);
-    width: 20px;
-}
-
-.event-color-button {
-    border: unset;
-    position: absolute;
-    left: 8px;
-    top: 5px;
-}
-
 .title-toolbar {
     position: absolute;
     top: 0;
-}
-
-.dropdown-menu-color {
-    width: 40px;
-    min-width: 40px !important;
-}
-
-.event-color-items {}
-
-.event-color-red {
-    color: #D50000;
-}
-
-.event-color-red>i {
-    color: #D50000;
-}
-
-.event-color-green {
-    color: #0B8043;
-}
-
-.event-color-green>i {
-    color: #0B8043;
-}
-
-.event-color-blue {
-    color: #039BE5;
-}
-
-.event-color-blue>i {
-    color: #039BE5;
-}
-
-.event-color-yellow {
-    color: #F6BF26;
-}
-
-.event-color-yellow>i {
-    color: #F6BF26;
-}
-
-.event-color-default {
-    color: #616161;
-}
-
-.event-color-default>i {
-    color: #616161;
-}
-
-.dropdown-color-button {
-    min-width: 18px !important;
-    width: 16px !important;
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: flex-end !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: unset !important;
-}
-
-.dropdown-color-button>input {
-    visibility: hidden;
-}
-
-.dropdown-color-button-listbox {
-    min-width: 60px !important;
-    left: 0 !important;
 }
 
 .fui-DrawerHeader {
@@ -607,11 +628,6 @@ table {
     margin-top: -3px;
     color: #6c757d;
 }
-
-.time-selector {
-    margin-left: 5px;
-}
-
 
 /* repeat */
 
@@ -668,16 +684,26 @@ table {
     width: 100%;
 }
 
-.start-date-input {
-    min-width: 100px;
-}
-
+/* the gap between the date and the time sits on the date rather than on the
+   time selector: when the row wraps on a phone the time drops to its own line
+   and a leading margin there would push it out of line with everything else */
+.start-date-input,
 .end-date-input {
     min-width: 100px;
+    margin-right: 5px;
 }
 
 .datetime-group {
     display: flex;
+    align-items: center;
+}
+
+.event-all-day-toggle {
+    margin-top: 6px;
+}
+
+.event-all-day-toggle .ms-Toggle-label {
+    font-weight: 400;
 }
 
 .datetime-group-end {
@@ -733,20 +759,41 @@ table {
     padding-top: 10px;
 }
 
-.left-bar-calendar-content {
-    padding-top: 10px;
-}
-
-.left-bar-calendar-content .rdp {
-    --rdp-cell-size: 25px !important;
-}
-
-.hided-left-bar-calendar {
-    padding-left: 20px;
-}
-
 .settings-right-bar-content {
     padding-top: 20px;
+}
+
+.settings-right-bar-calendar-color {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+}
+
+.event-meeting-link-container {
+    display: flex;
+    align-items: center;
+    margin-top: 15px;
+}
+
+/* the 30px indent lines the field up with the channel / visibility / alert
+   rows above it, which all sit behind a 24px icon */
+.event-meeting-link-input-container {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    padding-left: 30px;
+}
+
+.event-meeting-link-input {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+.event-meeting-link-button {
+    white-space: nowrap;
 }
 
 .event-until-container {
@@ -831,4 +878,159 @@ table {
 .ical-actions {
     display: flex;
     gap: 8px;
+}
+
+/* Responsive layout for narrow / mobile-browser viewports.
+   Keep the 768px breakpoint in sync with MOBILE_BREAKPOINT in components/utils. */
+@media (max-width: 768px) {
+    .calendar-header-container {
+        padding: 8px 8px 0;
+    }
+
+    .calendar-header-toolbar {
+        justify-content: flex-start;
+        row-gap: 6px;
+    }
+
+    .create-event-button-text {
+        display: none;
+    }
+
+    /* with the label gone the button is icon-only, so Fluent's 96px min-width
+       and default padding just waste a chunk of the row */
+    .create-event-button {
+        min-width: 0 !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+
+    .header-toolbar-groups {
+        gap: 6px;
+    }
+
+    .calendar-content {
+        flex-direction: column;
+        padding-top: 6px;
+    }
+
+    .calendar-main-greed {
+        width: 100%;
+        min-width: 0;
+        padding-top: 8px;
+        padding-left: 4px;
+        padding-right: 4px;
+        margin-right: 0;
+    }
+
+    /* FullCalendar's own toolbar (today / prev / next / title) */
+    .fc .fc-toolbar {
+        flex-wrap: wrap;
+        row-gap: 6px;
+    }
+
+    .fc .fc-toolbar-title {
+        font-size: 1.05em;
+    }
+
+    .fc-toolbar-chunk {
+        margin-right: 8px;
+    }
+
+    .fc .fc-timegrid-slot {
+        height: 2em !important;
+    }
+
+    /* Seven columns on a 375px screen leave ~45px each. The day header lays
+       the date and the weekday out side by side, which needs ~50px, so the
+       columns used to bleed into each other ("3 Mon4 Tue5 Wed"). Stacking
+       them and dropping the font size fits the column. */
+    .custom-day-header {
+        flex-direction: column;
+        align-items: center;
+        padding-top: 6px;
+    }
+
+    .custom-day-header-day {
+        font-size: 15px;
+        line-height: 1.1;
+        margin-right: 0;
+    }
+
+    .custom-day-header-weekday {
+        font-size: 11px;
+        line-height: 1.1;
+    }
+
+    /* the time gutter was eating 53px of the 375px available */
+    .fc .fc-timegrid-axis-cushion,
+    .fc .fc-timegrid-slot-label-cushion {
+        font-size: 11px;
+    }
+
+    .fc .fc-timegrid-axis-frame {
+        justify-content: center;
+    }
+
+    /* event modal. Fluent injects its own single class rules, so these need
+       !important to win regardless of stylesheet order */
+    .fui-DialogSurface {
+        max-width: calc(100vw - 16px) !important;
+        padding: 16px !important;
+    }
+
+    .modal-container {
+        max-height: calc(100vh - 220px);
+        overflow-y: auto;
+    }
+
+    /* every row is "icon + field". On a phone the field takes whatever is left
+       next to the icon instead of a full 100% that overflows by the icon width. */
+    .event-input-container,
+    .event-description-input-container,
+    .event-channel-input-container,
+    .event-visibility-input-container,
+    .event-meeting-link-input-container {
+        flex: 1 1 auto;
+        width: auto;
+        min-width: 0;
+        padding-left: 12px;
+    }
+
+    .event-input-visibility-wrapper,
+    .event-input-channel-wrapper,
+    .event-input-users-wrapper,
+    .event-input-title,
+    .event-description-input-textarea {
+        width: 100%;
+    }
+
+    .event-channel-container {
+        flex-wrap: wrap;
+    }
+
+    .datetime-group {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    /* the repeat select has no row icon of its own, so it needs the 24px the
+       icons take plus the 12px indent to line up with every other field */
+    .repeat-container {
+        padding-left: 36px;
+    }
+
+    /* fields drop to a 12px indent on mobile, so the caption follows */
+    .event-owner-caption {
+        padding-left: 36px;
+    }
+
+    .added-users-list {
+        padding-left: 12px;
+    }
+
+    /* the settings drawer is 320px wide by default, which overflows the
+       narrowest phones */
+    .fui-OverlayDrawer {
+        max-width: 100vw !important;
+    }
 }

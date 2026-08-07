@@ -6,7 +6,7 @@
     "support_url": "https://github.com/dmitrijkir/mattermost-plugin-calendar/issues",
     "release_notes_url": "",
     "icon_path": "assets/starter-template-icon.svg",
-    "version": "0.6.1",
+    "version": "0.7.0",
     "min_server_version": "7.1.0",
     "server": {
         "executables": {
@@ -47,6 +47,14 @@
                 "help_text": "Business days for exp: '1,2,3,4,5' from mon to fri",
                 "default": "1,2,3,4,5",
                 "placeholder": "1"
+            },
+            {
+                "key": "JitsiBaseURL",
+                "display_name": "Jitsi server base URL",
+                "type": "text",
+                "help_text": "Base URL used when generating a Jitsi meeting link for an event",
+                "default": "https://meet.jit.si",
+                "placeholder": "https://meet.jit.si"
             }
         ]
     }

@@ -6,6 +6,9 @@ const (
 	BusinessTimeLayout  = "15:04"
 	DefaultColor        = "#D0D0D0"
 	DefaultSlotTime     = 15
+	DefaultCallColor    = "#B3E1F7"
+	DefaultEventColor   = "#B6D9C7"
+	DefaultJitsiBaseURL = "https://meet.jit.si"
 )
 
 const (

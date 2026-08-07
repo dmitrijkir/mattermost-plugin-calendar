@@ -54,7 +54,7 @@ func TestMigrateLegacy(t *testing.T) {
 	expectedQuery.WillReturnRows(eventsRow)
 
 	updateQueryBuilder := sq.Update("calendar_events").
-		Set("recurrence", "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO").
+		Set("recurrence", "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=TU").
 		Where(sq.Eq{"id": "qwer"}).
 		PlaceholderFormat(sq.Dollar)
 
@@ -64,7 +64,7 @@ func TestMigrateLegacy(t *testing.T) {
 			updateQuerySql,
 		),
 	).WithArgs(
-		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=TU",
 		"qwer",
 	).WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("qwer"))
 

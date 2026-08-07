@@ -6,10 +6,13 @@ import (
 	sq "github.com/Masterminds/squirrel"
 	"github.com/pkg/errors"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
+
+var hexColorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 	pluginContext := p.FromContext(r.Context())
@@ -72,14 +75,20 @@ func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 		businessDays = append(businessDays, day)
 	}
 
+	jitsiBaseURL := p.configuration.JitsiBaseURL
+	if jitsiBaseURL == "" {
+		jitsiBaseURL = DefaultJitsiBaseURL
+	}
+
 	userSettings := UserSettings{
 		BusinessStartTime: BusinessStartTimeUtc.In(userLoc).Format(BusinessTimeLayout),
 		BusinessEndTime:   BusinessEndTimeUtc.In(userLoc).Format(BusinessTimeLayout),
 		BusinessDays:      businessDays,
+		JitsiBaseURL:      jitsiBaseURL,
 	}
 
 	queryBuilder := sq.Select().
-		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days").
+		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days", "call_color", "event_color").
 		From("calendar_settings").
 		Where(sq.Eq{"owner": user.Id}).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
@@ -96,12 +105,50 @@ func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 		userSettings.IsOpenCalendarLeftBar = true
 		userSettings.FirstDayOfWeek = 1
 		userSettings.HideNonWorkingDays = false
+		userSettings.CallColor = DefaultCallColor
+		userSettings.EventColor = DefaultEventColor
 		apiResponse(w, &userSettings)
 		return
 	}
 
 	apiResponse(w, &userSettings)
 	return
+}
+
+// GetUserCalendarColors returns the per-calendar colors configured by the user,
+// falling back to the defaults when they have no settings row yet. Event colors
+// are resolved from these on read instead of being stored per event, so that
+// changing a calendar's color recolors everything already in it.
+func (p *Plugin) GetUserCalendarColors(userId string) (callColor string, eventColor string) {
+	var colors struct {
+		CallColor  string `db:"call_color"`
+		EventColor string `db:"event_color"`
+	}
+
+	queryBuilder := sq.Select().
+		Columns("call_color", "event_color").
+		From("calendar_settings").
+		Where(sq.Eq{"owner": userId}).
+		PlaceholderFormat(p.GetDBPlaceholderFormat())
+
+	querySql, argsSql, err := queryBuilder.ToSql()
+	if err != nil {
+		p.API.LogError(err.Error())
+		return DefaultCallColor, DefaultEventColor
+	}
+
+	if errSelect := p.DB.Get(&colors, querySql, argsSql...); errSelect != nil {
+		return DefaultCallColor, DefaultEventColor
+	}
+
+	if colors.CallColor == "" {
+		colors.CallColor = DefaultCallColor
+	}
+	if colors.EventColor == "" {
+		colors.EventColor = DefaultEventColor
+	}
+
+	return colors.CallColor, colors.EventColor
 }
 
 func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
@@ -122,9 +169,11 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type UserSettingsRequest struct {
-		IsOpenCalendarLeftBar bool `json:"isOpenCalendarLeftBar" db:"is_open_calendar_left_bar"`
-		FirstDayOfWeek        int  `json:"firstDayOfWeek" db:"first_day_of_week"`
-		HideNonWorkingDays    bool `json:"hideNonWorkingDays" db:"hide_non_working_days"`
+		IsOpenCalendarLeftBar bool   `json:"isOpenCalendarLeftBar" db:"is_open_calendar_left_bar"`
+		FirstDayOfWeek        int    `json:"firstDayOfWeek" db:"first_day_of_week"`
+		HideNonWorkingDays    bool   `json:"hideNonWorkingDays" db:"hide_non_working_days"`
+		CallColor             string `json:"callColor" db:"call_color"`
+		EventColor            string `json:"eventColor" db:"event_color"`
 	}
 
 	var userSettings UserSettingsRequest
@@ -141,8 +190,22 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if requestUserSettings.CallColor == "" {
+		requestUserSettings.CallColor = DefaultCallColor
+	}
+	if requestUserSettings.EventColor == "" {
+		requestUserSettings.EventColor = DefaultEventColor
+	}
+	// the columns are VARCHAR(7), so anything longer would error on Postgres and
+	// get silently truncated on MySQL
+	if !hexColorPattern.MatchString(requestUserSettings.CallColor) ||
+		!hexColorPattern.MatchString(requestUserSettings.EventColor) {
+		errorResponse(w, InvalidRequestParams)
+		return
+	}
+
 	getQueryBuilder := sq.Select().
-		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days").
+		Columns("is_open_calendar_left_bar", "first_day_of_week", "hide_non_working_days", "call_color", "event_color").
 		From("calendar_settings").
 		Where(sq.Eq{"owner": user.Id}).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
@@ -157,12 +220,16 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 				"is_open_calendar_left_bar",
 				"first_day_of_week",
 				"hide_non_working_days",
+				"call_color",
+				"event_color",
 				"owner",
 			).
 			Values(
 				requestUserSettings.IsOpenCalendarLeftBar,
 				requestUserSettings.FirstDayOfWeek,
 				requestUserSettings.HideNonWorkingDays,
+				requestUserSettings.CallColor,
+				requestUserSettings.EventColor,
 				user.Id,
 			).
 			PlaceholderFormat(p.GetDBPlaceholderFormat())
@@ -176,7 +243,7 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 		insertRows.Close()
 
-		apiResponse(w, &userSettings)
+		apiResponse(w, &requestUserSettings)
 		return
 	}
 
@@ -184,6 +251,8 @@ func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 		Set("is_open_calendar_left_bar", requestUserSettings.IsOpenCalendarLeftBar).
 		Set("first_day_of_week", requestUserSettings.FirstDayOfWeek).
 		Set("hide_non_working_days", requestUserSettings.HideNonWorkingDays).
+		Set("call_color", requestUserSettings.CallColor).
+		Set("event_color", requestUserSettings.EventColor).
 		Where(sq.Eq{"owner": user.Id}).
 		PlaceholderFormat(p.GetDBPlaceholderFormat())
 

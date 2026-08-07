@@ -3,7 +3,7 @@ import enLocale from '@fullcalendar/core/locales/en-gb';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import dayGridPlugin from '@fullcalendar/daygrid';
 
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 
 import interactionPlugin from '@fullcalendar/interaction';
 import {useDispatch, useSelector} from 'react-redux';
@@ -11,75 +11,101 @@ import {useDispatch, useSelector} from 'react-redux';
 import {DayHeaderContentArg} from '@fullcalendar/core';
 import {getCurrentUser} from 'mattermost-redux/selectors/entities/users';
 
-import {DateSelectArg, EventClickArg} from '@fullcalendar/common';
-import {Calendar, DateRangeType, DayOfWeek, initializeIcons} from '@fluentui/react';
+import {DateSelectArg, DatesSetArg, EventClickArg} from '@fullcalendar/common';
+import {initializeIcons} from '@fluentui/react';
 
-import {addMonths, format} from 'date-fns';
+import {format} from 'date-fns';
 
-import {eventSelected, openEventModal} from 'actions';
+import {eventSelected, openEventModal, setSettingsPanelOpen, updateSelectedCalendarView} from 'actions';
 import {id as PluginId} from '../manifest';
-import {CalendarSettings} from '../types/settings';
-import {getCalendarSettings} from '../selectors';
+import {getCalendarSettings, getSelectedCalendarType, getSelectedCalendarView} from '../selectors';
 
 import CalendarRef from './calendar';
-import getSiteURL from './utils';
+import getSiteURL, {isMobileViewport} from './utils';
 
 initializeIcons();
 
-const eventDataTransformation = (content, response) => {
-    return content.data;
+// FullCalendar iterates whatever comes out of here. Anything that isn't an
+// array (an empty calendar serialises as `data: null`, an error body has no
+// `data` at all) throws inside its task queue, and that exception leaves the
+// queue permanently stuck: every later action — refetch, prev/next, changeView —
+// is then silently dropped and the whole calendar looks dead.
+const eventDataTransformation = (content) => {
+    return Array.isArray(content?.data) ? content.data : [];
 };
 
-const LeftBarCalendar = () => {
-    const [selectedDate, setSelectedDate] = useState<Date>();
-    const dateRangeType = DateRangeType.Week;
+const onEventSourceFailure = (error) => {
+    // eslint-disable-next-line no-console
+    console.error('calendar plugin: could not load events', error);
+};
 
-    const settings: CalendarSettings = useSelector(getCalendarSettings);
+const DAY_HEADER_FORMAT = {day: 'numeric', weekday: 'short', omitCommas: true} as const;
+const LOCALES = [enLocale];
+const PLUGINS = [timeGridPlugin, interactionPlugin, dayGridPlugin];
 
-    const onSelectDate = React.useCallback((date: Date, dateRangeArray: Date[]): void => {
-        setSelectedDate(date);
-        // Format as YYYY-MM-DD to avoid timezone issues with gotoDate
-        const dateString = format(date, 'yyyy-MM-dd');
-        CalendarRef.current.getApi().gotoDate(dateString);
-    }, []);
+// the settings button sits in the calendar's own toolbar next to the month
+// title. FullCalendar renders custom buttons itself and only takes a text
+// label, so the gear is painted on in CSS (.fc-calendarSettings-button).
+const HEADER_TOOLBAR = {
+    start: 'today,prev,next',
+    center: 'title',
+    end: 'calendarSettings',
+} as const;
 
-    if (settings.isOpenCalendarLeftBar) {
-        return (
-            <Calendar
-                showMonthPickerAsOverlay={true}
-                dateRangeType={dateRangeType}
-                highlightSelectedMonth={true}
-                showGoToToday={true}
-                onSelectDate={onSelectDate}
-                value={selectedDate}
-                firstDayOfWeek={settings.firstDayOfWeek}
-            />
-        );
-    }
-
-    return <div className='hided-left-bar-calendar'/>;
+const contentHeightForViewport = (): number => {
+    return Math.max(320, window.innerHeight - (isMobileViewport() ? 170 : 200));
 };
 
 const CalendarContent = () => {
     const dispatch = useDispatch();
     const user = useSelector(getCurrentUser);
     const settings = useSelector(getCalendarSettings);
+    const selectedCalendarType: string = useSelector(getSelectedCalendarType);
+    const selectedCalendarView: string = useSelector(getSelectedCalendarView);
+
+    // FullCalendar only reads initialView once, so it has to stay stable even
+    // when the header switches views afterwards
+    const [initialView] = useState<string>(selectedCalendarView);
+    const [contentHeight, setContentHeight] = useState<number>(contentHeightForViewport);
 
     const getUserTimeZoneString = () => {
+        if (!user) {
+            return 'local';
+        }
         if (user.timezone?.useAutomaticTimezone) {
             return user.timezone.automaticTimezone;
         }
-        return user.timezone?.manualTimezone;
+        return user.timezone?.manualTimezone || 'local';
     };
 
     useEffect(() => {
+        if (!user) {
+            return;
+        }
         const now: Date = new Date();
         const scrollTo: Date = new Date();
         scrollTo.setMinutes(scrollTo.getMinutes() - 30);
         if (now.getDate() === scrollTo.getDate()) {
-            CalendarRef.current.getApi().scrollToTime(format(scrollTo, 'HH:mm'));
+            CalendarRef.current?.getApi().scrollToTime(format(scrollTo, 'HH:mm'));
         }
     }, [user]);
+
+    useEffect(() => {
+        const onResize = () => setContentHeight(contentHeightForViewport());
+        window.addEventListener('resize', onResize);
+        window.addEventListener('orientationchange', onResize);
+        return () => {
+            window.removeEventListener('resize', onResize);
+            window.removeEventListener('orientationchange', onResize);
+        };
+    }, []);
+
+    // keeps the header buttons in step with views changed from the grid itself
+    const onDatesSet = (arg: DatesSetArg) => {
+        if (arg.view.type !== selectedCalendarView) {
+            dispatch(updateSelectedCalendarView(arg.view.type));
+        }
+    };
 
     const onEventClicked = (eventInfo: EventClickArg) => {
         dispatch(eventSelected(eventInfo));
@@ -87,7 +113,7 @@ const CalendarContent = () => {
     };
 
     const calcHiddenDays = (): number[] => {
-        if (!settings.hideNonWorkingDays) {
+        if (!settings.hideNonWorkingDays || !Array.isArray(settings.businessDays)) {
             return [];
         }
         const noneWorkingDays: number[] = [];
@@ -110,44 +136,68 @@ const CalendarContent = () => {
         dispatch(openEventModal());
     };
 
+    const businessHours = useMemo(() => ({
+        startTime: settings.businessStartTime,
+        endTime: settings.businessEndTime,
+        daysOfWeek: settings.businessDays,
+    }), [settings.businessStartTime, settings.businessEndTime, settings.businessDays]);
+
+    const hiddenDays = useMemo(calcHiddenDays, [settings.hideNonWorkingDays, settings.businessDays]);
+
+    const customButtons = useMemo(() => ({
+        calendarSettings: {
+            text: 'Settings',
+            hint: 'Settings',
+            click: () => dispatch(setSettingsPanelOpen(true)),
+        },
+    }), []);
+
+    const eventSources = useMemo(() => [
+        {
+            url: getSiteURL() + `/plugins/${PluginId}/events`,
+            extraParams: {
+                // "all" shows both calendars together, so no type filter is sent
+                type: selectedCalendarType === 'all' ? '' : selectedCalendarType,
+            },
+        },
+    ], [selectedCalendarType]);
+
+    if (!user) {
+        return (
+            <div className='calendar-content'>
+                <div className='calendar-main-greed'/>
+            </div>
+        );
+    }
+
     return (
         <div className='calendar-content'>
-            <div className='left-bar-calendar-content'>
-                <LeftBarCalendar/>
-            </div>
             <div className='calendar-main-greed'>
                 <FullCalendar
-                    plugins={[timeGridPlugin, interactionPlugin, dayGridPlugin]}
-                    initialView='timeGridWeek'
-                    allDaySlot={false}
+                    plugins={PLUGINS}
+                    initialView={initialView}
+                    allDaySlot={true}
                     slotDuration='00:30:00'
                     selectable={true}
                     firstDay={settings.firstDayOfWeek}
-                    businessHours={{
-                        startTime: settings.businessStartTime,
-                        endTime: settings.businessEndTime,
-                        daysOfWeek: settings.businessDays,
-                    }}
+                    businessHours={businessHours}
                     timeZone={getUserTimeZoneString()}
                     handleWindowResize={true}
-                    headerToolbar={{
-                        start: 'today,prev,next',
-                        center: 'title',
-                        end: '',
-                    }}
-                    hiddenDays={calcHiddenDays()}
+                    headerToolbar={HEADER_TOOLBAR}
+                    customButtons={customButtons}
+                    hiddenDays={hiddenDays}
                     nowIndicatorClassNames='now-indicator'
                     select={(info: DateSelectArg) => onDateTimeSelected(info)}
-                    dayHeaderFormat={{day: 'numeric', weekday: 'short', omitCommas: true}}
+                    dayHeaderFormat={DAY_HEADER_FORMAT}
                     nowIndicator={true}
-                    locales={[enLocale]}
-                    contentHeight={window.innerHeight - 200}
+                    locales={LOCALES}
+                    contentHeight={contentHeight}
                     eventClick={onEventClicked}
                     dayHeaderContent={(dayHeaderProps: DayHeaderContentArg) => {
                         function dayOfWeekAsString(dayIndex: number) {
                             return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex] || '';
                         }
-                        const showDay = CalendarRef.current?.getApi().view.type !== 'dayGridMonth';
+                        const showDay = dayHeaderProps.view.type !== 'dayGridMonth';
                         return (<>
                             <div className={`custom-day-header  ${dayHeaderProps.isToday ? 'custom-day-today' : ''}`}>
                                 {showDay ? <div className='custom-day-header-day'>{dayHeaderProps.date.getDate()}</div> : ''}
@@ -159,12 +209,10 @@ const CalendarContent = () => {
                     }}
                     dayCellClassNames='custom-day-cell'
                     ref={CalendarRef}
+                    datesSet={onDatesSet}
                     eventSourceSuccess={eventDataTransformation}
-                    eventSources={[
-                        {
-                            url: getSiteURL() + `/plugins/${PluginId}/events`,
-                        },
-                    ]}
+                    eventSourceFailure={onEventSourceFailure}
+                    eventSources={eventSources}
                 />
             </div>
         </div>

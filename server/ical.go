@@ -326,6 +326,9 @@ func (p *Plugin) GetUserEventsForICalUTC(
 			"ce.visibility",
 			"ce.alert",
 			"ce.alert_time",
+			"ce.type",
+			"ce.meeting_link",
+			"ce.all_day",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
@@ -396,12 +399,26 @@ func (p *Plugin) generateICalendar(events []Event, user *model.User) string {
 		icsEvent.SetDtStampTime(event.Created)
 		icsEvent.SetCreatedTime(event.Created)
 		icsEvent.SetModifiedAt(event.Created)
-		icsEvent.SetStartAt(event.Start)
-		icsEvent.SetEndAt(event.End)
+		if event.AllDay {
+			// Start/End are already stored as an exclusive day range, matching
+			// what VALUE=DATE expects
+			icsEvent.SetAllDayStartAt(event.Start)
+			icsEvent.SetAllDayEndAt(event.End)
+		} else {
+			icsEvent.SetStartAt(event.Start)
+			icsEvent.SetEndAt(event.End)
+		}
 		icsEvent.SetSummary(event.Title)
 
 		if event.Description != "" {
 			icsEvent.SetDescription(event.Description)
+		}
+
+		// LOCATION is what most calendar clients surface as the "join" target,
+		// URL keeps it available to the ones that prefer that property.
+		if event.MeetingLink != nil && *event.MeetingLink != "" {
+			icsEvent.SetLocation(*event.MeetingLink)
+			icsEvent.SetURL(*event.MeetingLink)
 		}
 
 		// Add organizer

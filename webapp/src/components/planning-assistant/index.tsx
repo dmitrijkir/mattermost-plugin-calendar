@@ -87,6 +87,9 @@ function PlanningAssistant(props: FindFreeTimeProps) {
             duration).then((response) => {
             setUsersAvailability(response);
             setIsLoading(false);
+        }).catch(() => {
+            setUsersAvailability({users: {}, available_times: []});
+            setIsLoading(false);
         });
     }, [props.open, currentDate, duration]);
 
@@ -263,7 +266,7 @@ function PlanningAssistant(props: FindFreeTimeProps) {
                                     duration={duration}
                                 />
                                 {
-                                    usersAvailability.users[userId].map((event) => {
+                                    (usersAvailability.users[userId] || []).map((event) => {
                                         const current = set(currentDate, {hours: StarHour, seconds: 0, minutes: 0});
                                         const startTime = parse(event.start, "yyyy-MM-dd'T'HH:mm:ssxxx", new Date());
 

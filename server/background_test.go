@@ -8,6 +8,7 @@ import (
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -216,10 +217,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	recurrentTimeQuery := sq.And{
 		sq.Eq{"ce.recurrent": true},
-		sq.Or{
-			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time::time": sqlQueryTime},
-		},
+		sq.Eq{"ce.alert_time::time": sqlQueryTime},
 	}
 	queryBuilder := sq.Select().
 		Columns(
@@ -239,12 +237,15 @@ func TestProcessEventWithChannel(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.And{
+			sq.Eq{"ce.all_day": false},
 			sq.Or{
-				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
@@ -257,7 +258,7 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
-		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
+		WithArgs(false, sqlQueryTime, true, sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
@@ -274,9 +275,12 @@ func TestProcessEventWithChannel(t *testing.T) {
 		"team",
 		"alert",
 		"alert_time",
+		"type",
+		"meeting_link",
+		"mention",
 	},
 	).AddRow("qwcw", "test event", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		sqlQueryTime, "owner_id", channelId, "user-Id", false, "", "team1", "", nil)
+		sqlQueryTime, "owner_id", channelId, "user-Id", false, "", "team1", "", nil, "call", nil, "")
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -296,6 +300,159 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	api.AssertExpectations(t)
 
+}
+
+// the mention picked on the event has to end up as real post text, otherwise
+// Mattermost doesn't notify anyone
+func TestProcessEventWithChannelUsesSelectedMention(t *testing.T) {
+	botId := "bot-id"
+	channelId := "channel-id"
+	api := plugintest.API{}
+
+	pluginT := &Plugin{
+		BotId: botId,
+		MattermostPlugin: plugin.MattermostPlugin{
+			API:    &api,
+			Driver: nil,
+		},
+	}
+
+	db, dbMock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	dbx := sqlx.NewDb(db, "sqlmock")
+
+	pluginT.SetDB(dbx)
+
+	processingTime := time.Now().In(time.UTC)
+
+	sqlQueryTime := time.Date(
+		processingTime.Year(),
+		processingTime.Month(),
+		processingTime.Day(),
+		processingTime.Hour(),
+		processingTime.Minute(),
+		0,
+		0,
+		time.UTC,
+	)
+
+	postForSendChannel := &model.Post{
+		UserId:    botId,
+		ChannelId: channelId,
+		Message:   "@all",
+	}
+
+	api.On("CreatePost", postForSendChannel).Return(nil, nil)
+
+	api.On("PublishWebSocketEvent", "event_occur", map[string]interface{}{
+		"id":      "qw-no-att",
+		"title":   "test event no attendees",
+		"channel": nil,
+	}, &model.WebsocketBroadcast{
+		UserId: "owner_id",
+	}).Return(nil, nil)
+
+	background := &Background{
+		Ticker: time.NewTicker(15 * time.Second),
+		Done:   make(chan bool),
+		plugin: pluginT,
+	}
+
+	testEvent := &Event{
+		Id:    "qw-no-att",
+		Title: "test event no attendees",
+	}
+
+	postForSendChannel.SetProps(background.getMessageProps(testEvent, time.Now()))
+
+	recurrentTimeQuery := sq.And{
+		sq.Eq{"ce.recurrent": true},
+		sq.Eq{"ce.alert_time::time": sqlQueryTime},
+	}
+	queryBuilder := sq.Select().
+		Columns(
+			"ce.id",
+			"ce.title",
+			"ce.dt_start",
+			"ce.dt_end",
+			"ce.created",
+			"ce.updated",
+			"ce.owner",
+			"ce.channel",
+			"cm.member",
+			"ce.recurrent",
+			"ce.recurrence",
+			"ce.color",
+			"ce.description",
+			"ce.alert_time",
+			"ce.alert",
+			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
+			"ce.mention",
+		).
+		From("calendar_events ce").
+		LeftJoin("calendar_members cm ON ce.id = cm.event").
+		Where(sq.And{
+			sq.Eq{"ce.all_day": false},
+			sq.Or{
+				sq.Eq{"ce.alert_time": sqlQueryTime},
+				recurrentTimeQuery,
+			},
+			sq.Or{
+				sq.Eq{"ce.processed": nil},
+				sq.NotEq{"ce.processed": sqlQueryTime},
+			},
+		}).
+		PlaceholderFormat(sq.Dollar)
+
+	querySql, _, _ := queryBuilder.ToSql()
+	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
+		WithArgs(false, sqlQueryTime, true, sqlQueryTime, sqlQueryTime)
+
+	eventsRow := sqlmock.NewRows([]string{
+		"id",
+		"title",
+		"dt_start",
+		"dt_end",
+		"created",
+		"updated",
+		"owner",
+		"channel",
+		"member",
+		"recurrent",
+		"recurrence",
+		"team",
+		"alert",
+		"alert_time",
+		"type",
+		"meeting_link",
+		"mention",
+	},
+	).AddRow("qw-no-att", "test event no attendees", sqlQueryTime, sqlQueryTime, sqlQueryTime,
+		sqlQueryTime, "owner_id", channelId, nil, false, "", "team1", "", nil, "call", nil, "all")
+
+	expectedQuery.WillReturnRows(eventsRow)
+
+	updateBuilder := sq.Update("calendar_events").
+		Set("processed", sqlQueryTime).
+		Where(sq.Eq{"id": "qw-no-att"}).PlaceholderFormat(sq.Dollar)
+	updateSql, _, _ := updateBuilder.ToSql()
+
+	expectedQueryUpdate := dbMock.ExpectQuery(regexp.QuoteMeta(updateSql)).WithArgs(sqlQueryTime, "qw-no-att")
+	expectedQueryUpdate.WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow("qw-no-att"))
+
+	background.process(processingTime)
+
+	if err := dbMock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+
+	api.AssertExpectations(t)
 }
 
 // process recurrent event
@@ -404,10 +561,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 	recurrentTimeQuery := sq.And{
 		sq.Eq{"ce.recurrent": true},
-		sq.Or{
-			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time::time": sqlQueryTime},
-		},
+		sq.Eq{"ce.alert_time::time": sqlQueryTime},
 	}
 	queryBuilder := sq.Select().
 		Columns(
@@ -427,12 +581,15 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.And{
+			sq.Eq{"ce.all_day": false},
 			sq.Or{
-				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
@@ -445,7 +602,7 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
-		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
+		WithArgs(false, sqlQueryTime, true, sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
@@ -462,13 +619,16 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 		"team",
 		"alert",
 		"alert_time",
+		"type",
+		"meeting_link",
+		"mention",
 	},
 	).AddRow(
 		"rec-ev", "test event recevent", recurrentEventTimeStart,
 		recurrentEventTimeEnd, featureTime,
 		featureTime, "owner_id", channelId, "user-Id", true,
 		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
-		"team1", "", nil,
+		"team1", "", nil, "call", nil, "",
 	)
 
 	expectedQuery.WillReturnRows(eventsRow)
@@ -591,10 +751,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 
 	recurrentTimeQuery := sq.And{
 		sq.Eq{"ce.recurrent": true},
-		sq.Or{
-			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time::time": sqlQueryTime},
-		},
+		sq.Eq{"ce.alert_time::time": sqlQueryTime},
 	}
 	queryBuilder := sq.Select().
 		Columns(
@@ -614,12 +771,15 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.And{
+			sq.Eq{"ce.all_day": false},
 			sq.Or{
-				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
@@ -632,7 +792,7 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
-		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
+		WithArgs(false, sqlQueryTime, true, sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
@@ -649,13 +809,16 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 		"team",
 		"alert",
 		"alert_time",
+		"type",
+		"meeting_link",
+		"mention",
 	},
 	).AddRow(
 		"rec-ev", "test event recurrent", recurrentEventTimeStart,
 		recurrentEventTimeEnd, recurrentEventTimeStart,
 		recurrentEventTimeStart, "owner_id", channelId, "user-Id", true,
 		"RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR,SA,SU",
-		"team1", "", nil,
+		"team1", "", nil, "call", nil, "",
 	)
 
 	expectedQuery.WillReturnRows(eventsRow)
@@ -761,10 +924,7 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 
 	recurrentTimeQuery := sq.And{
 		sq.Eq{"ce.recurrent": true},
-		sq.Or{
-			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time::time": sqlQueryTime},
-		},
+		sq.Eq{"ce.alert_time::time": sqlQueryTime},
 	}
 	queryBuilder := sq.Select().
 		Columns(
@@ -784,12 +944,15 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.And{
+			sq.Eq{"ce.all_day": false},
 			sq.Or{
-				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
@@ -803,10 +966,9 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
 		WithArgs(
-			sqlQueryTime,
+			false,
 			sqlQueryTime,
 			true,
-			sqlQueryTime,
 			sqlQueryTime,
 			sqlQueryTime,
 		)
@@ -826,9 +988,12 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 		"team",
 		"alert",
 		"alert_time",
+		"type",
+		"meeting_link",
+		"mention",
 	},
 	).AddRow("qwert-2", "tests event without channel", sqlQueryTime, sqlQueryTime, sqlQueryTime,
-		sqlQueryTime, "owner-id", nil, "user-id", false, "", "team1", "", nil)
+		sqlQueryTime, "owner-id", nil, "user-id", false, "", "team1", "", nil, "call", nil, "")
 
 	expectedQuery.WillReturnRows(eventsRow)
 
@@ -943,10 +1108,7 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 
 	recurrentTimeQuery := sq.And{
 		sq.Eq{"ce.recurrent": true},
-		sq.Or{
-			sq.Eq{"ce.dt_start::time": sqlQueryTime},
-			sq.Eq{"ce.alert_time::time": sqlQueryTime},
-		},
+		sq.Eq{"ce.alert_time::time": sqlQueryTime},
 	}
 	queryBuilder := sq.Select().
 		Columns(
@@ -966,12 +1128,15 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 			"ce.alert_time",
 			"ce.alert",
 			"ce.team",
+			"ce.type",
+			"ce.meeting_link",
+			"ce.mention",
 		).
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.And{
+			sq.Eq{"ce.all_day": false},
 			sq.Or{
-				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
 			},
@@ -986,10 +1151,9 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 	expectedQuery := dbMock.ExpectQuery(
 		regexp.QuoteMeta(querySql)).
 		WithArgs(
-			sqlQueryTime,
+			false,
 			sqlQueryTime,
 			true,
-			sqlQueryTime,
 			sqlQueryTime,
 			sqlQueryTime,
 		)
@@ -1008,12 +1172,12 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 		"recurrence",
 		"team",
 		"alert",
-		"alert_time"},
+		"alert_time", "type", "meeting_link", "mention"},
 	).AddRow(
 		"rec-ev", "test event recurrent",
 		recurrentEventTimeStart, recurrentEventTimeEnd, recurrentEventTimeStart,
 		recurrentEventTimeStart, "owner_id", channelId, "user-Id", true, "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=SU,MO",
-		"team1", "", nil,
+		"team1", "", nil, "call", nil, "",
 	)
 
 	expectedQuery.WillReturnRows(eventsRow)
@@ -1070,4 +1234,62 @@ func TestWSSendNotification(t *testing.T) {
 	background.sendWsNotification(testEvent, time.Now())
 
 	api.AssertExpectations(t)
+}
+
+// "At start time" is a plain ping, not a "heads-up N before" message, so it
+// must not carry an alarm-clock title like the other alerts do.
+// Events created before the mention setting existed carry MentionNone, and
+// must stay silent rather than suddenly pinging whole channels.
+func TestEventMentionAsText(t *testing.T) {
+	cases := map[EventMention]string{
+		MentionNone:    "",
+		MentionHere:    "@here",
+		MentionChannel: "@channel",
+		MentionAll:     "@all",
+	}
+
+	for mention, want := range cases {
+		if got := mention.AsText(); got != want {
+			t.Errorf("mention %q: expected %q, got %q", string(mention), want, got)
+		}
+	}
+}
+
+func TestGetMessageFromEventAtStartTimeHasNoAlertTitle(t *testing.T) {
+	now := time.Now()
+	testEvent := &Event{
+		Title:     "standup",
+		Alert:     EventAlertAtStartTime,
+		AlertTime: &now,
+	}
+
+	background := &Background{plugin: &Plugin{}}
+	message := background.getMessageFromEvent(testEvent, now)
+
+	if strings.Contains(message, ":alarm_clock:") {
+		t.Errorf("expected a plain start-time ping, got an alarm-clock message: %q", message)
+	}
+	if !strings.Contains(message, "standup") {
+		t.Errorf("expected the message to contain the event title, got: %q", message)
+	}
+}
+
+// every other alert keeps the alarm-clock heads-up with its title
+func TestGetMessageFromEventWithAlertHasAlarmClockTitle(t *testing.T) {
+	now := time.Now()
+	testEvent := &Event{
+		Title:     "standup",
+		Alert:     EventAlert15MinutesBefore,
+		AlertTime: &now,
+	}
+
+	background := &Background{plugin: &Plugin{}}
+	message := background.getMessageFromEvent(testEvent, now)
+
+	if !strings.Contains(message, ":alarm_clock:") {
+		t.Errorf("expected an alarm-clock message, got: %q", message)
+	}
+	if !strings.Contains(message, "15 minutes before") {
+		t.Errorf("expected the alert title in the message, got: %q", message)
+	}
 }

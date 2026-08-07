@@ -564,6 +564,11 @@ func (b *CalDAVBackend) handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if event.Owner != b.userID {
+		http.Error(w, "Event not found", http.StatusNotFound)
+		return
+	}
+
 	user, _ := b.plugin.API.GetUser(b.userID)
 	icalData := b.eventToICalendarString(event, user)
 
@@ -725,6 +730,7 @@ func (b *CalDAVBackend) getEventByID(eventID string) (*Event, error) {
 		"id", "title", "description", "dt_start", "dt_end",
 		"created", "owner", "channel", "recurrent", "recurrence",
 		"color", "team", "visibility", "alert", "alert_time",
+		"type", "meeting_link", "all_day",
 	).
 		From("calendar_events").
 		Where(sq.Eq{"id": eventID}).
@@ -753,12 +759,26 @@ func (b *CalDAVBackend) eventToICalendarString(event *Event, user *model.User) s
 	icsEvent := cal.AddEvent(event.Id)
 	icsEvent.SetDtStampTime(event.Created)
 	icsEvent.SetCreatedTime(event.Created)
-	icsEvent.SetStartAt(event.Start)
-	icsEvent.SetEndAt(event.End)
+	if event.AllDay {
+		// Start/End are already stored as an exclusive day range, matching
+		// what VALUE=DATE expects
+		icsEvent.SetAllDayStartAt(event.Start)
+		icsEvent.SetAllDayEndAt(event.End)
+	} else {
+		icsEvent.SetStartAt(event.Start)
+		icsEvent.SetEndAt(event.End)
+	}
 	icsEvent.SetSummary(event.Title)
 
 	if event.Description != "" {
 		icsEvent.SetDescription(event.Description)
+	}
+
+	// LOCATION is what most calendar clients surface as the "join" target,
+	// URL keeps it available to the ones that prefer that property.
+	if event.MeetingLink != nil && *event.MeetingLink != "" {
+		icsEvent.SetLocation(*event.MeetingLink)
+		icsEvent.SetURL(*event.MeetingLink)
 	}
 
 	if user != nil && user.Email != "" {
@@ -787,8 +807,12 @@ func (b *CalDAVBackend) icalendarToEvent(cal *ics.Calendar, eventID string) (*Ev
 	vevent := events[0]
 
 	event := &Event{
-		Id:         eventID,
-		Visibility: VisibilityPrivate,
+		Id: eventID,
+
+		// events created from a phone/desktop CalDAV client have no visibility
+		// picker at all, so they'd otherwise silently default to private and
+		// never show up for anyone else on the team
+		Visibility: VisibilityTeam,
 	}
 
 	if summary := vevent.GetProperty(ics.ComponentPropertySummary); summary != nil {
@@ -803,6 +827,11 @@ func (b *CalDAVBackend) icalendarToEvent(cal *ics.Calendar, eventID string) (*Ev
 		start := b.parseICalTime(dtstart)
 		if !start.IsZero() {
 			event.Start = start
+		}
+		// RFC 5545 VALUE=DATE (no "T" time separator) is how CalDAV clients
+		// mark all-day events
+		if !strings.Contains(dtstart.Value, "T") {
+			event.AllDay = true
 		}
 	}
 
@@ -889,12 +918,12 @@ func (b *CalDAVBackend) createEvent(event *Event) error {
 		Columns(
 			"id", "title", "description", "dt_start", "dt_end",
 			"created", "updated", "owner", "channel", "recurrent", "recurrence",
-			"color", "visibility", "team", "alert", "alert_time",
+			"color", "visibility", "team", "alert", "alert_time", "all_day",
 		).
 		Values(
 			event.Id, event.Title, event.Description, event.Start, event.End,
 			event.Created, event.Updated, event.Owner, event.Channel, event.Recurrent, event.Recurrence,
-			event.Color, event.Visibility, event.Team, event.Alert, event.AlertTime,
+			event.Color, event.Visibility, event.Team, event.Alert, event.AlertTime, event.AllDay,
 		).
 		PlaceholderFormat(b.plugin.GetDBPlaceholderFormat())
 
@@ -921,6 +950,7 @@ func (b *CalDAVBackend) updateEvent(event *Event) error {
 		"dt_end":      event.End,
 		"recurrence":  event.Recurrence,
 		"recurrent":   event.Recurrent,
+		"all_day":     event.AllDay,
 		"updated":     event.Updated,
 	}
 

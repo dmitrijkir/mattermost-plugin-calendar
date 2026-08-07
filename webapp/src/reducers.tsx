@@ -1,5 +1,7 @@
 import {combineReducers} from 'redux';
 
+import {getInitialCalendarType, getInitialCalendarView} from './components/utils';
+
 const selectEventModal = (state = {}, action) => {
     switch (action.type) {
     case 'eventSelected':
@@ -26,6 +28,17 @@ const toggleEventModal = (state = {isOpen: false}, action) => {
     }
 };
 
+// the header owns the drawer, the calendar toolbar owns the button that opens
+// it — they are siblings, so the flag lives here
+const settingsPanel = (state = {isOpen: false}, action) => {
+    switch (action.type) {
+    case 'setSettingsPanelOpen':
+        return {...state, isOpen: action.payload};
+    default:
+        return state;
+    }
+};
+
 const calendarSettings = (state = {
     isOpenCalendarLeftBar: true,
     firstDayOfWeek: 1,
@@ -33,9 +46,35 @@ const calendarSettings = (state = {
     businessEndTime: '18:00',
     businessDays: [1, 2, 3, 4, 5],
     hideNonWorkingDays: false,
+    callColor: '#B3E1F7',
+    eventColor: '#B6D9C7',
+    jitsiBaseUrl: 'https://meet.jit.si',
 }, action) => {
     switch (action.type) {
+
+    // merged rather than replaced so a server that doesn't know about a newer
+    // setting can't drop it and leave the UI reading undefined
     case 'updateCalendarSettings':
+        return {...state, ...action.payload};
+    default:
+        return state;
+    }
+};
+
+const selectedCalendarType = (state = getInitialCalendarType(), action) => {
+    switch (action.type) {
+    case 'updateSelectedCalendarType':
+        return action.payload;
+    default:
+        return state;
+    }
+};
+
+// the header buttons and the grid live in sibling components, so the active
+// view is kept here instead of in local state
+const selectedCalendarView = (state = getInitialCalendarView(), action) => {
+    switch (action.type) {
+    case 'updateSelectedCalendarView':
         return action.payload;
     default:
         return state;
@@ -73,9 +112,12 @@ const reducer = combineReducers({
     selectEventModal,
     toggleEventModal,
     calendarSettings,
+    settingsPanel,
     eventNotification,
     membersAddedInEvent,
     selectedEventTime,
+    selectedCalendarType,
+    selectedCalendarView,
 });
 
 export default reducer;

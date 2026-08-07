@@ -2,6 +2,11 @@ import {DispatchFunc} from 'mattermost-redux/types/actions';
 
 import {EventClickArg} from '@fullcalendar/common';
 
+import {
+    STORAGE_KEY_CALENDAR_TYPE,
+    STORAGE_KEY_CALENDAR_VIEW,
+    writeStoredPreference,
+} from './components/utils';
 import {CalendarSettings} from './types/settings';
 import {ApiClient} from './client';
 import {CalendarEventNotification, SelectedEventTime} from './types/event';
@@ -26,6 +31,15 @@ export const closeEventModal = () => {
     return {
         type: 'closeEventModal',
         payload: false,
+    };
+};
+
+// the drawer is rendered by the header, but the button that opens it now lives
+// in FullCalendar's own toolbar, so the open state has to be shared
+export const setSettingsPanelOpen = (open: boolean) => {
+    return {
+        type: 'setSettingsPanelOpen',
+        payload: open,
     };
 };
 
@@ -54,6 +68,25 @@ export const updateMembersAddedInEvent = (members: UserProfile[]) => {
     return {
         type: 'updateMembersAddedInEvent',
         payload: members,
+    };
+};
+
+// Both of these remember the user's last choice so a reload doesn't drop them
+// back on the default calendar and view. The write lives here rather than in
+// the reducer to keep the reducer a pure function of its inputs.
+export const updateSelectedCalendarType = (calendarType: string) => {
+    writeStoredPreference(STORAGE_KEY_CALENDAR_TYPE, calendarType);
+    return {
+        type: 'updateSelectedCalendarType',
+        payload: calendarType,
+    };
+};
+
+export const updateSelectedCalendarView = (view: string) => {
+    writeStoredPreference(STORAGE_KEY_CALENDAR_VIEW, view);
+    return {
+        type: 'updateSelectedCalendarView',
+        payload: view,
     };
 };
 

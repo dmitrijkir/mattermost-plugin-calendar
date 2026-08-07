@@ -11,7 +11,7 @@ import {
     ToggleButton,
 } from '@fluentui/react-components';
 import {useBoolean} from '@fluentui/react-hooks';
-import {format, parse} from 'date-fns';
+import {format} from 'date-fns';
 import {Calendar, DayOfWeek} from '@fluentui/react';
 import {OnOpenChangeData, OpenPopoverEvents} from '@fluentui/react-popover';
 
@@ -37,6 +37,28 @@ const RepeatByWeekDay = {
     6: 'SU',
 };
 
+// RRULE UNTIL must be a real UTC instant (RFC5545). We treat the picked day as
+// "include everything through the end of that local day" and convert it to UTC,
+// instead of stamping local midnight and mislabeling it with a literal 'Z'.
+const pad = (n: number): string => String(n).padStart(2, '0');
+
+const toRruleUntilUtc = (date: Date): string => {
+    const endOfDayLocal = new Date(date);
+    endOfDayLocal.setHours(23, 59, 59, 0);
+    return `${endOfDayLocal.getUTCFullYear()}${pad(endOfDayLocal.getUTCMonth() + 1)}${pad(endOfDayLocal.getUTCDate())}` +
+        `T${pad(endOfDayLocal.getUTCHours())}${pad(endOfDayLocal.getUTCMinutes())}${pad(endOfDayLocal.getUTCSeconds())}Z`;
+};
+
+const fromRruleUntilUtc = (value: string): Date => {
+    const year = Number(value.slice(0, 4));
+    const month = Number(value.slice(4, 6)) - 1;
+    const day = Number(value.slice(6, 8));
+    const hours = Number(value.slice(9, 11));
+    const minutes = Number(value.slice(11, 13));
+    const seconds = Number(value.slice(13, 15));
+    return new Date(Date.UTC(year, month, day, hours, minutes, seconds));
+};
+
 const RepeatEventCustom = (props: RepeatEventComponentProps) => {
     const [repeatType, setRepeatType] = useState(RepeatFreq.Weekly);
     const [selectedDays, setSelectedDays] = useState([]);
@@ -57,7 +79,7 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
             rruleString += `BYDAY=${selectedDays.join(',')};`;
         }
         if (selectedUntil) {
-            rruleString += `UNTIL=${format(selectedUntil, "yyyyMMdd'T'HHmmss'Z'")};`;
+            rruleString += `UNTIL=${toRruleUntilUtc(selectedUntil)};`;
         }
 
         if (rruleString.endsWith(';')) {
@@ -199,7 +221,7 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
                         setSelectedDays(kv[1].split(','));
                         break;
                     case 'UNTIL':
-                        setSelectedUntil(parse(kv[1], "yyyyMMdd'T'HHmmss'Z'", new Date()));
+                        setSelectedUntil(fromRruleUntilUtc(kv[1]));
                         break;
                     default:
                         break;

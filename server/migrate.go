@@ -160,7 +160,7 @@ func (m *Migrator) migrateLegacyRecurrentEvents() *model.AppError {
 
 		var recurrenceDays []string
 
-		for value := range *eventDb.Recurrence {
+		for _, value := range *eventDb.Recurrence {
 			recurrenceDays = append(recurrenceDays, dayOfWeek[value])
 		}
 

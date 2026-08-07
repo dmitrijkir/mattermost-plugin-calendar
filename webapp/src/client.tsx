@@ -29,6 +29,10 @@ export declare type GetEventResponse = {
     team: string
     visibility: string
     alert: string
+    type: string
+    meetingLink?: string
+    allDay?: boolean
+    mention?: string
 }
 
 export declare type GetEventsResponse = {
@@ -59,6 +63,22 @@ export declare type ApiResponse<Type> = {
     data: Type
 }
 
+async function ensureOk(response: Response): Promise<void> {
+    if (response.ok) {
+        return;
+    }
+    let message = response.statusText || `Request failed with status ${response.status}`;
+    try {
+        const body = await response.clone().json();
+        if (body?.message) {
+            message = body.message;
+        }
+    } catch (e) {
+        // response body isn't JSON, keep the default message
+    }
+    throw new Error(message);
+}
+
 export declare class ApiClientInterface {
     static getEventById(event: string): Promise<GetEventResponse>
 
@@ -79,6 +99,7 @@ export class ApiClient implements ApiClientInterface {
 
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         // eslint-disable-next-line no-negated-condition
         if (data.data.attendees != null) {
@@ -108,6 +129,7 @@ export class ApiClient implements ApiClientInterface {
 
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data;
     }
@@ -124,6 +146,7 @@ export class ApiClient implements ApiClientInterface {
 
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data;
     }
@@ -140,6 +163,10 @@ export class ApiClient implements ApiClientInterface {
         recurrence?: string,
         color?: string,
         alert?: string,
+        type?: string,
+        meetingLink?: string,
+        allDay?: boolean,
+        mention?: string,
     ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
@@ -160,9 +187,14 @@ export class ApiClient implements ApiClientInterface {
                     recurrence,
                     color,
                     alert,
+                    type,
+                    meetingLink,
+                    allDay,
+                    mention,
                 }),
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data;
     }
@@ -180,6 +212,10 @@ export class ApiClient implements ApiClientInterface {
         recurrence?: string,
         color?: string,
         alert?: string,
+        type?: string,
+        meetingLink?: string,
+        allDay?: boolean,
+        mention?: string,
     ): Promise<ApiResponse<GetEventResponse>> {
         const response = await fetch(
             getSiteURL() + `/plugins/${PluginId}/events`,
@@ -201,9 +237,14 @@ export class ApiClient implements ApiClientInterface {
                     recurrence,
                     color,
                     alert,
+                    type,
+                    meetingLink,
+                    allDay,
+                    mention,
                 }),
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data;
     }
@@ -218,6 +259,7 @@ export class ApiClient implements ApiClientInterface {
                 },
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data.data;
     }
@@ -237,6 +279,7 @@ export class ApiClient implements ApiClientInterface {
                 },
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data.data;
     }
@@ -253,9 +296,12 @@ export class ApiClient implements ApiClientInterface {
                     isOpenCalendarLeftBar: settings.isOpenCalendarLeftBar,
                     firstDayOfWeek: settings.firstDayOfWeek,
                     hideNonWorkingDays: settings.hideNonWorkingDays,
+                    callColor: settings.callColor,
+                    eventColor: settings.eventColor,
                 }),
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data.data;
     }
@@ -270,6 +316,7 @@ export class ApiClient implements ApiClientInterface {
                 },
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data.data;
     }
@@ -284,6 +331,7 @@ export class ApiClient implements ApiClientInterface {
                 },
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data.data;
     }
@@ -298,6 +346,7 @@ export class ApiClient implements ApiClientInterface {
                 },
             }),
         );
+        await ensureOk(response);
         const data = await response.json();
         return data.data;
     }

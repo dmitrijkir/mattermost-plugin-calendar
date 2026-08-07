@@ -73,6 +73,7 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 	EndEventLocal, _ := time.ParseInLocation(EventDateTimeLayout, query.Get("end"), userLoc)
 
 	usersEvents := make(map[string][]UserScheduleEvent)
+	usersEventsSync := &sync.Mutex{}
 	usersBusyTimes := make([][]bool, 0)
 	usersBusyTimesSync := &sync.Mutex{}
 	wg := &sync.WaitGroup{}
@@ -82,7 +83,7 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 		go func(userId string) {
 			defer wg.Done()
 
-			userEvents, err := p.GetUserEventsUTC(userId, userLoc, startEventLocal.In(time.UTC), EndEventLocal.In(time.UTC))
+			userEvents, err := p.GetUserEventsUTC(userId, userLoc, startEventLocal.In(time.UTC), EndEventLocal.In(time.UTC), "")
 			if err != nil {
 				p.API.LogError("can't get schedule for user")
 				return
@@ -121,7 +122,9 @@ func (p *Plugin) GetSchedule(w http.ResponseWriter, r *http.Request) {
 				usersBusyTimesSync.Unlock()
 				userSchEvents = append(userSchEvents, userEvent)
 			}
+			usersEventsSync.Lock()
 			usersEvents[userId] = userSchEvents
+			usersEventsSync.Unlock()
 		}(userId)
 	}
 

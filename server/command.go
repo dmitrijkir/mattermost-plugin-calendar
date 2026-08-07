@@ -69,7 +69,7 @@ func (p *Plugin) executeTodayCommand(
 
 	end := start.Add(time.Hour * 24)
 
-	events, eventsError := p.GetUserEventsUTC(user.Id, userLoc, start.In(time.UTC), end.In(time.UTC))
+	events, eventsError := p.GetUserEventsUTC(user.Id, userLoc, start.In(time.UTC), end.In(time.UTC), "")
 
 	if eventsError != nil {
 		p.API.LogError(eventsError.Error())
@@ -141,7 +141,7 @@ func (p *Plugin) executeWeekCommand(
 
 	end := start.Add(time.Hour * 24 * 7)
 
-	events, eventsError := p.GetUserEventsUTC(user.Id, userLoc, start.In(time.UTC), end.In(time.UTC))
+	events, eventsError := p.GetUserEventsUTC(user.Id, userLoc, start.In(time.UTC), end.In(time.UTC), "")
 
 	if eventsError != nil {
 		p.API.LogError(eventsError.Error())

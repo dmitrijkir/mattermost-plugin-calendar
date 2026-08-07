@@ -115,6 +115,27 @@ func TestCalDAVBackend_eventToICalendarString(t *testing.T) {
 	assert.Contains(icalStr, "ORGANIZER;CN=testuser:mailto:test@example.com")
 }
 
+func TestCalDAVBackend_eventToICalendarString_AllDay(t *testing.T) {
+	assert := assert.New(t)
+
+	calPlugin := &Plugin{}
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
+
+	event := &Event{
+		Id:      "event-allday",
+		Title:   "All Day Event",
+		Start:   time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC),
+		End:     time.Date(2024, 1, 16, 0, 0, 0, 0, time.UTC),
+		Created: time.Now().UTC(),
+		AllDay:  true,
+	}
+
+	icalStr := backend.eventToICalendarString(event, nil)
+	assert.Contains(icalStr, "DTSTART;VALUE=DATE:20240115")
+	assert.Contains(icalStr, "DTEND;VALUE=DATE:20240116")
+	assert.NotContains(icalStr, "DTSTART:20240115T")
+}
+
 func TestCalDAVBackend_eventToICalendarString_Recurring(t *testing.T) {
 	assert := assert.New(t)
 
@@ -165,7 +186,38 @@ func TestCalDAVBackend_icalendarToEvent(t *testing.T) {
 	assert.Equal("Test description", event.Description)
 	assert.Equal(start, event.Start)
 	assert.Equal(end, event.End)
-	assert.Equal(VisibilityPrivate, event.Visibility)
+	// no CalDAV client offers a visibility picker, so events created from the
+	// phone/desktop must default to team-visible rather than private, or
+	// nobody else would ever see them
+	assert.Equal(VisibilityTeam, event.Visibility)
+	assert.False(event.AllDay)
+}
+
+func TestCalDAVBackend_icalendarToEvent_AllDay(t *testing.T) {
+	assert := assert.New(t)
+
+	calPlugin := &Plugin{}
+	backend := NewCalDAVBackend(calPlugin, "user-123", "test-token", "#1E90FFFF")
+
+	// RFC 5545 VALUE=DATE all-day events carry no "T" time separator
+	icalData := `BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:test-uid
+DTSTART;VALUE=DATE:20240115
+DTEND;VALUE=DATE:20240116
+SUMMARY:Test All Day Event
+END:VEVENT
+END:VCALENDAR`
+
+	cal, err := ics.ParseCalendar(strings.NewReader(icalData))
+	assert.Nil(err)
+
+	event, err := backend.icalendarToEvent(cal, "event-123")
+	assert.Nil(err)
+	assert.True(event.AllDay)
+	assert.Equal(time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC), event.Start)
+	assert.Equal(time.Date(2024, 1, 16, 0, 0, 0, 0, time.UTC), event.End)
 }
 
 func TestCalDAVBackend_icalendarToEvent_WithRRULE(t *testing.T) {
