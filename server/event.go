@@ -76,7 +76,7 @@ func (p *Plugin) GetUserEventsUTC(
 	userLocation *time.Location,
 	start, end time.Time,
 ) ([]Event, *model.AppError) {
-	var events []Event
+	events := []Event{}
 
 	conditions := sq.And{
 		sq.Or{

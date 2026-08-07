@@ -169,7 +169,7 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
 
             </div>);
         }
-        return <div>Default</div>;
+        return null;
     };
 
     useEffect(() => {
@@ -220,7 +220,7 @@ const RepeatEventCustom = (props: RepeatEventComponentProps) => {
                 onChange={onRepeatTypeSelected}
             >
                 <option value={RepeatFreq.Weekly}>Weekly</option>
-                {/* <option value="custom_monthly">Monthly</option> */}
+                <option value={RepeatFreq.Monthly}>Monthly</option>
             </Select>
             <p><Text className='repeat-every-label'>every:</Text><SpinButton
                 ref={InputEveryElem}
