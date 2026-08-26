@@ -150,10 +150,10 @@ const CalendarContent = () => {
                         const showDay = CalendarRef.current?.getApi().view.type !== 'dayGridMonth';
                         return (<>
                             <div className={`custom-day-header  ${dayHeaderProps.isToday ? 'custom-day-today' : ''}`}>
-                                {showDay ? <div className='custom-day-header-day'>{dayHeaderProps.date.getDate()}</div> : ''}
+                                {showDay ? <div className='custom-day-header-day'>{dayHeaderProps.date.getUTCDate()}</div> : ''}
                                 <div
                                     className='custom-day-header-weekday'
-                                >{dayOfWeekAsString(dayHeaderProps.date.getDay())}</div>
+                                >{dayOfWeekAsString(dayHeaderProps.date.getUTCDay())}</div>
                             </div>
                         </>);
                     }}
