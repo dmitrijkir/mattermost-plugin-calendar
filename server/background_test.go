@@ -247,6 +247,12 @@ func TestProcessEventWithChannel(t *testing.T) {
 				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
+				sq.And{
+					sq.Eq{"ce.recurrent": false},
+					sq.Eq{"ce.processed": nil},
+					sq.Gt{"ce.dt_start": sqlQueryTime.Add(-missedTickWindow)},
+					sq.Lt{"ce.dt_start": sqlQueryTime},
+				},
 			},
 			sq.Or{
 				sq.Eq{"ce.processed": nil},
@@ -257,7 +263,8 @@ func TestProcessEventWithChannel(t *testing.T) {
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
-		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
+		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime,
+			false, sqlQueryTime.Add(-missedTickWindow), sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
@@ -435,6 +442,12 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
+				sq.And{
+					sq.Eq{"ce.recurrent": false},
+					sq.Eq{"ce.processed": nil},
+					sq.Gt{"ce.dt_start": sqlQueryTime.Add(-missedTickWindow)},
+					sq.Lt{"ce.dt_start": sqlQueryTime},
+				},
 			},
 			sq.Or{
 				sq.Eq{"ce.processed": nil},
@@ -445,7 +458,8 @@ func TestProcessEventWithChannelRecurrent(t *testing.T) {
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
-		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
+		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime,
+			false, sqlQueryTime.Add(-missedTickWindow), sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
@@ -622,6 +636,12 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
+				sq.And{
+					sq.Eq{"ce.recurrent": false},
+					sq.Eq{"ce.processed": nil},
+					sq.Gt{"ce.dt_start": sqlQueryTime.Add(-missedTickWindow)},
+					sq.Lt{"ce.dt_start": sqlQueryTime},
+				},
 			},
 			sq.Or{
 				sq.Eq{"ce.processed": nil},
@@ -632,7 +652,8 @@ func TestProcessCornerEventWithChannelRecurrent(t *testing.T) {
 
 	querySql, _, _ := queryBuilder.ToSql()
 	expectedQuery := dbMock.ExpectQuery(regexp.QuoteMeta(querySql)).
-		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime, sqlQueryTime)
+		WithArgs(sqlQueryTime, sqlQueryTime, true, sqlQueryTime, sqlQueryTime,
+			false, sqlQueryTime.Add(-missedTickWindow), sqlQueryTime, sqlQueryTime)
 
 	eventsRow := sqlmock.NewRows([]string{
 		"id",
@@ -792,6 +813,12 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
+				sq.And{
+					sq.Eq{"ce.recurrent": false},
+					sq.Eq{"ce.processed": nil},
+					sq.Gt{"ce.dt_start": sqlQueryTime.Add(-missedTickWindow)},
+					sq.Lt{"ce.dt_start": sqlQueryTime},
+				},
 			},
 			sq.Or{
 				sq.Eq{"ce.processed": nil},
@@ -807,6 +834,9 @@ func TestProcessEventWithoutChannel(t *testing.T) {
 			sqlQueryTime,
 			true,
 			sqlQueryTime,
+			sqlQueryTime,
+			false,
+			sqlQueryTime.Add(-missedTickWindow),
 			sqlQueryTime,
 			sqlQueryTime,
 		)
@@ -974,6 +1004,12 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 				sq.Eq{"ce.dt_start": sqlQueryTime},
 				sq.Eq{"ce.alert_time": sqlQueryTime},
 				recurrentTimeQuery,
+				sq.And{
+					sq.Eq{"ce.recurrent": false},
+					sq.Eq{"ce.processed": nil},
+					sq.Gt{"ce.dt_start": sqlQueryTime.Add(-missedTickWindow)},
+					sq.Lt{"ce.dt_start": sqlQueryTime},
+				},
 			},
 			sq.Or{
 				sq.Eq{"ce.processed": nil},
@@ -990,6 +1026,9 @@ func TestProcessEventWithChannelRecurrentNotDay(t *testing.T) {
 			sqlQueryTime,
 			true,
 			sqlQueryTime,
+			sqlQueryTime,
+			false,
+			sqlQueryTime.Add(-missedTickWindow),
 			sqlQueryTime,
 			sqlQueryTime,
 		)
