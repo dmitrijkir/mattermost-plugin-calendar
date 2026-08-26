@@ -692,7 +692,7 @@ const EventModalComponent = () => {
                                     </div>
                                 </div>
                                 <div className="current-team-tag">
-                                <Tag icon={<PeopleTeam24Regular />}>{CurrentTeam?.display_name}</Tag>
+                                <Tag icon={<PeopleTeam24Regular />}>{CurrentTeam.display_name}</Tag>
                                 </div>
                             </div>
 
