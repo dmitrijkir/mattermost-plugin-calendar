@@ -235,14 +235,39 @@ const EventModalComponent = () => {
         });
     };
 
+    // Archived channels must never be offered: an event attached to one is invisible
+    // to everybody. Mattermost's autocomplete returns them, so filter here.
+    const notArchived = (list) => (list || []).filter((c) => !c.delete_at);
+
     const onInputChannelAction = async (event: React.ChangeEvent<HTMLInputElement>) => {
         setSelectedChannelText(event.target.value);
         if (event.target.value !== '') {
             const resp = await Client4.autocompleteChannels(CurrentTeamId, event.target.value);
-            setChannelsAutocomplete(resp);
+            setChannelsAutocomplete(notArchived(resp));
         } else {
-            // if channel input empty, remove selected channel
+            // if channel input empty, remove selected channel and show the full list
             setSelectedChannel({});
+            loadMyChannels();
+        }
+    };
+
+    // Populate the dropdown when it is opened with an empty box. Without this the
+    // list is only ever filled by onChange, so opening the picker shows a bare
+    // "No results found" until the user guesses that they have to type.
+    const loadMyChannels = async () => {
+        try {
+            const mine = await Client4.getMyChannels(CurrentTeamId);
+            setChannelsAutocomplete(
+                notArchived(mine).filter((c) => c.type === 'O' || c.type === 'P'),
+            );
+        } catch (e) {
+            // leave the list as-is; typing still works
+        }
+    };
+
+    const onChannelOpenChange = (event, data) => {
+        if (data.open && selectedChannelText === '') {
+            loadMyChannels();
         }
     };
 
@@ -641,6 +666,7 @@ const EventModalComponent = () => {
                                             <Combobox
                                                 placeholder='Select a channel'
                                                 onChange={onInputChannelAction}
+                                                onOpenChange={onChannelOpenChange}
                                                 onOptionSelect={onSelectChannelOption}
                                                 value={selectedChannelText}
                                             >
