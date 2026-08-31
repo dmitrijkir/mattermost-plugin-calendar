@@ -31,7 +31,9 @@ const TimeSelector = (props: TimeSelectorComponentProps) => {
         }
     };
 
-    return (<div>
+    // the wrapper is the flex item inside .datetime-group, so it needs a handle
+    // of its own to stop it growing next to the date field
+    return (<div className='time-selector-container'>
         <Combobox
             value={props.selected}
             freeform={true}

@@ -52,8 +52,12 @@ const HEADER_TOOLBAR = {
     end: 'calendarSettings',
 } as const;
 
+// what's left of the viewport once the button bar, the navigation row and the
+// gaps around them are accounted for. Kept in step with the paddings in
+// style.css — tightening those there means adding the difference back here,
+// otherwise the grid just leaves the space empty.
 const contentHeightForViewport = (): number => {
-    return Math.max(320, window.innerHeight - (isMobileViewport() ? 170 : 200));
+    return Math.max(320, window.innerHeight - (isMobileViewport() ? 150 : 178));
 };
 
 const CalendarContent = () => {
@@ -144,9 +148,14 @@ const CalendarContent = () => {
 
     const hiddenDays = useMemo(calcHiddenDays, [settings.hideNonWorkingDays, settings.businessDays]);
 
+    // `icon`, not `text`: FullCalendar renders a text label as a bare text node
+    // inside the button and only falls back to an icon span when `icon` is set.
+    // Hiding that label in CSS was a coin flip on which stylesheet was injected
+    // last, so the word "Settings" showed up at random. `hint` only sets the
+    // title attribute, not anything in the layout.
     const customButtons = useMemo(() => ({
         calendarSettings: {
-            text: 'Settings',
+            icon: 'settings-gear',
             hint: 'Settings',
             click: () => dispatch(setSettingsPanelOpen(true)),
         },

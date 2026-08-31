@@ -1,7 +1,7 @@
 // 24px to match every other row icon in the event form; a 20px one shifts the
 // field next to it by 4px
 import {CalendarLtr24Regular} from '@fluentui/react-icons';
-import {Combobox, Option} from '@fluentui/react-components';
+import {Combobox, InfoLabel, Option} from '@fluentui/react-components';
 import React from 'react';
 
 interface EventTypeSelectProps {
@@ -16,7 +16,7 @@ interface EventTypeOption {
 
 const eventTypeOptions: Array<EventTypeOption> = [
     {id: 'call', display_name: 'Call'},
-    {id: 'event', display_name: 'Meeting event'},
+    {id: 'event', display_name: 'Event'},
 ];
 
 const EventTypeSelect = (props: EventTypeSelectProps) => {
@@ -50,6 +50,14 @@ const EventTypeSelect = (props: EventTypeSelectProps) => {
                     </Combobox>
                 </div>
             </div>
+            <InfoLabel
+                info={
+                    <>
+                        <p>Which calendar this belongs to. Calls and events are filtered separately in the toolbar and get their own colour in settings.</p>
+                        <p>Only calls carry a video meeting link; events default to all day.</p>
+                    </>
+                }
+            />
         </div>
     );
 };

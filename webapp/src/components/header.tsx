@@ -193,7 +193,7 @@ const HeaderComponent = () => {
                     onClick={() => dispatch(openEventModal())}
                     icon={<CalendarEmpty16Filled/>}
                 >
-                    <div className='create-event-button-text'>New event</div>
+                    <div className='create-event-button-text'>{'Create'}</div>
                 </Button>
 
                 {/* both groups share a wrapper so they wrap as whole rows on a

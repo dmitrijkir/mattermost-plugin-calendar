@@ -43,8 +43,6 @@ import {
     SkeletonItem,
     Spinner,
     Textarea,
-    Toolbar,
-    ToolbarButton,
     useId,
     Toast,
     ToastIntent,
@@ -100,26 +98,26 @@ declare type OptionOnSelectData = {
 // new events are visible to the whole team unless the user narrows it down
 const DEFAULT_VISIBILITY = 'team';
 
-// the "call" calendar is the one that gets a video meeting link; a meeting
-// event is a plain calendar entry
+// the "call" calendar is the one that gets a video meeting link; an event is a
+// plain calendar entry
 const EVENT_TYPE_CALL = 'call';
 const EVENT_TYPE_EVENT = 'event';
 
 // Nobody gets pinged unless the user asks for it.
 const DEFAULT_MENTION = '';
 
-// default alert for a new call: ping right when it starts. Meeting events and
-// all-day events default to no alert at all.
+// default alert for a new call: ping right when it starts. Events and all-day
+// events default to no alert at all.
 const EVENT_ALERT_AT_START_TIME = 'at_start_time';
 
-// "all" is a combined view, not a real calendar, so an event created from it
-// falls back to the meeting-event defaults.
+// "all" is a combined view rather than a real calendar, so there is no calendar
+// to inherit from — a new entry made from it starts out as a call.
 const defaultTypeForCalendar = (calendarType: string): string => {
-    return calendarType === EVENT_TYPE_CALL ? EVENT_TYPE_CALL : EVENT_TYPE_EVENT;
+    return calendarType === EVENT_TYPE_EVENT ? EVENT_TYPE_EVENT : EVENT_TYPE_CALL;
 };
 
-// a meeting event spans whole days by default and stays silent; a call is a
-// timed slot that pings when it starts
+// an event spans whole days by default and stays silent; a call is a timed slot
+// that pings when it starts
 const isCallType = (type: string): boolean => type === EVENT_TYPE_CALL;
 
 const initialStartTime = (): string => {
@@ -526,6 +524,17 @@ const EventModalComponent = () => {
         }
     };
 
+    // Fluent's dialog only locks scrolling when the body itself is the
+    // scrolling element, which it isn't inside a Mattermost product route, so
+    // the page behind the form kept scrolling. The class is cleaned up on
+    // unmount too, otherwise a modal open during a route change would leave the
+    // whole page frozen.
+    useEffect(() => {
+        const className = 'calendar-event-modal-open';
+        document.body.classList.toggle(className, Boolean(isOpenEventModal));
+        return () => document.body.classList.remove(className);
+    }, [isOpenEventModal]);
+
     useEffect(() => {
         if (isOpenEventModal && selectedEvent?.event?.id == null) {
             // a range dragged out on the grid is an explicit choice of times,
@@ -688,7 +697,12 @@ const EventModalComponent = () => {
         // removing drops the event for every attendee, so the server only lets
         // the owner do it — don't offer the button to anyone else
         if (selectedEvent?.event?.id != null && eventOwner === currentUserId) {
-            return (<DialogActions position='star'>
+            // 'star' was a typo: DialogActions only knows 'start' and 'end',
+            // and anything else leaves the group without grid placement
+            return (<DialogActions
+                position='start'
+                className='event-modal-actions event-modal-actions-start'
+            >
                 <Button
                     appearance='outline'
                     icon={<Delete16Regular />}
@@ -715,6 +729,10 @@ const EventModalComponent = () => {
 
     return (
         <div>
+            {/* nothing opens this any more — the toolbar button that used to sit
+                at the top of the form was removed. Kept mounted because its own
+                effect no-ops while closed, so restoring the feature is a matter
+                of adding a trigger back. */}
             {
                 usersAddedInEvent.length > 0 ? <PlanningAssistant
                     open={isPlanningAssistantOpen}
@@ -729,17 +747,6 @@ const EventModalComponent = () => {
                     <DialogBody className='event-modal'>
                         <DialogTitle className='event-modal-title' />
                         <DialogContent className='modal-container'>
-                            <div className='title-toolbar'>
-                                <Toolbar aria-label='Default'>
-                                    <ToolbarButton
-                                        aria-label='planning assistant'
-                                        onClick={() => setIsPlanningAssistantOpen(true)}
-                                        disabled={usersAddedInEvent.length === 0}
-                                    >
-                                        planning assistant
-                                    </ToolbarButton>
-                                </Toolbar>
-                            </div>
                             <div className='event-title-container'>
                                 <Pen24Regular />
                                 <div className='event-input-container'>
@@ -1058,11 +1065,11 @@ const EventModalComponent = () => {
                                                     onChange={(event, data) => setMeetingLink(data.value)}
                                                 />
                                                 <Button
-                                                    appearance='subtle'
+                                                    appearance='secondary'
                                                     className='event-meeting-link-button'
                                                     onClick={onGenerateMeetingLink}
                                                 >
-                                                    {'Generate Jitsi link'}
+                                                    {'Generate Talk link'}
                                                 </Button>
                                             </>
                                         )}
@@ -1072,7 +1079,10 @@ const EventModalComponent = () => {
                             <Toaster toasterId={toasterId} />
                         </DialogContent>
                         <RemoveEventButton />
-                        <DialogActions position='end'>
+                        <DialogActions
+                            position='end'
+                            className='event-modal-actions event-modal-actions-end'
+                        >
                             <DialogTrigger disableButtonEnhancement={true}>
                                 <Button
                                     appearance='secondary'

@@ -373,7 +373,7 @@ func TestRemoveEventOnlyByOwner(t *testing.T) {
 	dbx := sqlx.NewDb(db, "sqlmock")
 
 	ownerQueryBuilder := sq.Select().
-		Columns("ce.owner", "ce.team", "cm.member").
+		Columns("ce.owner", "ce.team", "ce.visibility", "ce.channel", "cm.member").
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.Eq{"ce.id": "event-1"}).
@@ -383,8 +383,8 @@ func TestRemoveEventOnlyByOwner(t *testing.T) {
 	// the requesting user is an attendee of someone else's event
 	dbMock.ExpectQuery(regexp.QuoteMeta(ownerQuerySql)).
 		WithArgs("event-1").
-		WillReturnRows(sqlmock.NewRows([]string{"owner", "team", "member"}).
-			AddRow("owner-id", "team-1", "attendee-id"))
+		WillReturnRows(sqlmock.NewRows([]string{"owner", "team", "visibility", "channel", "member"}).
+			AddRow("owner-id", "team-1", "team", nil, "attendee-id"))
 
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
@@ -405,6 +405,29 @@ func TestRemoveEventOnlyByOwner(t *testing.T) {
 
 	// no DELETE must have been issued
 	assertChecker.Nil(dbMock.ExpectationsWereMet())
+}
+
+func TestCanEditEvent(t *testing.T) {
+	api := plugintest.API{}
+	api.On("GetTeamsForUser", "teammate-id").Return([]*model.Team{{Id: "team-1"}}, nil)
+
+	calPlugin := Plugin{
+		MattermostPlugin: plugin.MattermostPlugin{
+			API:    &api,
+			Driver: nil,
+		},
+	}
+
+	assertChecker := assert.New(t)
+
+	// a team-visible event is editable by anyone on the team, not just the
+	// owner or the people invited to it
+	teamEvent := Event{Owner: "owner-id", Team: "team-1", Visibility: VisibilityTeam}
+	assertChecker.True(calPlugin.canEditEvent("teammate-id", teamEvent, nil))
+
+	// someone else's private event stays out of reach
+	privateEvent := Event{Owner: "owner-id", Team: "team-1", Visibility: VisibilityPrivate}
+	assertChecker.False(calPlugin.canEditEvent("teammate-id", privateEvent, nil))
 }
 
 func TestGetUserCalendarColors(t *testing.T) {

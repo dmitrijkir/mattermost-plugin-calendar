@@ -41,9 +41,9 @@ func (b *Background) getMessageFromEvent(event *Event, processTime time.Time) st
 	// "None" (alert_time stays NULL) never gets here at all.
 	if event.Alert != EventAlertAtStartTime && event.AlertTime != nil && processTime.Equal(*event.AlertTime) {
 		alertTitle := EventAlertTitleMap[event.Alert]
-		message += fmt.Sprintf(":alarm_clock: **%s** *%s* :alarm_clock:\n", alertTitle, event.Title)
+		message += fmt.Sprintf(":alarm_clock: **%s** *%s*\n", alertTitle, event.Title)
 	} else {
-		message += fmt.Sprintf(":dart: *%s* :dart:\n", event.Title)
+		message += fmt.Sprintf(":dart: *%s*\n", event.Title)
 	}
 	if len(event.Attendees) > 0 {
 		members := ""

@@ -273,18 +273,22 @@ func (p *Plugin) canViewEvent(userId string, event Event, attendees []string) bo
 	}
 }
 
-// canModifyEvent reports whether userId may update or delete an event:
-// only the owner or an invited attendee.
-func canModifyEvent(userId, owner string, attendees []string) bool {
-	return userId == owner || contains[string](attendees, userId)
+// canEditEvent reports whether userId may change an event. A shared calendar
+// is collaborative: anyone who can see an event can correct a title or move a
+// meeting without waiting for whoever happened to create it. Deleting is the
+// exception and stays with the owner (see RemoveEvent), because it drops the
+// event — a whole recurring series included — for everyone at once.
+func (p *Plugin) canEditEvent(userId string, event Event, attendees []string) bool {
+	return p.canViewEvent(userId, event, attendees)
 }
 
-// getEventOwnerAndAttendees loads just enough of an existing event to make
-// an authorization decision before mutating it. The team comes along so an
-// update can keep the event where it already lives.
-func (p *Plugin) getEventOwnerAndAttendees(eventId string) (owner string, team string, attendees []string, found bool, appErr *model.AppError) {
+// getEventAuthInfo loads just enough of an existing event to make an
+// authorization decision before mutating it: owner and audience decide who may
+// touch it, and the team comes along so an update can keep the event where it
+// already lives.
+func (p *Plugin) getEventAuthInfo(eventId string) (event Event, attendees []string, found bool, appErr *model.AppError) {
 	queryBuilder := sq.Select().
-		Columns("ce.owner", "ce.team", "cm.member").
+		Columns("ce.owner", "ce.team", "ce.visibility", "ce.channel", "cm.member").
 		From("calendar_events ce").
 		LeftJoin("calendar_members cm ON ce.id = cm.event").
 		Where(sq.Eq{"ce.id": eventId}).
@@ -293,33 +297,37 @@ func (p *Plugin) getEventOwnerAndAttendees(eventId string) (owner string, team s
 	querySql, args, err := queryBuilder.ToSql()
 	if err != nil {
 		p.API.LogError(err.Error())
-		return "", "", nil, false, SomethingWentWrong
+		return event, nil, false, SomethingWentWrong
 	}
 
 	rows, errSelect := p.DB.Queryx(querySql, args...)
 	if errSelect != nil {
 		p.API.LogError(errSelect.Error())
-		return "", "", nil, false, SomethingWentWrong
+		return event, nil, false, SomethingWentWrong
 	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var rowOwner string
 		var rowTeam string
+		var rowVisibility EventVisibility
+		var rowChannel *string
 		var member *string
-		if errScan := rows.Scan(&rowOwner, &rowTeam, &member); errScan != nil {
+		if errScan := rows.Scan(&rowOwner, &rowTeam, &rowVisibility, &rowChannel, &member); errScan != nil {
 			p.API.LogError(errScan.Error())
 			continue
 		}
-		owner = rowOwner
-		team = rowTeam
+		event.Owner = rowOwner
+		event.Team = rowTeam
+		event.Visibility = rowVisibility
+		event.Channel = rowChannel
 		found = true
 		if member != nil {
 			attendees = append(attendees, *member)
 		}
 	}
 
-	return owner, team, attendees, found, nil
+	return event, attendees, found, nil
 }
 
 func (p *Plugin) GetUserLocation(user *model.User) *time.Location {
@@ -773,9 +781,9 @@ func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	owner, _, attendees, found, ownerErr := p.getEventOwnerAndAttendees(eventId)
-	if ownerErr != nil {
-		errorResponse(w, ownerErr)
+	existing, attendees, found, authErr := p.getEventAuthInfo(eventId)
+	if authErr != nil {
+		errorResponse(w, authErr)
 		return
 	}
 	if !found {
@@ -783,13 +791,13 @@ func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Deleting drops the event for everyone, including a whole recurring series,
-	// so it stays with the owner. Attendees who can see the event get a 403;
+	// so it stays with the owner. Anyone else who can see the event gets a 403;
 	// everyone else can't tell it exists.
-	if !canModifyEvent(session.UserId, owner, attendees) {
+	if !p.canViewEvent(session.UserId, existing, attendees) {
 		errorResponse(w, EventNotFound)
 		return
 	}
-	if session.UserId != owner {
+	if session.UserId != existing.Owner {
 		errorResponse(w, NotEventOwner)
 		return
 	}
@@ -858,16 +866,16 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		event.Type = EventTypeCall
 	}
 
-	existingOwner, existingTeam, existingAttendees, found, ownerErr := p.getEventOwnerAndAttendees(event.Id)
-	if ownerErr != nil {
-		errorResponse(w, ownerErr)
+	existing, existingAttendees, found, authErr := p.getEventAuthInfo(event.Id)
+	if authErr != nil {
+		errorResponse(w, authErr)
 		return
 	}
 	if !found {
 		errorResponse(w, EventNotFound)
 		return
 	}
-	if !canModifyEvent(user.Id, existingOwner, existingAttendees) {
+	if !p.canEditEvent(user.Id, existing, existingAttendees) {
 		errorResponse(w, EventNotFound)
 		return
 	}
@@ -875,7 +883,7 @@ func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	// an update that doesn't say which team it belongs to must not move the
 	// event to a different one
 	if event.Team == "" {
-		event.Team = existingTeam
+		event.Team = existing.Team
 	}
 
 	if !p.resolveEventTeam(user.Id, &event) && event.Visibility == VisibilityTeam {

@@ -1274,6 +1274,24 @@ func TestGetMessageFromEventAtStartTimeHasNoAlertTitle(t *testing.T) {
 	}
 }
 
+// the title emoji used to be repeated at the end of the line as well
+func TestGetMessageFromEventTitleEmojiAppearsOnce(t *testing.T) {
+	now := time.Now()
+
+	startTimeEvent := &Event{Title: "standup", Alert: EventAlertAtStartTime, AlertTime: &now}
+	background := &Background{plugin: &Plugin{}}
+	message := background.getMessageFromEvent(startTimeEvent, now)
+	if count := strings.Count(message, ":dart:"); count != 1 {
+		t.Errorf("expected exactly one :dart:, got %d in %q", count, message)
+	}
+
+	alertEvent := &Event{Title: "standup", Alert: EventAlert15MinutesBefore, AlertTime: &now}
+	message = background.getMessageFromEvent(alertEvent, now)
+	if count := strings.Count(message, ":alarm_clock:"); count != 1 {
+		t.Errorf("expected exactly one :alarm_clock:, got %d in %q", count, message)
+	}
+}
+
 // every other alert keeps the alarm-clock heads-up with its title
 func TestGetMessageFromEventWithAlertHasAlarmClockTitle(t *testing.T) {
 	now := time.Now()

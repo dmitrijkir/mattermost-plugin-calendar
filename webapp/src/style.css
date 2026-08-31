@@ -34,7 +34,7 @@
     /*padding: 20px;*/
     height: 100%;
     flex-grow: 1;
-    padding-top: 20px;
+    padding-top: 10px;
     background-color: var(--colorNeutralBackground1);
     height: 100%;
     flex-grow: 1;
@@ -126,9 +126,14 @@
     width: 100%;
 }
 
+/* Two rows of text, matching the height of two stacked inputs. Fluent pins a
+   52px min-height on the Textarea from a single-class rule it injects at
+   runtime, so anything shorter than that has to be !important to win — at equal
+   specificity the winner would otherwise depend on injection order. */
 .event-description-input-textarea {
     width: 95%;
-    height: 130px;
+    height: 64px !important;
+    min-height: 64px !important;
 }
 
 .event-input-title {
@@ -193,15 +198,45 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 10px;
     min-width: 0;
 }
 
+/* a rule separating "create" from the two pickers next to it */
+.header-toolbar-groups::before {
+    content: '';
+    align-self: stretch;
+    width: 1px;
+    margin: 4px 2px;
+    background-color: var(--colorNeutralStroke2);
+}
+
+/* each group is one segmented control, so Day/Week/Month and Calls/Events/All
+   read as two separate choices rather than one row of six buttons */
 .left-allign-header-toolbar-item {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 2px;
+    padding: 2px;
+    border-radius: 6px;
+    background-color: var(--colorNeutralBackground3);
+}
+
+/* the active view/calendar is marked by disabling its button. Left to Fluent's
+   defaults it reads as "unavailable"; inside a segmented control it has to read
+   as "selected" instead. */
+.left-allign-header-toolbar-item .fui-Button:disabled,
+.left-allign-header-toolbar-item .fui-Button[aria-disabled='true'] {
+    background-color: var(--colorNeutralBackground1);
+    color: var(--colorNeutralForeground1);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .14);
+    cursor: default;
+}
+
+.left-allign-header-toolbar-item .fui-Button:disabled .fui-Button__icon,
+.left-allign-header-toolbar-item .fui-Button[aria-disabled='true'] .fui-Button__icon {
+    color: var(--colorBrandForeground1);
 }
 
 .dayCell-110 {
@@ -367,6 +402,12 @@
 
 }
 
+/* FullCalendar leaves 1.5em under its navigation row; halving it hands the
+   grid back ~12px of height */
+.fc .fc-header-toolbar.fc-toolbar {
+    margin-bottom: 0.75em;
+}
+
 .fc-toolbar-chunk {
     margin-right: 20px;
 }
@@ -378,20 +419,17 @@
     margin-right: 0;
 }
 
-/* FullCalendar custom buttons only take a text label, so the gear is masked in
-   over the button's own foreground colour and the label is hidden */
+/* the settings button asks FullCalendar for an icon named "settings-gear",
+   which has no glyph in its icon font — the gear is masked in over the
+   button's own foreground colour instead */
 .fc .fc-calendarSettings-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0;
-    line-height: 0;
-    padding: 8px;
+    padding: 6px 8px;
 }
 
-.fc .fc-calendarSettings-button::before {
-    content: '';
-    display: block;
+.fc .fc-icon-settings-gear {
     width: 20px;
     height: 20px;
     background-color: currentColor;
@@ -515,9 +553,11 @@ header {
     width: 10px;
 }
 
+/* the form has no heading of its own, and an empty DialogTitle still holds its
+   line-height open at the top of the dialog. Kept in the tree for Fluent's
+   labelling, taken out of the grid so it costs no space. */
 .event-modal-title {
-    display: flex;
-    flex-direction: row-reverse;
+    display: none;
 }
 
 .close {
@@ -615,11 +655,6 @@ header {
     align-items: center;
 }
 
-.title-toolbar {
-    position: absolute;
-    top: 0;
-}
-
 .fui-DrawerHeader {
     background-color: var(--sys-center-channel-bg) !important;
 }
@@ -673,8 +708,24 @@ header {
 }
 
 /* end repeat */
+
+/* Fluent gives every Combobox a 250px min-width, which is far more than "09:30"
+   needs and is what pushed the time onto its own line next to the date */
 .time-selector {
     min-width: 100px !important;
+}
+
+/* The Combobox root is a `1fr auto` grid: text, then the chevron. A grid item
+   defaults to min-width:auto, so the 1fr track refuses to shrink below the
+   input's intrinsic width (size=20 ≈ 170px) and shoves the chevron outside the
+   narrowed box, which is what put a horizontal scrollbar on the page. */
+.time-selector .fui-Combobox__input {
+    min-width: 0;
+    width: 100%;
+}
+
+.time-selector-container {
+    flex: 0 0 auto;
 }
 
 /* fl ui */
@@ -733,7 +784,28 @@ header {
 
 .event-modal {
     min-height: 335px;
-    margin-top: 10px;
+}
+
+/* Fluent's own dialog scroll lock only fires when the body is taller than the
+   viewport (useDisableBodyScroll bails otherwise). The plugin lives inside
+   Mattermost's product route, where the body is exactly viewport-height and
+   one of the containers below does the scrolling, so the lock has to be done
+   here. `.fc-scroller` is left alone on purpose — hiding its overflow would
+   throw away the grid's scroll position. */
+body.calendar-event-modal-open {
+    overflow: hidden;
+}
+
+body.calendar-event-modal-open .calendar-full-content-provider,
+body.calendar-event-modal-open .calendar-full-content,
+body.calendar-event-modal-open .calendar-content,
+body.calendar-event-modal-open .calendar-main-greed {
+    overflow: hidden !important;
+}
+
+/* scrolling the form must not chain through to whatever is behind it */
+.modal-container {
+    overscroll-behavior: contain;
 }
 
 .modal-container::-webkit-scrollbar {
@@ -754,9 +826,11 @@ header {
     /*background-color: rgb(50 67 98 / 27%);*/
 }
 
+/* the button bar and the calendar card are two distinct surfaces already, so
+   they only need enough of a gap for the shadow to read */
 .calendar-content {
     display: flex;
-    padding-top: 10px;
+    padding-top: 5px;
 }
 
 .settings-right-bar-content {
@@ -792,8 +866,17 @@ header {
     min-width: 0;
 }
 
+/* Sized to sit level with the input next to it rather than towering over it.
+   Fluent's own Button rule sets height, padding and font-size from a single
+   class it injects at runtime, so these have to be !important to win. */
 .event-meeting-link-button {
     white-space: nowrap;
+    flex: 0 0 auto;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    font-size: 12px !important;
 }
 
 .event-until-container {
@@ -890,36 +973,56 @@ header {
     .calendar-header-toolbar {
         justify-content: flex-start;
         row-gap: 6px;
+        column-gap: 6px;
     }
 
-    .create-event-button-text {
-        display: none;
+    /* `display: contents` drops the wrapper's own box so both groups become
+       direct items of the toolbar. Left as one unbreakable item, the wrapper
+       pushes the create button onto a third row of its own; this way the
+       button shares the last row with Calls/Events/All. */
+    .header-toolbar-groups {
+        display: contents;
     }
 
-    /* with the label gone the button is icon-only, so Fluent's 96px min-width
-       and default padding just waste a chunk of the row */
     .create-event-button {
+        order: 3;
         min-width: 0 !important;
         padding-left: 8px !important;
         padding-right: 8px !important;
     }
 
-    .header-toolbar-groups {
-        gap: 6px;
+    /* Fluent's 96px min-width per button costs ~300px a group, which forces
+       each group onto a row of its own and pushes the grid down the screen.
+       The exact padding matters: at 8px the Calls/Events/All group plus the
+       create button came to 1px more than the row could hold, which bounced
+       the button onto a third row. */
+    .left-allign-header-toolbar-item .fui-Button {
+        min-width: 0 !important;
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+    }
+
+    /* the rule would now float at the start of a wrapped row */
+    .header-toolbar-groups::before {
+        display: none;
     }
 
     .calendar-content {
         flex-direction: column;
-        padding-top: 6px;
+        padding-top: 4px;
     }
 
     .calendar-main-greed {
         width: 100%;
         min-width: 0;
-        padding-top: 8px;
+        padding-top: 6px;
         padding-left: 4px;
         padding-right: 4px;
         margin-right: 0;
+    }
+
+    .fc .fc-header-toolbar.fc-toolbar {
+        margin-bottom: 0.5em;
     }
 
     /* FullCalendar's own toolbar (today / prev / next / title) */
@@ -978,9 +1081,19 @@ header {
         padding: 16px !important;
     }
 
+    /* the form is long on a phone; leaving only room for the dialog's own
+       padding and its action row means far less scrolling inside it */
     .modal-container {
-        max-height: calc(100vh - 220px);
+        max-height: calc(100vh - 140px);
         overflow-y: auto;
+    }
+
+    /* one input tall — the description is the least important field on a phone
+       and it grows a scrollbar of its own when it needs to. Beats Fluent's 52px
+       min-height, see the desktop rule above. */
+    .event-description-input-textarea {
+        height: 32px !important;
+        min-height: 32px !important;
     }
 
     /* every row is "icon + field". On a phone the field takes whatever is left
@@ -1008,9 +1121,73 @@ header {
         flex-wrap: wrap;
     }
 
+    /* date and time share a row: the date takes what's left, the time keeps a
+       fixed width just wide enough for "09:30" plus its chevron */
     .datetime-group {
-        flex-wrap: wrap;
-        gap: 4px;
+        flex-wrap: nowrap;
+        gap: 0;
+    }
+
+    .start-date-input,
+    .end-date-input {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin-right: 4px;
+    }
+
+    .time-selector {
+        min-width: 92px !important;
+        width: 92px;
+    }
+
+    /* Fluent stacks the dialog's action groups onto separate grid rows below
+       480px and turns each of them into a column. Remove / Close / Save are
+       narrow enough to stay on one row. */
+    .fui-DialogActions.event-modal-actions {
+        flex-direction: row;
+        align-items: center;
+        justify-self: auto;
+    }
+
+    .fui-DialogActions.event-modal-actions-start {
+        grid-row-start: 3;
+        grid-column: 1 / 2;
+        justify-self: start;
+    }
+
+    .fui-DialogActions.event-modal-actions-end {
+        grid-row-start: 3;
+        grid-column: 2 / 4;
+        justify-self: end;
+    }
+
+    /* three 96px buttons plus gaps overflow the narrowest phones */
+    .fui-DialogActions.event-modal-actions .fui-Button {
+        min-width: 0;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    /* the generate button keeps its own row otherwise; a smaller label over two
+       lines lets it sit next to the link field */
+    .event-meeting-link-input-container {
+        flex-wrap: nowrap;
+        gap: 6px;
+    }
+
+    .event-meeting-link-input {
+        flex: 1 1 auto;
+    }
+
+    /* two lines of 13px fit inside the 32px the button shares with the input */
+    .event-meeting-link-button {
+        white-space: normal;
+        max-width: 96px;
+        min-width: 0 !important;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        font-size: 11px !important;
+        line-height: 13px !important;
     }
 
     /* the repeat select has no row icon of its own, so it needs the 24px the

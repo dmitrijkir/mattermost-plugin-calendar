@@ -1,5 +1,5 @@
 import {Alert24Regular} from "@fluentui/react-icons";
-import {Combobox, Option} from "@fluentui/react-components";
+import {Combobox, InfoLabel, Option} from "@fluentui/react-components";
 import React from "react";
 
 interface EventAlertSelectProps {
@@ -47,6 +47,14 @@ const EventAlertSelect = (props: EventAlertSelectProps) => {
                     </Combobox>
                 </div>
             </div>
+            <InfoLabel
+                info={
+                    <>
+                        <p>How long before the event starts you and the attendees get a reminder.</p>
+                        <p>"Not set" means no reminder is sent at all. All-day events are never reminded about.</p>
+                    </>
+                }
+            />
         </div>
     );
 };
