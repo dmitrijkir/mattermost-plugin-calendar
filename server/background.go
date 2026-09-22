@@ -186,6 +186,24 @@ func (b *Background) process(t time.Time) {
 				sq.Eq{"ce.dt_start": tickWithZone},
 				sq.Eq{"ce.alert_time": tickWithZone},
 				recurrentTimeQuery,
+				// Catch-up: dt_start is matched for exact equality against a tick
+				// truncated to the minute, so an event whose minute the ticker never
+				// observed — server restart, plugin reload, a slow tick — is silently
+				// never announced. Re-check recent, never-processed one-off events so
+				// a missed minute is recovered instead of lost.
+				//
+				// Deliberately scoped:
+				//   recurrent = false — recurring rows keep their ORIGINAL dt_start and
+				//     rewrite the occurrence in memory, so a range match would re-fire
+				//     them forever after the first occurrence.
+				//   processed IS NULL — an event already announced is never repeated.
+				//   bounded window — never replays old history on startup.
+				sq.And{
+					sq.Eq{"ce.recurrent": false},
+					sq.Eq{"ce.processed": nil},
+					sq.Gt{"ce.dt_start": tickWithZone.Add(-missedTickWindow)},
+					sq.Lt{"ce.dt_start": tickWithZone},
+				},
 			},
 			sq.Or{
 				sq.Eq{"ce.processed": nil},
