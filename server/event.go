@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -581,8 +582,52 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	p.announceCreatedEvent(&event, user, loc)
+
 	apiResponse(w, &event)
 	return
+}
+
+// announceCreatedEvent posts to the event's channel when a channel-visibility
+// event is scheduled. Off unless AnnounceOnCreate is enabled.
+//
+// This is separate from the reminder the background job posts at start time: that
+// one says "this is happening now", this one says "this has been scheduled". A
+// failure here must never fail event creation — the event is already committed.
+func (p *Plugin) announceCreatedEvent(event *Event, user *model.User, loc *time.Location) {
+	if !p.getConfiguration().AnnounceOnCreate {
+		return
+	}
+	if event.Visibility != VisibilityChannel || event.Channel == nil {
+		return
+	}
+
+	color := DefaultColor
+	if event.Color != nil && *event.Color != "" {
+		color = *event.Color
+	}
+
+	start := event.Start.In(loc)
+	end := event.End.In(loc)
+	when := fmt.Sprintf("%s - %s", start.Format("Mon 02 Jan 15:04"), end.Format("15:04"))
+
+	text := fmt.Sprintf(":calendar: **%s**\n%s\nScheduled by @%s", event.Title, when, user.Username)
+	if event.Description != "" {
+		text = fmt.Sprintf("%s\n\n%s", text, event.Description)
+	}
+
+	post := &model.Post{
+		ChannelId: *event.Channel,
+		UserId:    p.BotId,
+	}
+	post.SetProps(model.StringInterface{
+		"attachments": []*model.SlackAttachment{{Text: text, Color: color}},
+	})
+
+	if _, postErr := p.API.CreatePost(post); postErr != nil {
+		// Log only: the event exists and the caller must still get a success.
+		p.API.LogError("announce on create failed: " + postErr.Error())
+	}
 }
 
 func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {

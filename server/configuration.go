@@ -21,6 +21,13 @@ type configuration struct {
 	BusinessStartTime string
 	BusinessEndTime   string
 	BusinessDays      string
+
+	// AnnounceOnCreate posts to the event's channel as soon as a
+	// channel-visibility event is scheduled, in addition to the reminder the
+	// background job posts when the event starts. Opt-in: the plugin has always
+	// been silent at creation time, so defaulting this on would start posting in
+	// shared channels without anybody asking for it.
+	AnnounceOnCreate bool
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if

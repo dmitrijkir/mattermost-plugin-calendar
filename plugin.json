@@ -47,6 +47,13 @@
                 "help_text": "Business days for exp: '1,2,3,4,5' from mon to fri",
                 "default": "1,2,3,4,5",
                 "placeholder": "1"
+            },
+            {
+                "key": "AnnounceOnCreate",
+                "display_name": "Announce events in the channel when created",
+                "type": "bool",
+                "help_text": "When ON, scheduling an event with Channel visibility immediately posts it to that channel, in addition to the reminder posted when the event starts. Default OFF - the plugin has always been silent at creation time.",
+                "default": false
             }
         ]
     }
