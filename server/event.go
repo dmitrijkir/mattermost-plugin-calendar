@@ -258,11 +258,8 @@ func (p *Plugin) GetUserLocation(user *model.User) *time.Location {
 }
 
 func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-	session, err := p.API.GetSession(pluginContext.SessionId)
-	if err != nil {
-		p.API.LogError("can't get session")
-		errorResponse(w, NotAuthorizedError)
+	session, ok := p.sessionFromRequest(w, r)
+	if !ok {
 		return
 	}
 
@@ -375,12 +372,8 @@ func (p *Plugin) GetEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-	session, err := p.API.GetSession(pluginContext.SessionId)
-
-	if err != nil {
-		p.API.LogError("can't get session")
-		errorResponse(w, NotAuthorizedError)
+	session, ok := p.sessionFromRequest(w, r)
+	if !ok {
 		return
 	}
 
@@ -418,13 +411,8 @@ func (p *Plugin) GetEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-
-	session, err := p.API.GetSession(pluginContext.SessionId)
-
-	if err != nil {
-		p.API.LogError(err.Error())
-		errorResponse(w, NotAuthorizedError)
+	session, ok := p.sessionFromRequest(w, r)
+	if !ok {
 		return
 	}
 
@@ -586,12 +574,7 @@ func (p *Plugin) CreateEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-	_, err := p.API.GetSession(pluginContext.SessionId)
-
-	if err != nil {
-		p.API.LogError("can't get session")
-		errorResponse(w, NotAuthorizedError)
+	if _, ok := p.sessionFromRequest(w, r); !ok {
 		return
 	}
 
@@ -631,12 +614,8 @@ func (p *Plugin) RemoveEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) UpdateEvent(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-	session, err := p.API.GetSession(pluginContext.SessionId)
-
-	if err != nil {
-		p.API.LogError(err.Error())
-		errorResponse(w, NotAuthorizedError)
+	session, ok := p.sessionFromRequest(w, r)
+	if !ok {
 		return
 	}
 

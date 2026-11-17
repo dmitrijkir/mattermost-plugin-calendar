@@ -12,12 +12,8 @@ import (
 )
 
 func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-	session, err := p.API.GetSession(pluginContext.SessionId)
-
-	if err != nil {
-		p.API.LogError("can't get session")
-		errorResponse(w, NotAuthorizedError)
+	session, ok := p.sessionFromRequest(w, r)
+	if !ok {
 		return
 	}
 
@@ -105,11 +101,8 @@ func (p *Plugin) GetSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) UpdateSettings(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-	session, err := p.API.GetSession(pluginContext.SessionId)
-	if err != nil {
-		p.API.LogError("can't get session")
-		errorResponse(w, NotAuthorizedError)
+	session, ok := p.sessionFromRequest(w, r)
+	if !ok {
 		return
 	}
 
