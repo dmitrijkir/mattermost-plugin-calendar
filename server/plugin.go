@@ -56,7 +56,8 @@ func (p *Plugin) SetBotId(botId string) {
 }
 
 func (p *Plugin) FromContext(ctx context.Context) *plugin.Context {
-	return ctx.Value("pluginRequest").(*plugin.Context)
+	c, _ := ctx.Value("pluginRequest").(*plugin.Context)
+	return c
 }
 
 func (p *Plugin) OnActivate() error {

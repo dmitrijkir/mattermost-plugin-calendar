@@ -71,11 +71,8 @@ func generateSecureToken() (string, error) {
 
 // GetICalToken returns the existing iCal token for the authenticated user
 func (p *Plugin) GetICalToken(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-	session, err := p.API.GetSession(pluginContext.SessionId)
-	if err != nil {
-		p.API.LogError("can't get session")
-		errorResponse(w, NotAuthorizedError)
+	session, ok := p.sessionFromRequest(w, r)
+	if !ok {
 		return
 	}
 
@@ -119,11 +116,8 @@ func (p *Plugin) GetICalToken(w http.ResponseWriter, r *http.Request) {
 
 // GenerateICalToken creates a new iCal token for the authenticated user
 func (p *Plugin) GenerateICalToken(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-	session, err := p.API.GetSession(pluginContext.SessionId)
-	if err != nil {
-		p.API.LogError("can't get session")
-		errorResponse(w, NotAuthorizedError)
+	session, ok := p.sessionFromRequest(w, r)
+	if !ok {
 		return
 	}
 
@@ -180,11 +174,8 @@ func (p *Plugin) GenerateICalToken(w http.ResponseWriter, r *http.Request) {
 
 // RevokeICalToken removes the iCal token for the authenticated user
 func (p *Plugin) RevokeICalToken(w http.ResponseWriter, r *http.Request) {
-	pluginContext := p.FromContext(r.Context())
-	session, err := p.API.GetSession(pluginContext.SessionId)
-	if err != nil {
-		p.API.LogError("can't get session")
-		errorResponse(w, NotAuthorizedError)
+	session, ok := p.sessionFromRequest(w, r)
+	if !ok {
 		return
 	}
 

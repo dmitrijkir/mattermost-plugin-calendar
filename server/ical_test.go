@@ -16,6 +16,7 @@ import (
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestGenerateSecureToken(t *testing.T) {
@@ -518,7 +519,7 @@ func TestGetICalToken_NotAuthorized(t *testing.T) {
 	api := plugintest.API{}
 	api.On("LogDebug", "Plugin HTTP request", "method", "GET", "path", "/ical/token", "user-agent", "").Return()
 	api.On("GetSession", ctx.SessionId).Return(nil, model.NewAppError("", "", nil, "", http.StatusUnauthorized))
-	api.On("LogError", "can't get session").Return()
+	api.On("LogWarn", "can't get session", "path", "/ical/token", "error", mock.Anything).Return()
 
 	calPlugin := Plugin{
 		MattermostPlugin: plugin.MattermostPlugin{
